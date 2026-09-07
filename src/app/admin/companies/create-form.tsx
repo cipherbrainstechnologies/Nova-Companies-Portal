@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, Input, Label } from "@/components/ui";
+import { AlertBanner } from "@/components/industrial";
 import { t } from "@/i18n";
 
 export function CreateCompanyForm() {
@@ -41,10 +42,14 @@ export function CreateCompanyForm() {
           <Input value={prefix} onChange={(e) => setPrefix(e.target.value)} required maxLength={4} />
         </div>
         <div className="flex items-end">
-          <Button type="submit">&gt;&gt;&gt; {t("en", "admin.create")}</Button>
+          <Button type="submit">{t("en", "admin.create")}</Button>
         </div>
       </form>
-      {error ? <p className="meta mt-2 text-[var(--accent)]">{'/// '} {error}</p> : null}
+      {error ? (
+        <div className="mt-3">
+          <AlertBanner tone="danger">{error}</AlertBanner>
+        </div>
+      ) : null}
     </Card>
   );
 }

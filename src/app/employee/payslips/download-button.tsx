@@ -15,7 +15,7 @@ export function DownloadButton({ payslipId, label }: { payslipId: string; label:
         else alert(data.error ?? t("en", "common.downloadFailed"));
       }}
     >
-      {'>>> '} {label}
+      {label}
     </Button>
   );
 }

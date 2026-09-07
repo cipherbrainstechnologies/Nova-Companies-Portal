@@ -1,17 +1,16 @@
 import type { Metadata } from "next";
-import { Source_Sans_3 } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
-/** Desert Rose ≈ FreeSans Bold / FreeSans via Source Sans 3 */
-const sourceSans = Source_Sans_3({
-  weight: ["400", "600", "700"],
+const jakarta = Plus_Jakarta_Sans({
+  weight: ["400", "500", "600", "700"],
   subsets: ["latin"],
   variable: "--font-body-loaded",
   display: "swap",
 });
 
-const sourceSansDisplay = Source_Sans_3({
-  weight: ["700"],
+const jakartaDisplay = Plus_Jakarta_Sans({
+  weight: ["600", "700"],
   subsets: ["latin"],
   variable: "--font-display-loaded",
   display: "swap",
@@ -24,10 +23,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${sourceSans.variable} ${sourceSansDisplay.variable}`}>
-      <body style={{ fontFamily: "var(--font-body-loaded), var(--font-sans)" }}>
-        {children}
-      </body>
+    <html lang="en" className={`${jakarta.variable} ${jakartaDisplay.variable}`}>
+      <body style={{ fontFamily: "var(--font-body-loaded), var(--font-sans)" }}>{children}</body>
     </html>
   );
 }

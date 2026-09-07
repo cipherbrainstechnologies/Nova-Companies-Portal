@@ -11,18 +11,25 @@
 | 5. Reconciliation, matching, issue | Complete | Classification, scoring, confirmation-gated issue, download audit |
 | 6. TDS + finance/profit | Complete | FY-config TDS engine; profit policies; never bank-balance-as-profit |
 | 7. Marketing, tests, Railway guide | Complete | Public `/`, Vitest, Playwright smoke, `docs/RAILWAY_DEPLOYMENT.md` |
+| 8. Premium UI/UX redesign | Complete | Tokens, AppShell, all admin/employee/auth surfaces restyled; logic preserved |
+
+## UI redesign (2026-09-08)
+
+- Audit: `UI_REDESIGN_AUDIT.md`
+- Tokens: light canvas, Nova ink `#0c2d3f`, primary teal `#0f766e`, soft radius/shadows
+- Typography: Plus Jakarta Sans
+- Shells: grouped admin sidebar + mobile drawer; employee top nav; profile logout
+- Statement upload: drag-and-drop zone + guided stepper chrome
+- Dashboard: action-required banner, workforce/payroll widgets, recent audit
+- No backend/schema/API contract changes for the redesign
 
 ## Commands run
 
 ```bash
-docker compose up -d
-cp .env.example .env
-npx prisma migrate dev --name init
-SEED_DEV=1 npx tsx prisma/seed.ts
-npm test                 # 16 tests passed
+npm test                 # 19 tests passed
 npm run typecheck        # passed
-npm run lint
-npm run build
+npm run lint             # passed
+npm run build            # passed (Next.js 15.5.25)
 ```
 
 ## Completed files (high level)
@@ -31,45 +38,20 @@ npm run build
 - `src/server/auth/*`, `src/server/rbac/*`, `src/server/facades/*`
 - `src/server/statements/*`, `src/server/payroll/*`, `src/server/tds/*`, `src/server/finance/*`
 - `src/worker/index.ts`, `src/app/api/**`, `src/app/admin/**`, `src/app/employee/**`
+- `src/components/ui.tsx`, `industrial.tsx`, `admin-shell.tsx`, `payslip-folder-browser.tsx`
 - `messages/catalog.json` (en/fr/es), `docs/RAILWAY_DEPLOYMENT.md`, `.env.example`
-- `tests/**`, `e2e/smoke.spec.ts`
+- `tests/**`, `e2e/smoke.spec.ts`, `UI_REDESIGN_AUDIT.md`
 
-## Known constraints
+## Known constraints / limitations
 
-- Reference payslip/statement PDFs were not in the repo; parser/PDF tests use fixtures matching the execution-plan examples (Jeena/Prashant/Ziaul amounts; Dheeraj Yadav Aug 2026 figures).
+- Reference payslip/statement PDFs were not in the repo; parser/PDF tests use fixtures matching the execution-plan examples.
 - PDF generation prefers Playwright Chromium; falls back to a minimal PDF writer if browsers are unavailable.
 - Object storage requires MinIO/S3 credentials; uploads fail without a reachable bucket.
 - Email uses console adapter unless `EMAIL_PROVIDER=resend` + `EMAIL_API_KEY` are set.
 - `SEED_DEV=1` only — never seed production.
-
-## Super Admin / CA configuration checklist
-
-Before real payroll:
-
-1. Set production secrets (`AUTH_SECRET`, `OTP_PEPPER`, S3, Redis, DB, email).
-2. Update company GSTIN, address, and logo (currently “Needs configuration”).
-3. Review/edit active payslip HTML template version per company.
-4. Enter FY tax slabs via TDS config (do not rely on demo calculator defaults).
-5. Confirm profit policy rules (Hiren/Parth/Hardik/CBDT/Love/Shivani/CC/loan patterns).
-6. Create Operations Manager users and explicit `PermissionGrant` rows.
-7. Install Playwright Chromium on the worker image for production PDF quality.
-8. Have a CA review TDS estimates and Form 16 exports — v1 does not file returns.
-
-## UI system
-
-Swiss Industrial Print (industrialist-brutalist skill) applied across all pages:
-- Substrate `#F4F4F0` / `#EAE8E3`, ink `#111`, sole accent hazard red `#E61919`
-- Archivo Black macro + IBM Plex Mono micro; zero radius; hard borders; hazard bar; unit stamps
-- Shared primitives in `src/components/industrial.tsx` + restyled `ui.tsx` / `admin-shell.tsx`
-- i18n catalog expanded en/fr/es for new UI copy
-
-## UI theme
-
-**Desert Rose** (theme-factory #7) applied globally via CSS tokens:
-- Sand `#e8d5c4` / Clay `#b87d6d` / Dusty Rose `#d4a5a5` / Deep Burgundy `#5d2e46`
-- Typography: Source Sans 3 (FreeSans equivalent) bold headers + body
-- Industrial structure retained: zero radius, hard borders, hazard bar, folder telemetry
-- Mobile: `min-h-12` / 48px controls, safe-area insets
+- Permission **editing** UI remains summary-only (grant mutation still via seed/admin config); matrix editor deferred.
+- Full multi-step forgot-password wizard (masked email list + OTP on one flow) still uses existing two-page request/reset APIs.
+- Company detail “tabs” deep-link to existing module routes rather than in-page tab panels (same capabilities, clearer navigation).
 
 ## Auth seed (SEED_DEV=1)
 

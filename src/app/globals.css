@@ -1,40 +1,65 @@
 @import "tailwindcss";
 
-/* Theme: Desert Rose (theme-factory) + industrial structure + mobile touch targets */
+/* Nova Payroll — premium SaaS tokens (finance / trust) */
 :root {
-  --dusty-rose: #d4a5a5;
-  --clay: #b87d6d;
-  --sand: #e8d5c4;
-  --sand-deep: #ddc7b3;
-  --burgundy: #5d2e46;
-  --burgundy-deep: #3f1d2f;
+  --nova-ink: #0c2d3f;
+  --nova-teal: #0f766e;
+  --nova-teal-soft: #ccfbf1;
+  --nova-canvas: #f4f6f8;
+  --nova-surface: #ffffff;
+  --nova-surface-muted: #eef2f5;
+  --nova-border: #e2e8f0;
+  --nova-border-strong: #cbd5e1;
+  --nova-text: #0f172a;
+  --nova-text-secondary: #475569;
+  --nova-muted: #64748b;
+  --nova-danger: #b91c1c;
+  --nova-danger-soft: #fef2f2;
+  --nova-warning: #b45309;
+  --nova-warning-soft: #fffbeb;
+  --nova-success: #047857;
+  --nova-success-soft: #ecfdf5;
+  --nova-info: #0369a1;
+  --nova-info-soft: #e0f2fe;
+  --nova-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 16px rgb(15 23 42 / 0.04);
+  --nova-shadow-md: 0 4px 6px rgb(15 23 42 / 0.04), 0 12px 28px rgb(15 23 42 / 0.06);
+  --nova-radius: 10px;
+  --nova-radius-sm: 6px;
+  --nova-radius-lg: 14px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-8: 48px;
 
-  --bg: var(--sand);
-  --bg-alt: var(--sand-deep);
-  --ink: var(--burgundy);
-  --ink-deep: var(--burgundy-deep);
-  --muted: #8a6570;
-  --line: var(--burgundy);
-  --accent: var(--clay);
-  --accent-soft: var(--dusty-rose);
-  --paper: var(--sand);
-  --paper-soft: var(--sand-deep);
-  --danger: var(--clay);
-  --ok: var(--burgundy);
-  --on-accent: #fffaf6;
+  /* Compatibility aliases used across components */
+  --bg: var(--nova-canvas);
+  --bg-alt: var(--nova-surface-muted);
+  --ink: var(--nova-text);
+  --ink-deep: var(--nova-ink);
+  --muted: var(--nova-muted);
+  --line: var(--nova-border);
+  --accent: var(--nova-teal);
+  --accent-soft: var(--nova-teal-soft);
+  --paper: var(--nova-surface);
+  --paper-soft: var(--nova-surface-muted);
+  --danger: var(--nova-danger);
+  --ok: var(--nova-success);
+  --on-accent: #ffffff;
 }
 
 @theme inline {
-  --color-background: var(--bg);
-  --color-foreground: var(--ink);
-  --font-display: var(--font-display-loaded), "Source Sans 3", "FreeSans", Arial, sans-serif;
-  --font-mono: var(--font-body-loaded), "Source Sans 3", "FreeSans", Arial, sans-serif;
-  --font-sans: var(--font-body-loaded), "Source Sans 3", "FreeSans", Arial, sans-serif;
+  --color-background: var(--nova-canvas);
+  --color-foreground: var(--nova-text);
+  --font-display: var(--font-display-loaded), "Plus Jakarta Sans", ui-sans-serif, sans-serif;
+  --font-sans: var(--font-body-loaded), "Plus Jakarta Sans", ui-sans-serif, sans-serif;
+  --font-mono: var(--font-body-loaded), "Plus Jakarta Sans", ui-sans-serif, sans-serif;
 }
 
 * {
   box-sizing: border-box;
-  border-radius: 0 !important;
 }
 
 html,
@@ -44,26 +69,18 @@ body {
 }
 
 body {
-  background: var(--bg);
-  color: var(--ink);
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgb(15 118 110 / 0.07), transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, rgb(12 45 63 / 0.05), transparent 50%),
+    var(--nova-canvas);
+  color: var(--nova-text);
   font-family: var(--font-sans);
-  font-size: 14px;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  font-size: 15px;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
-  padding-left: max(16px, env(safe-area-inset-left));
-  padding-right: max(16px, env(safe-area-inset-right));
-}
-
-body::before {
-  content: "";
-  pointer-events: none;
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  opacity: 0.035;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 a {
@@ -72,83 +89,93 @@ a {
 }
 
 a:hover {
-  color: var(--accent);
+  color: var(--nova-teal);
+}
+
+:focus-visible {
+  outline: 2px solid var(--nova-teal);
+  outline-offset: 2px;
 }
 
 .h-macro {
   font-family: var(--font-display);
   font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 0.92;
-  text-transform: uppercase;
-  color: var(--ink-deep);
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+  color: var(--nova-ink);
 }
 
 .h-display {
   font-family: var(--font-display);
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  line-height: 0.94;
-  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: var(--nova-ink);
 }
 
 .meta {
-  font-family: var(--font-sans);
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--nova-muted);
 }
 
 .rule {
   border: 0;
-  border-top: 2px solid var(--ink);
+  border-top: 1px solid var(--nova-border);
   margin: 0;
 }
 
 .rule-accent {
   border: 0;
-  border-top: 4px solid var(--accent);
+  border-top: 2px solid var(--nova-teal);
   margin: 0;
-}
-
-.grid-lines {
-  display: grid;
-  gap: 1px;
-  background: var(--ink);
-}
-
-.grid-lines > * {
-  background: var(--bg);
+  width: 48px;
 }
 
 .frame {
-  border: 2px solid var(--ink);
-  background: var(--bg);
+  border: 1px solid var(--nova-border);
+  background: var(--nova-surface);
+  border-radius: var(--nova-radius);
+  box-shadow: var(--nova-shadow);
 }
 
 .frame-inset {
-  border: 1px solid var(--ink);
-  background: var(--bg-alt);
+  border: 1px solid var(--nova-border);
+  background: var(--nova-surface-muted);
+  border-radius: var(--nova-radius-sm);
 }
 
-.hazard-bar {
-  height: 10px;
-  background: repeating-linear-gradient(
-    -45deg,
-    var(--clay),
-    var(--clay) 8px,
-    var(--burgundy) 8px,
-    var(--burgundy) 16px
+.surface-card {
+  border: 1px solid var(--nova-border);
+  background: var(--nova-surface);
+  border-radius: var(--nova-radius);
+  box-shadow: var(--nova-shadow);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--nova-surface-muted) 0%,
+    #e8edf2 50%,
+    var(--nova-surface-muted) 100%
   );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--nova-radius-sm);
 }
 
-.crosshair::before {
-  content: "+";
-  color: var(--accent);
-  margin-right: 0.35rem;
-  font-family: var(--font-sans);
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 input,
@@ -156,33 +183,23 @@ select,
 textarea,
 button {
   font-family: inherit;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-radius: 0 !important;
-  min-height: 48px;
 }
 
 ::selection {
-  background: var(--clay);
-  color: var(--on-accent);
-}
-
-.tabular-nums {
-  font-variant-numeric: tabular-nums;
+  background: var(--nova-teal-soft);
+  color: var(--nova-ink);
 }
 
 @media (max-width: 640px) {
   body {
-    font-size: 13px;
-  }
-
-  .h-macro {
-    letter-spacing: -0.02em;
+    font-size: 14px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *,
+  *::before,
+  *::after {
     animation: none !important;
     transition: none !important;
   }

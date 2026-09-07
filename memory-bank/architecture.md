@@ -31,7 +31,8 @@
 
 ## Admin interface system
 
-- All admin pages use the Swiss Industrial Print system through `AdminShell`, `@/components/ui`, and `@/components/industrial`.
-- Administrative data is presented with hard two-pixel borders, square corners, uppercase monospace metadata, Archivo Black macro headings, and the single red hazard accent.
-- Company-scoped admin views use `CompanyTabs`; summary metrics use `StatCell`; operational records use `DataRow`.
-- Legacy rounded cards, soft shadows, gradients, and secondary accent palettes are prohibited on admin surfaces.
+- Visual system: premium SaaS payroll UI (Nova ink + teal tokens in `globals.css`).
+- Shells: `AdminShell` (desktop sidebar, mobile drawer, profile/logout) and `EmployeeShell` in `src/components/admin-shell.tsx`.
+- Shared primitives: `src/components/ui.tsx` (Button/Input/Card) and `src/components/industrial.tsx` (StatCell, DataRow, CompanyTabs, StatusBadge, EmptyState, MoneyValue, AlertBanner, PublicChrome).
+- Soft borders, 8px spacing scale, sentence-case typography (Plus Jakarta Sans). Industrial/Desert Rose styling is retired.
+- Audit of preserved routes: `UI_REDESIGN_AUDIT.md`.

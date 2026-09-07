@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, Input, Label } from "@/components/ui";
+import { AlertBanner } from "@/components/industrial";
 import { t } from "@/i18n";
 
 export function CreateEmployeeForm({ companyId }: { companyId: string }) {
@@ -53,15 +54,18 @@ export function CreateEmployeeForm({ companyId }: { companyId: string }) {
               value={form[key]}
               onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
               required={key !== "designation"}
-              className={isPassword || key === "officialEmail" ? "normal-case" : undefined}
             />
           </div>
         ))}
         <div className="md:col-span-2">
-          <Button type="submit">&gt;&gt;&gt; {t("en", "admin.createEmployee")}</Button>
+          <Button type="submit">{t("en", "admin.createEmployee")}</Button>
         </div>
       </form>
-      {error ? <p className="meta mt-2 text-[var(--accent)]">{'/// '} {error}</p> : null}
+      {error ? (
+        <div className="mt-3">
+          <AlertBanner tone="danger">{error}</AlertBanner>
+        </div>
+      ) : null}
     </Card>
   );
 }

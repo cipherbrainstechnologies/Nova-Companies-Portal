@@ -1,5 +1,4 @@
-import { DataRow } from "@/components/industrial";
-import { Card } from "@/components/ui";
+import { DataRow, EmptyState } from "@/components/industrial";
 
 export function DataList({
   items,
@@ -7,11 +6,7 @@ export function DataList({
   items: Array<{ id: string; title: string; subtitle?: string }>;
 }) {
   if (!items.length) {
-    return (
-      <Card>
-        <p className="meta text-[var(--muted)]">No records</p>
-      </Card>
-    );
+    return <EmptyState title="No records" />;
   }
   return (
     <div className="grid gap-3">

@@ -3,11 +3,11 @@ import { AdminShell } from "@/components/admin-shell";
 import { prisma } from "@/server/db";
 import { groupPayslipsAsFolders } from "@/server/documents/folder-tree";
 import { PayslipFolderBrowser } from "@/components/payslip-folder-browser";
-import { Meta } from "@/components/industrial";
+import { AlertBanner } from "@/components/industrial";
 import { t } from "@/i18n";
 
 export default async function PayslipsAdminPage() {
-  await requirePageUser(["SUPER_ADMIN", "OPERATIONS_MANAGER"]);
+  const user = await requirePageUser(["SUPER_ADMIN", "OPERATIONS_MANAGER"]);
   const slips = await prisma.payslip.findMany({
     include: { employee: true, payrollRun: true, company: true },
     orderBy: { createdAt: "desc" },
@@ -29,11 +29,14 @@ export default async function PayslipsAdminPage() {
   );
 
   return (
-    <AdminShell title={t("en", "admin.payslips")} kicker="DOCUMENTS / FOLDER TREE">
-      <div className="mb-4 border-2 border-[var(--ink)] bg-[var(--bg-alt)] p-4">
-        <Meta className="normal-case tracking-[0.04em] text-[var(--muted)]">
-          {t("en", "admin.payslipFolderHelp")}
-        </Meta>
+    <AdminShell
+      title={t("en", "admin.payslips")}
+      description="Browse issued and in-progress payslips by company and employee folder. Downloads use the secured API."
+      userName={user.email ?? user.phone}
+      userRole={user.globalRole}
+    >
+      <div className="mb-4">
+        <AlertBanner tone="info">{t("en", "admin.payslipFolderHelp")}</AlertBanner>
       </div>
       <PayslipFolderBrowser tree={tree} allowDownload />
     </AdminShell>

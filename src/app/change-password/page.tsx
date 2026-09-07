@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, Input, Label } from "@/components/ui";
-import { PublicChrome, BracketLabel } from "@/components/industrial";
+import { PublicChrome, BracketLabel, AlertBanner } from "@/components/industrial";
 import { t } from "@/i18n";
 
 export default function ChangePasswordPage() {
@@ -33,12 +33,14 @@ export default function ChangePasswordPage() {
   return (
     <PublicChrome brand={t(locale, "brand")}>
       <div className="mx-auto max-w-md">
-        <BracketLabel>AUTH / ROTATE</BracketLabel>
-        <h1 className="h-macro mt-2 text-[clamp(2rem,6vw,3.5rem)]">
+        <BracketLabel>Account security</BracketLabel>
+        <h1 className="h-macro mt-3 text-[clamp(1.75rem,4vw,2.25rem)]">
           {t(locale, "change.title")}
         </h1>
-        <hr className="rule-accent mb-6 mt-3" />
-        <Card>
+        <p className="mt-2 text-sm text-[var(--nova-text-secondary)]">
+          Choose a strong password. You will be redirected to your portal after saving.
+        </p>
+        <Card className="mt-6">
           <form onSubmit={onSubmit} className="space-y-4">
             <div>
               <Label>{t(locale, "change.current")}</Label>
@@ -47,7 +49,6 @@ export default function ChangePasswordPage() {
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 required
-                className="normal-case"
               />
             </div>
             <div>
@@ -58,12 +59,11 @@ export default function ChangePasswordPage() {
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
                 minLength={10}
-                className="normal-case"
               />
             </div>
-            {error ? <p className="meta text-[var(--accent)]">{'/// '} {error}</p> : null}
+            {error ? <AlertBanner tone="danger">{error}</AlertBanner> : null}
             <Button type="submit" className="w-full">
-              {'>>> '} {t(locale, "change.submit")}
+              {t(locale, "change.submit")}
             </Button>
           </form>
         </Card>
