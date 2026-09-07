@@ -1,3 +1,4 @@
+import type { EmailDeliveryPreference } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { writeAudit } from "@/server/audit";
 
@@ -50,7 +51,16 @@ export class CompanyFacade {
     address?: string | null;
     isActive?: boolean;
     logoKey?: string | null;
+    autoIssueExactMatches?: boolean;
+    emailDeliveryPreference?: EmailDeliveryPreference;
+    matchScoreThreshold?: number;
   }) {
+    if (
+      input.matchScoreThreshold != null &&
+      (input.matchScoreThreshold < 0 || input.matchScoreThreshold > 100)
+    ) {
+      throw new Error("Match score threshold must be between 0 and 100");
+    }
     const company = await prisma.company.update({
       where: { id: input.companyId },
       data: {
@@ -59,6 +69,9 @@ export class CompanyFacade {
         address: input.address,
         isActive: input.isActive,
         logoKey: input.logoKey,
+        autoIssueExactMatches: input.autoIssueExactMatches,
+        emailDeliveryPreference: input.emailDeliveryPreference,
+        matchScoreThreshold: input.matchScoreThreshold,
       },
     });
     await writeAudit({

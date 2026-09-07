@@ -4,7 +4,9 @@ import { companyFacade } from "@/server/facades/company-facade";
 import { prisma } from "@/server/db";
 import { CompanyTabs, DataRow, StatusBadge, EmptyState } from "@/components/industrial";
 import { t } from "@/i18n";
+import Link from "next/link";
 import { CreatePayrollForm } from "./create-form";
+import { ApprovalSummary } from "./approval-summary";
 
 export default async function PayrollPage({
   searchParams,
@@ -35,6 +37,21 @@ export default async function PayrollPage({
         activeId={companyId}
         hrefFor={(id) => `/admin/payroll?companyId=${id}`}
       />
+      {companyId ? (
+        <div className="mb-4">
+          <Link
+            href={`/admin/companies/${companyId}/payroll`}
+            className="text-sm font-semibold text-[var(--nova-teal)] hover:underline"
+          >
+            {t("en", "company.hub.openWorkspace")} →
+          </Link>
+        </div>
+      ) : null}
+      {companyId ? (
+        <div className="mb-6">
+          <ApprovalSummary companyId={companyId} />
+        </div>
+      ) : null}
       {companyId ? <CreatePayrollForm companyId={companyId} /> : null}
       <div className="mt-6 grid gap-3">
         {runs.map((r) => (

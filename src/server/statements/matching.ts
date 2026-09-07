@@ -3,6 +3,8 @@ export type MatchDecision = "SUGGESTED" | "NEEDS_REVIEW";
 export interface MatchCandidateInput {
   employeeId: string;
   employeeName: string;
+  accountHolderName?: string | null;
+  paymentAliases?: string[];
   accountLast4?: string | null;
   expectedNetPay?: number | null;
   hasPriorApprovedMapping?: boolean;
@@ -23,6 +25,7 @@ export interface MatchScore {
     accountLast4: number;
     expectedNetPay: number;
     priorApprovedMapping: number;
+    paymentAlias: number;
   };
 }
 
@@ -147,7 +150,30 @@ export function scoreMatch(
   }
   const current = transaction as MatchTransactionInput;
   const beneficiary = extractBeneficiaryFromParticulars(current.particulars);
-  const namePoints = Math.round(nameSimilarity(beneficiary, candidate.employeeName) * 55);
+  const nameCandidates = [
+    candidate.employeeName,
+    candidate.accountHolderName,
+    ...(candidate.paymentAliases ?? []),
+  ].filter(Boolean) as string[];
+  const bestNameSimilarity = Math.max(
+    0,
+    ...nameCandidates.map((name) => nameSimilarity(beneficiary, name)),
+  );
+  const namePoints = Math.round(bestNameSimilarity * 55);
+  let aliasPoints = 0;
+  for (const alias of candidate.paymentAliases ?? []) {
+    if (normalizeName(alias) && normalizeName(alias) === normalizeName(beneficiary)) {
+      aliasPoints = 5;
+      break;
+    }
+  }
+  if (
+    !aliasPoints &&
+    candidate.accountHolderName &&
+    normalizeName(candidate.accountHolderName) === normalizeName(beneficiary)
+  ) {
+    aliasPoints = 5;
+  }
   const transactionLast4 =
     last4(current.accountLast4) ??
     last4(current.particulars.match(/(?:A\/C|ACCT|ACCOUNT)[^\d]*(\d{4,})/i)?.[1]);
@@ -163,12 +189,13 @@ export function scoreMatch(
   const priorPoints = candidate.hasPriorApprovedMapping ? 10 : 0;
   return {
     employeeId: candidate.employeeId,
-    score: namePoints + accountPoints + payPoints + priorPoints,
+    score: Math.min(100, namePoints + aliasPoints + accountPoints + payPoints + priorPoints),
     breakdown: {
       nameSimilarity: namePoints,
       accountLast4: accountPoints,
       expectedNetPay: payPoints,
       priorApprovedMapping: priorPoints,
+      paymentAlias: aliasPoints,
     },
   };
 }

@@ -2,6 +2,7 @@ import { Prisma, type TransactionClassification } from "@prisma/client";
 import { sha256Buffer } from "@/server/auth/crypto";
 import { prisma } from "@/server/db";
 import { generateStatementMatchSuggestions } from "@/server/payroll/matcher-integration";
+import { applyAutomaticReconciliation } from "@/server/payroll/reconciliation-automation";
 import { statementParseQueue } from "@/server/queue/queues";
 import { getObjectBuffer, storePrivateFile } from "@/server/storage/s3";
 import { AxisBankPdfParser } from "@/server/statements/axis-bank-pdf-parser";
@@ -22,12 +23,21 @@ export interface UploadStatementInput extends StoredFile {
   bankCode?: string;
   uploadedById?: string;
   actorUserId?: string;
+  /** Salary period the statement covers; required to reconcile against a payroll month. */
+  salaryYear?: number;
+  salaryMonth?: number;
 }
 
 export async function uploadStatement(input: UploadStatementInput) {
   const bankCode = (input.bankCode ?? "AXIS").trim().toUpperCase();
   const uploadedById = input.uploadedById ?? input.actorUserId;
   if (!bankCode) throw new Error("bankCode is required");
+  if (input.salaryYear != null && (input.salaryYear < 2000 || input.salaryYear > 2999)) {
+    throw new Error("Salary year is out of range");
+  }
+  if (input.salaryMonth != null && (input.salaryMonth < 1 || input.salaryMonth > 12)) {
+    throw new Error("Salary month must be between 1 and 12");
+  }
   if (!input.buffer.length) throw new Error("Statement file is empty");
   if (input.buffer.length > MAX_FILE_BYTES) throw new Error("Statement file exceeds 15 MB");
   if (
@@ -59,6 +69,8 @@ export async function uploadStatement(input: UploadStatementInput) {
           fileId: file.id,
           checksumSha256,
           uploadedById,
+          salaryYear: input.salaryYear,
+          salaryMonth: input.salaryMonth,
           status: "UPLOADED",
         },
       });
@@ -69,7 +81,13 @@ export async function uploadStatement(input: UploadStatementInput) {
           action: "statement.upload",
           entityType: "BankStatement",
           entityId: created.id,
-          metadataJson: { bankCode, checksumSha256, originalName: input.originalName },
+          metadataJson: {
+            bankCode,
+            checksumSha256,
+            originalName: input.originalName,
+            salaryYear: input.salaryYear ?? null,
+            salaryMonth: input.salaryMonth ?? null,
+          },
         },
       });
       return created;
@@ -152,6 +170,12 @@ export async function parseStatementJob(statementId: string) {
     await generateStatementMatchSuggestions({
       companyId: statement.companyId,
       statementId,
+    });
+    // Records reconciliation decisions only; issuing payslips always stays manual.
+    await applyAutomaticReconciliation({
+      companyId: statement.companyId,
+      statementId,
+      actorUserId: statement.uploadedById ?? undefined,
     });
   } catch (error) {
     await prisma.bankStatement.update({

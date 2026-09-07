@@ -24,6 +24,7 @@ enum AppModule {
   dashboard
   companies
   employees
+  salaryStructure
   templates
   statements
   payroll
@@ -43,6 +44,51 @@ enum AppAction {
   issue
   download
   manage
+  reconcile
+  resendEmail
+  upload
+}
+
+enum ReconciliationStatus {
+  UNMATCHED
+  MATCHED_EXACT
+  PARTIAL_PAYMENT_REVIEW_REQUIRED
+  AMOUNT_MISMATCH_REVIEW_REQUIRED
+  SALARY_STRUCTURE_INCOMPLETE
+  MANUALLY_MAPPED
+  NON_PAYROLL
+  IGNORED
+  APPROVED_FOR_ISSUE
+  ISSUED
+  EMAIL_SENT
+  EMAIL_FAILED
+}
+
+enum EmailDeliveryStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  BOUNCED
+}
+
+enum EmailDeliveryPreference {
+  OFFICIAL_PREFERRED
+  PERSONAL_PREFERRED
+  BOTH
+}
+
+enum VarianceClassification {
+  OVERTIME
+  BONUS
+  REIMBURSEMENT
+  ADJUSTMENT
+  ARREARS
+  DUPLICATE_PAYMENT
+  UNPAID_LEAVE
+  LOAN_DEDUCTION
+  CASH_COMPONENT
+  OTHER
 }
 
 enum PayrollRunStatus {
@@ -194,6 +240,9 @@ model Company {
   address     String?
   logoKey     String?
   isActive    Boolean  @default(true)
+  autoIssueExactMatches Boolean @default(false)
+  emailDeliveryPreference EmailDeliveryPreference @default(OFFICIAL_PREFERRED)
+  matchScoreThreshold Int @default(50)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -259,12 +308,15 @@ model Employee {
   contact         EmployeeContact?
   bankAccount     EmployeeBankAccount?
   salaryStructure EmployeeSalaryStructure?
+  salaryStructureVersions EmployeeSalaryStructureVersion[]
+  paymentAliases  EmployeePaymentAlias[]
   payrollLines    PayrollEmployeeLine[]
   payslips        Payslip[]
   taxDeclarations EmployeeTaxDeclaration[]
   tdsProjections  TdsProjection[]
   matchSuggestions StatementMatchSuggestion[]
   priorMappings   EmployeeNarrationMapping[]
+  reconciledTxns  StatementTransaction[] @relation("MatchedEmployee")
 
   @@unique([companyId, employeeCode])
   @@index([companyId, status])
@@ -288,8 +340,22 @@ model EmployeeBankAccount {
   accountNumber String?
   ifsc          String?
   accountLast4  String?
+  accountHolderName String?
 
   employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+model EmployeePaymentAlias {
+  id               String   @id @default(cuid())
+  employeeId       String
+  alias            String
+  normalizedAlias  String
+  createdAt        DateTime @default(now())
+
+  employee         Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, normalizedAlias])
+  @@index([employeeId])
 }
 
 model SalaryComponent {
@@ -307,13 +373,42 @@ model SalaryComponent {
 }
 
 model EmployeeSalaryStructure {
-  id          String   @id @default(cuid())
-  employeeId  String   @unique
-  effectiveFrom DateTime @default(now())
-  componentsJson Json
-  notes       String?
+  id                 String   @id @default(cuid())
+  employeeId         String   @unique
+  version            Int      @default(1)
+  annualCtc          Decimal? @db.Decimal(18, 2)
+  monthlyGross       Decimal? @db.Decimal(18, 2)
+  monthlyTds         Decimal? @db.Decimal(18, 2)
+  monthlyPt          Decimal? @db.Decimal(18, 2)
+  expectedMonthlyNet Decimal? @db.Decimal(18, 2)
+  effectiveFrom      DateTime @default(now())
+  componentsJson     Json
+  notes              String?
+  updatedAt          DateTime @updatedAt
 
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee           Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+model EmployeeSalaryStructureVersion {
+  id                 String   @id @default(cuid())
+  employeeId         String
+  version            Int
+  annualCtc          Decimal? @db.Decimal(18, 2)
+  monthlyGross       Decimal? @db.Decimal(18, 2)
+  monthlyTds         Decimal? @db.Decimal(18, 2)
+  monthlyPt          Decimal? @db.Decimal(18, 2)
+  expectedMonthlyNet Decimal? @db.Decimal(18, 2)
+  effectiveFrom      DateTime
+  effectiveTo        DateTime?
+  componentsJson     Json
+  notes              String?
+  createdAt          DateTime @default(now())
+  createdById        String?
+
+  employee           Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, version])
+  @@index([employeeId, effectiveFrom])
 }
 
 model DocumentFile {
@@ -336,6 +431,8 @@ model BankStatement {
   companyId    String
   bankCode     String
   accountHint  String?
+  salaryYear   Int?
+  salaryMonth  Int?
   periodStart  DateTime?
   periodEnd    DateTime?
   status       StatementStatus @default(UPLOADED)
@@ -349,6 +446,7 @@ model BankStatement {
   company      Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
   file         DocumentFile    @relation(fields: [fileId], references: [id])
   transactions StatementTransaction[]
+  payrollRuns  PayrollRun[]
 
   @@unique([companyId, checksumSha256])
   @@index([companyId, status])
@@ -365,16 +463,33 @@ model StatementTransaction {
   balance         Decimal? @db.Decimal(18, 2)
   chequeNumber    String?
   branch          String?
+  utrReference    String?
   rowIndex        Int
   classification  TransactionClassification @default(UNCLASSIFIED)
+  reconciliationStatus ReconciliationStatus @default(UNMATCHED)
+  matchedEmployeeId String?
+  expectedAmount  Decimal? @db.Decimal(18, 2)
+  actualAmount    Decimal? @db.Decimal(18, 2)
+  varianceAmount  Decimal? @db.Decimal(18, 2)
+  matchScore      Int?
+  matchExplanation String?
+  varianceClassification VarianceClassification?
+  reviewReason    String?
+  reviewedById    String?
+  reviewedAt      DateTime?
+  ignoreReason    String?
   createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   statement       BankStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  matchedEmployee Employee? @relation("MatchedEmployee", fields: [matchedEmployeeId], references: [id])
   matchSuggestions StatementMatchSuggestion[]
   classifications StatementClassification[]
   payrollLinks    PayrollEmployeeLine[] @relation("PrimaryTxn")
 
   @@index([statementId, txnDate])
+  @@index([reconciliationStatus])
+  @@index([matchedEmployeeId])
 }
 
 model StatementClassification {
@@ -428,6 +543,7 @@ model PayrollRun {
   updatedAt   DateTime         @updatedAt
 
   company     Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  statement   BankStatement?   @relation(fields: [statementId], references: [id])
   lines       PayrollEmployeeLine[]
   payslips    Payslip[]
 
@@ -441,6 +557,15 @@ model PayrollEmployeeLine {
   employeeId        String
   primaryTxnId      String?
   status            PayslipStatus @default(DRAFT)
+  paymentStatus     ReconciliationStatus @default(UNMATCHED)
+  expectedAmount    Decimal? @db.Decimal(18, 2)
+  actualAmount      Decimal? @db.Decimal(18, 2)
+  varianceAmount    Decimal? @db.Decimal(18, 2)
+  paymentReference  String?
+  varianceClassification VarianceClassification?
+  approvalReason    String?
+  approvedById      String?
+  calculationSnapshotJson Json?
   workingDays       Decimal? @db.Decimal(8, 2)
   weeklyOffs        Decimal? @db.Decimal(8, 2)
   paidHolidays      Decimal? @db.Decimal(8, 2)
@@ -466,6 +591,7 @@ model PayrollEmployeeLine {
   payslip           Payslip?
 
   @@unique([payrollRunId, employeeId])
+  @@unique([primaryTxnId])
 }
 
 model PayrollEarningLine {
@@ -508,8 +634,30 @@ model Payslip {
   payrollLine      PayrollEmployeeLine @relation(fields: [payrollLineId], references: [id], onDelete: Cascade)
   versions         PayslipVersion[]
   downloads        DocumentDownloadAudit[]
+  emailDeliveries  PayslipEmailDelivery[]
 
   @@index([companyId, employeeId])
+}
+
+model PayslipEmailDelivery {
+  id            String              @id @default(cuid())
+  payslipId     String
+  toEmail       String
+  status        EmailDeliveryStatus @default(QUEUED)
+  providerMessageId String?
+  failureReason String?
+  resendCount   Int                 @default(0)
+  queuedAt      DateTime            @default(now())
+  sentAt        DateTime?
+  deliveredAt   DateTime?
+  failedAt      DateTime?
+  createdById   String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  payslip       Payslip             @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+
+  @@index([payslipId, status])
 }
 
 model PayslipVersion {

@@ -8,6 +8,9 @@ const patchSchema = z.object({
   companyId: z.string().optional(), name: z.string().trim().min(2).max(120).optional(),
   gstin: z.string().trim().max(20).nullable().optional(), address: z.string().trim().max(500).nullable().optional(),
   isActive: z.boolean().optional(), logoKey: z.string().max(500).nullable().optional(),
+  autoIssueExactMatches: z.boolean().optional(),
+  emailDeliveryPreference: z.enum(["OFFICIAL_PREFERRED", "PERSONAL_PREFERRED", "BOTH"]).optional(),
+  matchScoreThreshold: z.number().int().min(0).max(100).optional(),
 });
 type Context = { params: Promise<{ companyId: string }> };
 

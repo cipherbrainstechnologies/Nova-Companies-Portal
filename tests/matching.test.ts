@@ -50,6 +50,27 @@ describe("matching", () => {
     expect(result.score).toBe(100);
   });
 
+  it("caps the score at 100 when an alias also matches", () => {
+    const result = scoreMatch(
+      {
+        particulars: "NEFT/J A JOHN/ACCOUNT 991234",
+        amount: 41467,
+        accountLast4: "1234",
+      },
+      {
+        employeeId: "jeena",
+        employeeName: "Jeena Ann John",
+        accountHolderName: "J A JOHN",
+        paymentAliases: ["J A John"],
+        accountLast4: "1234",
+        expectedNetPay: 41467,
+        hasPriorApprovedMapping: true,
+      },
+    );
+    expect(result.breakdown.paymentAlias).toBe(5);
+    expect(result.score).toBe(100);
+  });
+
   it("never auto-selects when ranking suggestions", () => {
     const ranked = rankMatchSuggestions(
       { particulars: "NEFT/JEENA ANN JOHN/SALARY", amount: 41467 },

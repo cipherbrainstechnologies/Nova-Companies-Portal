@@ -5,6 +5,7 @@ import { groupPayslipsAsFolders } from "@/server/documents/folder-tree";
 import { PayslipFolderBrowser } from "@/components/payslip-folder-browser";
 import { AlertBanner } from "@/components/industrial";
 import { t } from "@/i18n";
+import { EmailDeliveryPanel } from "./email-delivery-panel";
 
 export default async function PayslipsAdminPage() {
   const user = await requirePageUser(["SUPER_ADMIN", "OPERATIONS_MANAGER"]);
@@ -38,6 +39,7 @@ export default async function PayslipsAdminPage() {
       <div className="mb-4">
         <AlertBanner tone="info">{t("en", "admin.payslipFolderHelp")}</AlertBanner>
       </div>
+      <EmailDeliveryPanel />
       <PayslipFolderBrowser tree={tree} allowDownload />
     </AdminShell>
   );

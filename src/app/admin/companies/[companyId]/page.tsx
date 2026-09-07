@@ -1,28 +1,26 @@
-import Link from "next/link";
-import { requirePageUser } from "@/server/auth/page-guard";
 import { companyFacade } from "@/server/facades/company-facade";
-import { AdminShell } from "@/components/admin-shell";
 import { Card } from "@/components/ui";
 import { StatusBadge, BracketLabel } from "@/components/industrial";
 import { t } from "@/i18n";
 import { prisma } from "@/server/db";
+import Link from "next/link";
+import { AutomationSettingsForm } from "@/app/admin/companies/automation-settings-form";
 
-const tabs = [
-  { id: "overview", label: "Overview" },
-  { id: "employees", label: "Employees", href: (id: string) => `/admin/employees?companyId=${id}` },
-  { id: "templates", label: "Salary Template", href: () => `/admin/templates` },
-  { id: "statements", label: "Statements", href: (id: string) => `/admin/statements?companyId=${id}` },
-  { id: "payroll", label: "Payroll", href: (id: string) => `/admin/payroll?companyId=${id}` },
-  { id: "tds", label: "TDS", href: () => `/admin/tds` },
-  { id: "finance", label: "Finance", href: () => `/admin/finance` },
+const quickLinks = [
+  { segment: "employees", key: "admin.employees" },
+  { segment: "templates", key: "admin.templates" },
+  { segment: "statements", key: "admin.statements" },
+  { segment: "payroll", key: "admin.payroll" },
+  { segment: "payslips", key: "admin.payslips" },
+  { segment: "tds", key: "admin.tds" },
+  { segment: "finance", key: "admin.finance" },
 ] as const;
 
-export default async function CompanyDetailPage({
+export default async function CompanyOverviewPage({
   params,
 }: {
   params: Promise<{ companyId: string }>;
 }) {
-  const user = await requirePageUser(["SUPER_ADMIN", "OPERATIONS_MANAGER"]);
   const { companyId } = await params;
   const company = await companyFacade.getCompany(companyId);
   const [employeeCount, latestRun, latestStatement] = await Promise.all([
@@ -38,44 +36,14 @@ export default async function CompanyDetailPage({
   ]);
 
   return (
-    <AdminShell
-      title={company.name}
-      description="Company profile, payroll context, and shortcuts into related modules."
-      userName={user.email ?? user.phone}
-      userRole={user.globalRole}
-    >
-      <div className="mb-6 flex flex-wrap gap-2">
-        {tabs.map((tab) => {
-          const href = "href" in tab && tab.href ? tab.href(companyId) : undefined;
-          if (!href) {
-            return (
-              <span
-                key={tab.id}
-                className="rounded-full bg-[var(--nova-teal)] px-3.5 py-2 text-sm font-medium text-white"
-              >
-                {tab.label}
-              </span>
-            );
-          }
-          return (
-            <Link
-              key={tab.id}
-              href={href}
-              className="rounded-full border border-[var(--nova-border)] bg-[var(--nova-surface)] px-3.5 py-2 text-sm font-medium text-[var(--nova-text-secondary)] hover:border-[var(--nova-teal)] hover:text-[var(--nova-teal)]"
-            >
-              {tab.label}
-            </Link>
-          );
-        })}
-      </div>
-
+    <div className="space-y-6">
       <Card>
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <div className="flex h-14 w-14 items-center justify-center rounded-[var(--nova-radius)] bg-[var(--nova-teal-soft)] text-lg font-bold text-[var(--nova-teal)]">
             {company.prefix}
           </div>
           <div>
-            <BracketLabel>Legal entity</BracketLabel>
+            <BracketLabel>{t("en", "company.hub.legalEntity")}</BracketLabel>
             <div className="mt-1 text-lg font-semibold text-[var(--nova-ink)]">{company.name}</div>
           </div>
           <div className="ml-auto">
@@ -100,7 +68,7 @@ export default async function CompanyDetailPage({
           </div>
           <div>
             <dt className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--nova-muted)]">
-              Active employees
+              {t("en", "company.hub.activeEmployees")}
             </dt>
             <dd className="mt-1 text-base font-semibold tabular-nums">{employeeCount}</dd>
           </div>
@@ -114,7 +82,7 @@ export default async function CompanyDetailPage({
           </div>
           <div>
             <dt className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--nova-muted)]">
-              Latest payroll
+              {t("en", "company.hub.latestPayroll")}
             </dt>
             <dd className="mt-1 text-sm">
               {latestRun
@@ -124,7 +92,7 @@ export default async function CompanyDetailPage({
           </div>
           <div>
             <dt className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--nova-muted)]">
-              Last statement
+              {t("en", "company.hub.lastStatement")}
             </dt>
             <dd className="mt-1 text-sm">
               {latestStatement
@@ -134,6 +102,31 @@ export default async function CompanyDetailPage({
           </div>
         </dl>
       </Card>
-    </AdminShell>
+
+      <AutomationSettingsForm
+        companyId={companyId}
+        autoIssueExactMatches={company.autoIssueExactMatches}
+        emailDeliveryPreference={company.emailDeliveryPreference}
+        matchScoreThreshold={company.matchScoreThreshold}
+      />
+
+      <div>
+        <BracketLabel>{t("en", "company.hub.modules")}</BracketLabel>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {quickLinks.map((link) => (
+            <Link
+              key={link.segment}
+              href={`/admin/companies/${companyId}/${link.segment}`}
+              className="rounded-[var(--nova-radius)] border border-[var(--nova-border)] bg-[var(--nova-surface)] p-4 shadow-[var(--nova-shadow)] transition-colors hover:border-[var(--nova-teal)]"
+            >
+              <div className="font-semibold text-[var(--nova-ink)]">{t("en", link.key)}</div>
+              <p className="mt-1 text-sm text-[var(--nova-muted)]">
+                {t("en", "company.hub.openModule")}
+              </p>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }

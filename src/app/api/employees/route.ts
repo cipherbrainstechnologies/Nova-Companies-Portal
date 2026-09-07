@@ -4,6 +4,8 @@ import { requireSessionUser } from "@/server/auth/session";
 import { authorize, apiError } from "@/server/api-helpers";
 import { employeeFacade } from "@/server/facades/employee-facade";
 
+const amount = z.number().nonnegative().max(1_000_000_000);
+
 const createSchema = z.object({
   companyId: z.string().min(1), firstName: z.string().trim().min(1), lastName: z.string().trim().min(1),
   primaryPhone: z.string().min(10), temporaryPassword: z.string().min(10),
@@ -12,6 +14,12 @@ const createSchema = z.object({
   alternatePhone: z.string().optional(), pan: z.string().optional(), pfNumber: z.string().optional(),
   uan: z.string().optional(), esiNumber: z.string().optional(), bankName: z.string().optional(),
   accountNumber: z.string().optional(), ifsc: z.string().optional(),
+  accountHolderName: z.string().trim().max(160).nullable().optional(),
+  paymentAliases: z.array(z.string().trim().max(120)).max(20).optional(),
+  salaryComponents: z.record(z.string().min(1), z.number()).optional(),
+  annualCtc: amount.nullable().optional(), monthlyGross: amount.nullable().optional(),
+  monthlyTds: amount.nullable().optional(), monthlyPt: amount.nullable().optional(),
+  expectedMonthlyNet: amount.nullable().optional(),
 });
 
 export async function GET(request: Request) {

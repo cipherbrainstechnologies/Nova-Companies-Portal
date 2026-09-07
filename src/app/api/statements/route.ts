@@ -5,7 +5,14 @@ import { authorize, apiError } from "@/server/api-helpers";
 import { uploadStatement } from "@/server/statements/statement-service";
 import { prisma } from "@/server/db";
 
-const uploadSchema = z.object({ companyId: z.string().min(1), bankCode: z.string().max(30).default("AXIS"), file: z.instanceof(File) });
+const uploadSchema = z.object({
+  companyId: z.string().min(1),
+  bankCode: z.string().max(30).default("AXIS"),
+  file: z.instanceof(File),
+  // The salary period is mandatory: reconciliation and duplicate prevention are keyed on it.
+  salaryYear: z.coerce.number().int().min(2000).max(2999),
+  salaryMonth: z.coerce.number().int().min(1).max(12),
+});
 
 export async function GET(request: Request) {
   try {
@@ -18,9 +25,15 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const user = await requireSessionUser(); const form = await request.formData();
-    const body = uploadSchema.parse({ companyId: form.get("companyId"), bankCode: form.get("bankCode") || "AXIS", file: form.get("file") });
+    const body = uploadSchema.parse({
+      companyId: form.get("companyId"),
+      bankCode: form.get("bankCode") || "AXIS",
+      file: form.get("file"),
+      salaryYear: form.get("salaryYear"),
+      salaryMonth: form.get("salaryMonth"),
+    });
     await authorize(user, body.companyId, "statements", "create");
-    const statement = await uploadStatement({ actorUserId: user.id, companyId: body.companyId, bankCode: body.bankCode, buffer: Buffer.from(await body.file.arrayBuffer()), mimeType: body.file.type, originalName: body.file.name });
+    const statement = await uploadStatement({ actorUserId: user.id, companyId: body.companyId, bankCode: body.bankCode, salaryYear: body.salaryYear, salaryMonth: body.salaryMonth, buffer: Buffer.from(await body.file.arrayBuffer()), mimeType: body.file.type, originalName: body.file.name });
     return NextResponse.json(statement, { status: 201 });
   } catch (error) { return apiError(error); }
 }

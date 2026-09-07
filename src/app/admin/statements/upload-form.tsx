@@ -2,18 +2,47 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Card, Label } from "@/components/ui";
+import { Button, Card, Input, Label, Select } from "@/components/ui";
 import { AlertBanner } from "@/components/industrial";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
 export function StatementUploadForm({ companyId }: { companyId: string }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
+  const now = new Date();
   const [file, setFile] = useState<File | null>(null);
+  const [salaryYear, setSalaryYear] = useState(String(now.getFullYear()));
+  const [salaryMonth, setSalaryMonth] = useState(String(now.getMonth() + 1));
   const [error, setError] = useState("");
   const [progress, setProgress] = useState<"idle" | "uploading" | "done">("idle");
   const [dragOver, setDragOver] = useState(false);
+
+  const yearValue = Number(salaryYear);
+  const monthValue = Number(salaryMonth);
+  const periodValid =
+    Number.isInteger(yearValue) &&
+    yearValue >= 2000 &&
+    yearValue <= 2999 &&
+    Number.isInteger(monthValue) &&
+    monthValue >= 1 &&
+    monthValue <= 12;
+  const canUpload = !!file && periodValid && progress !== "uploading";
 
   function acceptFile(f: File | null | undefined) {
     if (!f) return;
@@ -30,11 +59,17 @@ export function StatementUploadForm({ companyId }: { companyId: string }) {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!file) return;
+    if (!periodValid) {
+      setError("Select the salary year and month this statement covers before uploading.");
+      return;
+    }
     setError("");
     setProgress("uploading");
     const body = new FormData();
     body.set("companyId", companyId);
     body.set("file", file);
+    body.set("salaryYear", String(yearValue));
+    body.set("salaryMonth", String(monthValue));
     const res = await fetch("/api/statements", { method: "POST", body });
     const data = await res.json();
     if (!res.ok) {
@@ -51,6 +86,38 @@ export function StatementUploadForm({ companyId }: { companyId: string }) {
   return (
     <Card>
       <form onSubmit={onSubmit} className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="salaryYear">Salary year</Label>
+            <Input
+              id="salaryYear"
+              inputMode="numeric"
+              value={salaryYear}
+              onChange={(e) => setSalaryYear(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="salaryMonth">Salary month</Label>
+            <Select
+              id="salaryMonth"
+              value={salaryMonth}
+              onChange={(e) => setSalaryMonth(e.target.value)}
+              required
+            >
+              {MONTHS.map((name, index) => (
+                <option key={name} value={index + 1}>
+                  {name}
+                </option>
+              ))}
+            </Select>
+          </div>
+        </div>
+        <p className="text-xs text-[var(--nova-muted)]">
+          The salary period is required. Reconciliation matches debits to that payroll month and
+          blocks a second payslip for an employee in the same month.
+        </p>
+
         <Label>{t("en", "admin.statementFile")}</Label>
         <div
           className={cn(
@@ -92,7 +159,7 @@ export function StatementUploadForm({ companyId }: { companyId: string }) {
           />
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit" disabled={!file || progress === "uploading"}>
+          <Button type="submit" disabled={!canUpload}>
             {progress === "uploading"
               ? "Uploading…"
               : progress === "done"

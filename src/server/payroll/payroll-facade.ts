@@ -2,11 +2,17 @@ import { nanoid } from "nanoid";
 import { prisma } from "@/server/db";
 import { writeAudit } from "@/server/audit";
 import { amountInWordsInr } from "@/server/payroll/amount-in-words";
-import { renderPayslipHtml, type PayslipRenderData } from "@/server/payroll/payslip-template";
+import { renderPayslipHtml, renderPayslipHtmlFromTemplate, type PayslipRenderData } from "@/server/payroll/payslip-template";
 import { generatePayslipPdf } from "@/server/payroll/pdf-generator";
 import { storePrivateFile } from "@/server/storage/s3";
 import { payslipGenerateQueue, emailNotifyQueue } from "@/server/queue/queues";
+import { PAYROLL_AUDIT_ACTIONS } from "@/server/payroll/audit-actions";
+import { buildPayslipAvailableEmail } from "@/server/payroll/payslip-email";
+import { partitionIssuableLines } from "@/server/payroll/payment-decision";
+import type { EmailDeliveryPreference, EmailDeliveryStatus } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
+import { templateFacade } from "@/server/facades/template-facade";
+import { employeeFacade } from "@/server/facades/employee-facade";
 
 export class PayrollFacade {
   async createPayrollRun(
@@ -25,6 +31,17 @@ export class PayrollFacade {
     if (!Number.isInteger(input.year) || !Number.isInteger(input.month) || input.month < 1 || input.month > 12) {
       throw new Error("Invalid payroll period");
     }
+    const existing = await prisma.payrollRun.findUnique({
+      where: {
+        companyId_year_month: {
+          companyId: input.companyId,
+          year: input.year,
+          month: input.month,
+        },
+      },
+    });
+    if (existing) return existing;
+
     const run = await prisma.payrollRun.create({
       data: {
         companyId: input.companyId,
@@ -65,6 +82,7 @@ export class PayrollFacade {
   }) {
     const run = await prisma.payrollRun.findUniqueOrThrow({ where: { id: input.payrollRunId } });
     if (run.status === "ISSUED") throw new Error("Cannot edit issued payroll");
+    await employeeFacade.getById(input.employeeId, run.companyId);
 
     const { money, moneySum, roundInr } = await import("@/server/finance/money");
     const grossEarnings = roundInr(moneySum(input.earnings.map((e) => e.payable)));
@@ -251,16 +269,29 @@ export class PayrollFacade {
       throw new Error("Only approved lines can be issued");
     }
 
-    const template = await prisma.companyTemplate.findFirst({
-      where: { companyId: run.companyId, isActive: true },
-      orderBy: { version: "desc" },
-    });
+    // Unresolved partial payments and amount mismatches can never reach issue, even if
+    // the caller explicitly selects them.
+    const { blocked } = partitionIssuableLines(
+      lines.map((line) => ({ id: line.id, paymentStatus: line.paymentStatus })),
+    );
+    if (blocked.length) {
+      throw new Error(
+        `${blocked.length} selected line(s) still require reconciliation review and cannot be issued`,
+      );
+    }
+
+    const template = await templateFacade.getActiveTemplate(run.companyId);
     if (!template) throw new Error("No active company template");
 
-    await prisma.payrollRun.update({
-      where: { id: run.id },
-      data: { status: "ISSUING" },
+    const approvedRemaining = await prisma.payrollEmployeeLine.count({
+      where: { payrollRunId: run.id, status: "APPROVED" },
     });
+    if (approvedRemaining === lines.length) {
+      await prisma.payrollRun.update({
+        where: { id: run.id },
+        data: { status: "ISSUING" },
+      });
+    }
 
     const issued = [];
     for (const line of lines) {
@@ -291,14 +322,7 @@ export class PayrollFacade {
         version: 1,
       });
 
-      const email = line.employee.contact?.officialEmail ?? line.employee.contact?.personalEmail;
-      if (email) {
-        await emailNotifyQueue.add("notify", {
-          to: email,
-          subject: "Your payslip is available",
-          text: `A payslip for ${run.month}/${run.year} is available in the Nova Salary Portal. Sign in to download. This email does not include salary amounts.`,
-        });
-      }
+      await this.queuePayslipEmail({ payslipId: payslip.id, actorUserId: input.actorUserId });
 
       await prisma.payrollEmployeeLine.update({
         where: { id: line.id },
@@ -317,6 +341,159 @@ export class PayrollFacade {
     });
 
     return issued;
+  }
+
+  /** Recipients honour the company's `emailDeliveryPreference`. */
+  resolvePayslipRecipients(
+    contact: { officialEmail?: string | null; personalEmail?: string | null } | null | undefined,
+    preference: EmailDeliveryPreference,
+  ): string[] {
+    const official = contact?.officialEmail?.trim() || null;
+    const personal = contact?.personalEmail?.trim() || null;
+    if (preference === "BOTH") {
+      return [official, personal].filter((email): email is string => !!email);
+    }
+    const ordered =
+      preference === "PERSONAL_PREFERRED" ? [personal, official] : [official, personal];
+    const chosen = ordered.find((email) => !!email);
+    return chosen ? [chosen] : [];
+  }
+
+  /**
+   * Queues the availability notification for an issued payslip. The message body never
+   * carries salary figures — only a link back to the authenticated portal.
+   */
+  async queuePayslipEmail(input: {
+    payslipId: string;
+    actorUserId?: string;
+    resend?: boolean;
+  }) {
+    const slip = await prisma.payslip.findUniqueOrThrow({
+      where: { id: input.payslipId },
+      include: {
+        company: true,
+        payrollRun: true,
+        employee: { include: { contact: true } },
+      },
+    });
+    const recipients = this.resolvePayslipRecipients(
+      slip.employee.contact,
+      slip.company.emailDeliveryPreference,
+    );
+    if (!recipients.length) {
+      throw new Error("Employee has no email address for the company delivery preference");
+    }
+
+    const message = buildPayslipAvailableEmail({
+      companyName: slip.company.name,
+      employeeName: `${slip.employee.firstName} ${slip.employee.lastName}`,
+      month: slip.payrollRun.month,
+      year: slip.payrollRun.year,
+      resend: input.resend,
+    });
+
+    const deliveries = [];
+    for (const to of recipients) {
+      const delivery = await prisma.payslipEmailDelivery.create({
+        data: {
+          payslipId: slip.id,
+          toEmail: to,
+          status: "QUEUED",
+          createdById: input.actorUserId,
+        },
+      });
+      await emailNotifyQueue.add("notify", {
+        to,
+        subject: message.subject,
+        text: message.text,
+        html: message.html,
+        deliveryId: delivery.id,
+      });
+      deliveries.push(delivery);
+    }
+
+    await writeAudit({
+      actorUserId: input.actorUserId,
+      companyId: slip.companyId,
+      action: input.resend
+        ? PAYROLL_AUDIT_ACTIONS.payslipEmailResend
+        : PAYROLL_AUDIT_ACTIONS.payslipEmailQueued,
+      entityType: "Payslip",
+      entityId: slip.id,
+      metadata: { recipients: recipients.length, preference: slip.company.emailDeliveryPreference },
+    });
+
+    return deliveries;
+  }
+
+  /**
+   * Records the outcome of a queued notification. Delivery state is tracked separately
+   * from issue state: a bounced or failed email never un-issues a payslip.
+   */
+  async markEmailDelivery(input: {
+    deliveryId: string;
+    status: EmailDeliveryStatus;
+    providerMessageId?: string;
+    failureReason?: string;
+  }) {
+    const now = new Date();
+    const delivery = await prisma.payslipEmailDelivery.update({
+      where: { id: input.deliveryId },
+      data: {
+        status: input.status,
+        providerMessageId: input.providerMessageId,
+        failureReason: input.status === "FAILED" || input.status === "BOUNCED"
+          ? input.failureReason ?? "Email delivery failed"
+          : null,
+        sentAt: input.status === "SENT" ? now : undefined,
+        deliveredAt: input.status === "DELIVERED" ? now : undefined,
+        failedAt: input.status === "FAILED" || input.status === "BOUNCED" ? now : undefined,
+      },
+      include: { payslip: { include: { payrollLine: true } } },
+    });
+
+    const txnId = delivery.payslip.payrollLine.primaryTxnId;
+    if (txnId) {
+      const succeeded = input.status === "SENT" || input.status === "DELIVERED";
+      const failed = input.status === "FAILED" || input.status === "BOUNCED";
+      if (succeeded || failed) {
+        await prisma.statementTransaction.update({
+          where: { id: txnId },
+          data: { reconciliationStatus: succeeded ? "EMAIL_SENT" : "EMAIL_FAILED" },
+        });
+      }
+    }
+
+    await writeAudit({
+      companyId: delivery.payslip.companyId,
+      action:
+        input.status === "FAILED" || input.status === "BOUNCED"
+          ? PAYROLL_AUDIT_ACTIONS.payslipEmailFailed
+          : PAYROLL_AUDIT_ACTIONS.payslipEmailSent,
+      entityType: "PayslipEmailDelivery",
+      entityId: delivery.id,
+      metadata: { status: input.status, toEmail: delivery.toEmail },
+    });
+
+    return delivery;
+  }
+
+  async resendPayslipEmail(input: { actorUserId: string; payslipId: string }) {
+    const slip = await prisma.payslip.findUniqueOrThrow({ where: { id: input.payslipId } });
+    if (slip.status !== "ISSUED") {
+      throw new Error("Only issued payslips can have their notification resent");
+    }
+    const previous = await prisma.payslipEmailDelivery.count({ where: { payslipId: slip.id } });
+    const deliveries = await this.queuePayslipEmail({
+      payslipId: slip.id,
+      actorUserId: input.actorUserId,
+      resend: true,
+    });
+    await prisma.payslipEmailDelivery.updateMany({
+      where: { id: { in: deliveries.map((delivery) => delivery.id) } },
+      data: { resendCount: previous },
+    });
+    return deliveries;
   }
 
   async markPayslipIssued(input: {
@@ -506,6 +683,94 @@ export class PayrollFacade {
     };
   }
 
+  async buildPreviewRenderData(input: {
+    employeeId: string;
+    companyId: string;
+    year: number;
+    month: number;
+    earnings: Array<{ code: string; label: string; actual: number; payable: number }>;
+    deductions: Array<{ code: string; label: string; amount: number }>;
+    working?: Partial<{
+      workingDays: number;
+      weeklyOffs: number;
+      paidHolidays: number;
+      presentDays: number;
+      casualLeave: number;
+      privilegedLeave: number;
+      sickLeave: number;
+      leaveWithoutPay: number;
+    }>;
+    cashComponent?: number;
+  }): Promise<PayslipRenderData> {
+    const employee = await employeeFacade.getById(input.employeeId, input.companyId);
+    const { money, moneySum, roundInr } = await import("@/server/finance/money");
+    const grossEarnings = roundInr(moneySum(input.earnings.map((e) => e.payable)));
+    const grossDeductions = roundInr(moneySum(input.deductions.map((d) => d.amount)));
+    const netAmount = roundInr(money(grossEarnings).minus(grossDeductions).plus(input.cashComponent ?? 0));
+    return {
+      companyName: employee.company.name,
+      companyGstin: employee.company.gstin,
+      companyAddress: employee.company.address,
+      month: input.month,
+      year: input.year,
+      employeeCode: employee.employeeCode,
+      employeeName: `${employee.firstName} ${employee.lastName}`,
+      designation: employee.designation,
+      department: employee.department,
+      location: employee.location,
+      doj: employee.dateOfJoining?.toISOString().slice(0, 10) ?? null,
+      pfNumber: employee.pfNumber,
+      uan: employee.uan,
+      esiNumber: employee.esiNumber,
+      bankName: employee.bankAccount?.bankName,
+      accountNumber: employee.bankAccount?.accountNumber,
+      working: {
+        wd: input.working?.workingDays ?? null,
+        wo: input.working?.weeklyOffs ?? null,
+        ph: input.working?.paidHolidays ?? null,
+        pd: input.working?.presentDays ?? null,
+        cl: input.working?.casualLeave ?? null,
+        pl: input.working?.privilegedLeave ?? null,
+        sl: input.working?.sickLeave ?? null,
+        lwp: input.working?.leaveWithoutPay ?? null,
+      },
+      earnings: input.earnings,
+      deductions: input.deductions,
+      grossEarnings,
+      grossDeductions,
+      netAmount,
+      amountInWords: amountInWordsInr(netAmount),
+    };
+  }
+
+  async previewPayslipHtml(input: {
+    employeeId: string;
+    companyId: string;
+    year: number;
+    month: number;
+    earnings: Array<{ code: string; label: string; actual: number; payable: number }>;
+    deductions: Array<{ code: string; label: string; amount: number }>;
+    working?: Partial<{
+      workingDays: number;
+      weeklyOffs: number;
+      paidHolidays: number;
+      presentDays: number;
+      casualLeave: number;
+      privilegedLeave: number;
+      sickLeave: number;
+      leaveWithoutPay: number;
+    }>;
+    cashComponent?: number;
+  }) {
+    const data = await this.buildPreviewRenderData(input);
+    const template = await templateFacade.getActiveTemplate(input.companyId);
+    const html =
+      template?.htmlBody?.trim()
+        ? renderPayslipHtmlFromTemplate(template.htmlBody, template.cssBody, data)
+        : renderPayslipHtml(data);
+    return { html, data };
+  }
+
   async generateAndStorePayslip(payslipId: string, version: number) {
     const data = await this.buildRenderData(payslipId);
     const slip = await prisma.payslip.findUniqueOrThrow({
@@ -514,6 +779,7 @@ export class PayrollFacade {
         company: true,
         employee: true,
         payrollRun: true,
+        versions: { where: { version }, take: 1 },
       },
     });
     const folder = (
@@ -542,7 +808,14 @@ export class PayrollFacade {
       version,
     });
 
-    const html = renderPayslipHtml(data);
+    const versionTemplateId = slip.versions[0]?.templateId;
+    const template = versionTemplateId
+      ? await prisma.companyTemplate.findUnique({ where: { id: versionTemplateId } })
+      : await templateFacade.getActiveTemplate(slip.companyId);
+    const html =
+      template?.htmlBody?.trim()
+        ? renderPayslipHtmlFromTemplate(template.htmlBody, template.cssBody, data)
+        : renderPayslipHtml(data);
     const { buffer, sha256 } = await generatePayslipPdf(html);
     const pdfFile = await storePrivateFile({
       buffer,

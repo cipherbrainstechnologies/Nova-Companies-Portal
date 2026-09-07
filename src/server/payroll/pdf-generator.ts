@@ -5,8 +5,14 @@ export async function generatePayslipPdf(html: string): Promise<{ buffer: Buffer
     const { chromium } = await import("playwright");
     const browser = await chromium.launch({ headless: true });
     try {
-      const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: "load" });
+      const context = await browser.newContext({ javaScriptEnabled: false });
+      const page = await context.newPage();
+      await page.route("**/*", (route) => {
+        const url = route.request().url();
+        if (url.startsWith("data:") || url === "about:blank") return route.continue();
+        return route.abort();
+      });
+      await page.setContent(html, { waitUntil: "domcontentloaded" });
       const buffer = Buffer.from(
         await page.pdf({
           format: "A4",
@@ -15,6 +21,7 @@ export async function generatePayslipPdf(html: string): Promise<{ buffer: Buffer
         }),
       );
       const sha256 = createHash("sha256").update(buffer).digest("hex");
+      await context.close();
       return { buffer, sha256 };
     } finally {
       await browser.close();

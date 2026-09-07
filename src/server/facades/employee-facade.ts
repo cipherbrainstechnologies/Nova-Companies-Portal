@@ -4,7 +4,30 @@ import { companyFacade } from "@/server/facades/company-facade";
 import { normalizeIndianPhone } from "@/server/auth/phone";
 import { hashPassword } from "@/server/auth/crypto";
 import { revokeAllUserSessions } from "@/server/auth/session";
+import { PAYROLL_AUDIT_ACTIONS } from "@/server/payroll/audit-actions";
+import {
+  deriveExpectedMonthlyNet,
+  monthlyGrossFromAnnualCtc,
+  normalizePaymentAliases,
+} from "@/server/payroll/salary-structure";
 import type { EmployeeStatus } from "@prisma/client";
+
+export type UpsertSalaryStructureInput = {
+  actorUserId: string;
+  employeeId: string;
+  components?: Record<string, number>;
+  annualCtc?: number | null;
+  monthlyGross?: number | null;
+  monthlyTds?: number | null;
+  monthlyPt?: number | null;
+  /** Optional override; otherwise derived as gross − TDS − PT. */
+  expectedMonthlyNet?: number | null;
+  effectiveFrom?: Date;
+  /** Replaces the alias list when provided. Narration aliases feed bank matching. */
+  paymentAliases?: string[];
+  accountHolderName?: string | null;
+  notes?: string;
+};
 
 export type CreateEmployeeInput = {
   actorUserId: string;
@@ -26,8 +49,19 @@ export type CreateEmployeeInput = {
   bankName?: string;
   accountNumber?: string;
   ifsc?: string;
+  /** Name the bank prints on the payment narration; feeds statement matching. */
+  accountHolderName?: string | null;
+  /** Extra narration spellings for this employee; feeds statement matching. */
+  paymentAliases?: string[];
   temporaryPassword: string;
   salaryComponents?: Record<string, number>;
+  annualCtc?: number | null;
+  monthlyGross?: number | null;
+  monthlyTds?: number | null;
+  monthlyPt?: number | null;
+  /** Optional override; otherwise derived as gross − TDS − PT. */
+  expectedMonthlyNet?: number | null;
+  effectiveFrom?: Date;
 };
 
 export class EmployeeFacade {
@@ -60,6 +94,29 @@ export class EmployeeFacade {
       ? input.accountNumber.replace(/\D/g, "").slice(-4)
       : undefined;
 
+    const expectedMonthlyNet = deriveExpectedMonthlyNet({
+      annualCtc: input.annualCtc,
+      monthlyGross: input.monthlyGross,
+      monthlyTds: input.monthlyTds,
+      monthlyPt: input.monthlyPt,
+      expectedMonthlyNet: input.expectedMonthlyNet,
+    });
+    const monthlyGross =
+      input.monthlyGross ?? monthlyGrossFromAnnualCtc(input.annualCtc) ?? undefined;
+    const effectiveFrom = input.effectiveFrom ?? new Date();
+    const aliases = normalizePaymentAliases([
+      ...(input.paymentAliases ?? []),
+      // The account-holder name is itself a narration spelling worth matching on.
+      input.accountHolderName ?? null,
+    ]);
+    // Only create a structure when there is something to record, so an employee added
+    // without pay details stays explicitly "structure incomplete" rather than zeroed.
+    const hasStructure =
+      input.salaryComponents != null ||
+      input.annualCtc != null ||
+      input.monthlyGross != null ||
+      input.expectedMonthlyNet != null;
+
     const employee = await prisma.$transaction(async (tx) => {
       const emp = await tx.employee.create({
         data: {
@@ -91,17 +148,49 @@ export class EmployeeFacade {
               accountNumber: input.accountNumber,
               ifsc: input.ifsc,
               accountLast4,
+              accountHolderName: input.accountHolderName?.trim() || null,
             },
           },
-          salaryStructure: input.salaryComponents
+          salaryStructure: hasStructure
             ? {
                 create: {
-                  componentsJson: input.salaryComponents,
+                  version: 1,
+                  annualCtc: input.annualCtc,
+                  monthlyGross,
+                  monthlyTds: input.monthlyTds,
+                  monthlyPt: input.monthlyPt,
+                  expectedMonthlyNet,
+                  effectiveFrom,
+                  componentsJson: input.salaryComponents ?? {},
                 },
               }
             : undefined,
         },
       });
+
+      if (hasStructure) {
+        // Version history starts at creation so every payslip stays explainable.
+        await tx.employeeSalaryStructureVersion.create({
+          data: {
+            employeeId: emp.id,
+            version: 1,
+            annualCtc: input.annualCtc,
+            monthlyGross,
+            monthlyTds: input.monthlyTds,
+            monthlyPt: input.monthlyPt,
+            expectedMonthlyNet,
+            effectiveFrom,
+            componentsJson: input.salaryComponents ?? {},
+            createdById: input.actorUserId,
+          },
+        });
+      }
+
+      if (aliases.length) {
+        await tx.employeePaymentAlias.createMany({
+          data: aliases.map((alias) => ({ employeeId: emp.id, ...alias })),
+        });
+      }
 
       await tx.user.create({
         data: {
@@ -123,7 +212,12 @@ export class EmployeeFacade {
       action: "employee.create",
       entityType: "Employee",
       entityId: employee.id,
-      metadata: { employeeCode },
+      metadata: {
+        employeeCode,
+        salaryStructureCreated: hasStructure,
+        expectedMonthlyNet,
+        aliasCount: aliases.length,
+      },
     });
 
     return this.getById(employee.id);
@@ -167,34 +261,148 @@ export class EmployeeFacade {
     return emp;
   }
 
-  async upsertSalaryStructure(input: {
-    actorUserId: string;
-    employeeId: string;
-    components: Record<string, number>;
-    notes?: string;
-  }) {
+  async upsertSalaryStructure(input: UpsertSalaryStructureInput) {
     const emp = await prisma.employee.findUniqueOrThrow({ where: { id: input.employeeId } });
-    const structure = await prisma.employeeSalaryStructure.upsert({
+    const current = await prisma.employeeSalaryStructure.findUnique({
       where: { employeeId: input.employeeId },
-      create: {
-        employeeId: input.employeeId,
-        componentsJson: input.components,
-        notes: input.notes,
-      },
-      update: {
-        componentsJson: input.components,
-        notes: input.notes,
-        effectiveFrom: new Date(),
-      },
     });
+
+    const expectedMonthlyNet = deriveExpectedMonthlyNet({
+      annualCtc: input.annualCtc,
+      monthlyGross: input.monthlyGross,
+      monthlyTds: input.monthlyTds,
+      monthlyPt: input.monthlyPt,
+      expectedMonthlyNet: input.expectedMonthlyNet,
+    });
+    const monthlyGross =
+      input.monthlyGross ?? monthlyGrossFromAnnualCtc(input.annualCtc) ?? undefined;
+    const effectiveFrom = input.effectiveFrom ?? new Date();
+    const version = (current?.version ?? 0) + 1;
+    const aliases = normalizePaymentAliases(input.paymentAliases ?? []);
+
+    const structure = await prisma.$transaction(async (tx) => {
+      // Snapshot the outgoing revision so historical payslips stay explainable.
+      if (current) {
+        await tx.employeeSalaryStructureVersion.upsert({
+          where: {
+            employeeId_version: { employeeId: input.employeeId, version: current.version },
+          },
+          create: {
+            employeeId: input.employeeId,
+            version: current.version,
+            annualCtc: current.annualCtc,
+            monthlyGross: current.monthlyGross,
+            monthlyTds: current.monthlyTds,
+            monthlyPt: current.monthlyPt,
+            expectedMonthlyNet: current.expectedMonthlyNet,
+            effectiveFrom: current.effectiveFrom,
+            effectiveTo: effectiveFrom,
+            componentsJson: current.componentsJson ?? {},
+            notes: current.notes,
+            createdById: input.actorUserId,
+          },
+          update: { effectiveTo: effectiveFrom },
+        });
+      }
+
+      const saved = await tx.employeeSalaryStructure.upsert({
+        where: { employeeId: input.employeeId },
+        create: {
+          employeeId: input.employeeId,
+          version,
+          annualCtc: input.annualCtc,
+          monthlyGross,
+          monthlyTds: input.monthlyTds,
+          monthlyPt: input.monthlyPt,
+          expectedMonthlyNet,
+          effectiveFrom,
+          componentsJson: input.components ?? {},
+          notes: input.notes,
+        },
+        update: {
+          version,
+          annualCtc: input.annualCtc,
+          monthlyGross,
+          monthlyTds: input.monthlyTds,
+          monthlyPt: input.monthlyPt,
+          expectedMonthlyNet,
+          effectiveFrom,
+          componentsJson: input.components ?? current?.componentsJson ?? {},
+          notes: input.notes,
+        },
+      });
+
+      await tx.employeeSalaryStructureVersion.upsert({
+        where: { employeeId_version: { employeeId: input.employeeId, version } },
+        create: {
+          employeeId: input.employeeId,
+          version,
+          annualCtc: saved.annualCtc,
+          monthlyGross: saved.monthlyGross,
+          monthlyTds: saved.monthlyTds,
+          monthlyPt: saved.monthlyPt,
+          expectedMonthlyNet: saved.expectedMonthlyNet,
+          effectiveFrom: saved.effectiveFrom,
+          componentsJson: saved.componentsJson ?? {},
+          notes: saved.notes,
+          createdById: input.actorUserId,
+        },
+        update: {
+          annualCtc: saved.annualCtc,
+          monthlyGross: saved.monthlyGross,
+          monthlyTds: saved.monthlyTds,
+          monthlyPt: saved.monthlyPt,
+          expectedMonthlyNet: saved.expectedMonthlyNet,
+          effectiveFrom: saved.effectiveFrom,
+          componentsJson: saved.componentsJson ?? {},
+          notes: saved.notes,
+        },
+      });
+
+      if (input.paymentAliases) {
+        await tx.employeePaymentAlias.deleteMany({ where: { employeeId: input.employeeId } });
+        if (aliases.length) {
+          await tx.employeePaymentAlias.createMany({
+            data: aliases.map((alias) => ({ employeeId: input.employeeId, ...alias })),
+          });
+        }
+      }
+
+      if (input.accountHolderName !== undefined) {
+        await tx.employeeBankAccount.upsert({
+          where: { employeeId: input.employeeId },
+          create: {
+            employeeId: input.employeeId,
+            accountHolderName: input.accountHolderName?.trim() || null,
+          },
+          update: { accountHolderName: input.accountHolderName?.trim() || null },
+        });
+      }
+
+      return saved;
+    });
+
     await writeAudit({
       actorUserId: input.actorUserId,
       companyId: emp.companyId,
-      action: "employee.salary_structure_upsert",
+      action: PAYROLL_AUDIT_ACTIONS.salaryStructureUpsert,
       entityType: "Employee",
       entityId: emp.id,
+      metadata: {
+        version,
+        expectedMonthlyNet,
+        aliasCount: aliases.length,
+        effectiveFrom: effectiveFrom.toISOString(),
+      },
     });
     return structure;
+  }
+
+  async listSalaryStructureVersions(employeeId: string) {
+    return prisma.employeeSalaryStructureVersion.findMany({
+      where: { employeeId },
+      orderBy: { version: "desc" },
+    });
   }
 }
 

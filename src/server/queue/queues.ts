@@ -36,7 +36,14 @@ export type PayslipJobData = {
   version?: number;
 };
 export type PayslipGenerateJob = PayslipJobData;
-export type EmailNotifyJob = { to: string; subject: string; text: string };
+export type EmailNotifyJob = {
+  to: string;
+  subject: string;
+  text: string;
+  html?: string;
+  /** Set for payslip notifications so the worker can record delivery outcome. */
+  deliveryId?: string;
+};
 
 export const statementParseQueue = q<StatementParseJob>("statement-parse");
 export const payslipGenerateQueue = q<PayslipGenerateJob>("payslip-generate");

@@ -23,8 +23,16 @@ type ProfitResult = {
   error?: string;
 };
 
-export function ProfitForm({ companies }: { companies: Array<{ id: string; name: string }> }) {
-  const [companyId, setCompanyId] = useState(companies[0]?.id ?? "");
+export function ProfitForm({
+  companies,
+  initialCompanyId,
+  lockCompanyId,
+}: {
+  companies: Array<{ id: string; name: string }>;
+  initialCompanyId?: string;
+  lockCompanyId?: boolean;
+}) {
+  const [companyId, setCompanyId] = useState(initialCompanyId ?? companies[0]?.id ?? "");
   const [year, setYear] = useState("2026");
   const [month, setMonth] = useState("9");
   const [result, setResult] = useState<ProfitResult | null>(null);
@@ -38,6 +46,7 @@ export function ProfitForm({ companies }: { companies: Array<{ id: string; name:
   }
 
   const p = result?.profit;
+  const lockedName = companies.find((c) => c.id === companyId)?.name ?? companyId;
 
   return (
     <div className="space-y-4">
@@ -45,13 +54,17 @@ export function ProfitForm({ companies }: { companies: Array<{ id: string; name:
         <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-3">
           <div>
             <Label>{t("en", "admin.company")}</Label>
-            <Select value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
-              {companies.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
+            {lockCompanyId ? (
+              <Input value={lockedName} readOnly disabled />
+            ) : (
+              <Select value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+            )}
           </div>
           <div>
             <Label>{t("en", "admin.year")}</Label>

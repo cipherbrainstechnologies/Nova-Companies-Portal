@@ -26,11 +26,30 @@ new Worker(
 new Worker(
   "email-notify",
   async (job) => {
-    await sendEmail({
-      to: job.data.to,
-      subject: job.data.subject,
-      text: job.data.text,
-    });
+    try {
+      await sendEmail({
+        to: job.data.to,
+        subject: job.data.subject,
+        text: job.data.text,
+        html: job.data.html,
+      });
+      if (job.data.deliveryId) {
+        await payrollFacade.markEmailDelivery({
+          deliveryId: job.data.deliveryId,
+          status: "SENT",
+        });
+      }
+    } catch (error) {
+      if (job.data.deliveryId) {
+        // A failed notification never reverses the issued payslip.
+        await payrollFacade.markEmailDelivery({
+          deliveryId: job.data.deliveryId,
+          status: "FAILED",
+          failureReason: error instanceof Error ? error.message : "Email send failed",
+        });
+      }
+      throw error;
+    }
   },
   { connection },
 );

@@ -4,6 +4,7 @@ import { companyFacade } from "@/server/facades/company-facade";
 import { employeeFacade } from "@/server/facades/employee-facade";
 import { CompanyTabs, BracketLabel, DataRow, StatusBadge, EmptyState } from "@/components/industrial";
 import { t } from "@/i18n";
+import Link from "next/link";
 import { CreateEmployeeForm } from "./create-form";
 
 function initials(first: string, last: string) {
@@ -33,6 +34,16 @@ export default async function EmployeesPage({
         activeId={companyId}
         hrefFor={(id) => `/admin/employees?companyId=${id}`}
       />
+      {companyId ? (
+        <div className="mb-4">
+          <Link
+            href={`/admin/companies/${companyId}/employees`}
+            className="text-sm font-semibold text-[var(--nova-teal)] hover:underline"
+          >
+            {t("en", "company.hub.openWorkspace")} →
+          </Link>
+        </div>
+      ) : null}
       {employees.length ? (
         <div className="grid gap-3">
           {employees.map((e) => {
@@ -51,13 +62,28 @@ export default async function EmployeesPage({
                     {initials(e.firstName, e.lastName)}
                   </div>
                 }
-                title={`${e.firstName} ${e.lastName}`}
+                title={
+                  <Link
+                    href={`/admin/companies/${e.companyId}/employees/${e.id}`}
+                    className="hover:text-[var(--nova-teal)] hover:underline"
+                  >
+                    {e.firstName} {e.lastName}
+                  </Link>
+                }
                 subtitle={`${e.employeeCode} · ${e.designation ?? "—"} · ${e.contact?.primaryPhone ?? ""} · ${e.contact?.officialEmail ?? ""}`}
                 action={
-                  <StatusBadge
-                    status={e.status}
-                    tone={blocked ? "neutral" : e.status === "ACTIVE" ? "success" : "warning"}
-                  />
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/admin/companies/${e.companyId}/employees/${e.id}`}
+                      className="text-sm font-medium text-[var(--nova-teal)] hover:underline"
+                    >
+                      {t("en", "admin.open")}
+                    </Link>
+                    <StatusBadge
+                      status={e.status}
+                      tone={blocked ? "neutral" : e.status === "ACTIVE" ? "success" : "warning"}
+                    />
+                  </div>
                 }
               />
             );
