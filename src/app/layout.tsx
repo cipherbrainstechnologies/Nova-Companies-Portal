@@ -18,7 +18,7 @@ const jakartaDisplay = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   title: "Nova Salary Portal",
-  description: "Secure multi-company salary slip delivery and finance reconciliation",
+  description: "Employee salary slips and secure document storage for multi-company teams",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

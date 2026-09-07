@@ -180,7 +180,7 @@ export function PublicChrome({
         <div className="mb-8 flex items-center justify-between gap-4">
           <div>
             <div className="h-display text-xl text-[var(--nova-ink)] md:text-2xl">{brand}</div>
-            <p className="meta mt-1">Secure payroll &amp; salary slips</p>
+            <p className="meta mt-1">Salary slips &amp; document storage</p>
           </div>
           {right}
         </div>

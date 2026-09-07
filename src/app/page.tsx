@@ -25,7 +25,7 @@ export default function HomePage() {
       <section className="overflow-hidden rounded-[var(--nova-radius-lg)] border border-[var(--nova-border)] bg-[var(--nova-surface)] shadow-[var(--nova-shadow-md)]">
         <div className="grid gap-0 lg:grid-cols-[1.35fr_0.65fr]">
           <div className="p-6 md:p-10 lg:p-12">
-            <BracketLabel>{t(locale, "brand")}</BracketLabel>
+            <BracketLabel>{t(locale, "hero.frame")}</BracketLabel>
             <h1 className="h-macro mt-4 max-w-3xl text-[clamp(2rem,5vw,3.5rem)]">
               {t(locale, "hero.problemTitle")}
             </h1>
@@ -33,19 +33,19 @@ export default function HomePage() {
               {t(locale, "hero.problemBody")}
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href="/login/admin">
-                <Button size="lg">{t(locale, "hero.ctaAdmin")}</Button>
-              </Link>
               <Link href="/login/employee">
+                <Button size="lg">{t(locale, "hero.ctaEmployee")}</Button>
+              </Link>
+              <Link href="/login/admin">
                 <Button size="lg" variant="outline">
-                  {t(locale, "hero.ctaEmployee")}
+                  {t(locale, "hero.ctaAdmin")}
                 </Button>
               </Link>
             </div>
           </div>
           <aside className="border-t border-[var(--nova-border)] bg-[var(--nova-ink)] p-6 text-white md:p-8 lg:border-l lg:border-t-0">
             <p className="text-xs font-semibold uppercase tracking-[0.1em] text-white/60">
-              Built for payroll ops
+              {t(locale, "hero.asideTitle")}
             </p>
             <ul className="mt-6 space-y-5">
               {[t(locale, "hero.point1"), t(locale, "hero.point2"), t(locale, "hero.point3")].map(
@@ -65,9 +65,9 @@ export default function HomePage() {
 
       <section className="mt-10 grid gap-4 md:grid-cols-3">
         {[
-          ["Payslip folders", t(locale, "hero.folderPayslips")],
-          ["Profit clarity", t(locale, "hero.folderProfit")],
-          ["Traceable math", t(locale, "hero.folderMath")],
+          [t(locale, "hero.featureSlipsTitle"), t(locale, "hero.featureSlips")],
+          [t(locale, "hero.featureDocsTitle"), t(locale, "hero.featureDocs")],
+          [t(locale, "hero.featureMultiTitle"), t(locale, "hero.featureMulti")],
         ].map(([title, body]) => (
           <article
             key={title}

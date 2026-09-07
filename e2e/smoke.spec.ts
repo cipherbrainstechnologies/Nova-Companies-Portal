@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 
 test("public marketing page loads", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByText(/Nova Salary Portal|Secure multi-company/i).first()).toBeVisible();
+  await expect(page.getByText(/Nova Salary Portal|salary slips|document storage/i).first()).toBeVisible();
   await expect(page.getByRole("link", { name: /log in|login/i }).first()).toBeVisible();
 });
 
