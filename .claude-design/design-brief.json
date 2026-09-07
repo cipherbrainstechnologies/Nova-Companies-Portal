@@ -1,0 +1,53 @@
+{
+  "scope": "page",
+  "isRedesign": true,
+  "targetPath": "src/app/page.tsx",
+  "targetName": "LandingPage",
+  "relatedSurfaces": [
+    "src/app/page.tsx",
+    "src/app/admin/dashboard/page.tsx",
+    "src/app/login/employee/page.tsx",
+    "src/components/admin-shell.tsx",
+    "src/components/portal-login-form.tsx"
+  ],
+  "painPoints": [
+    "Too cluttered/dense",
+    "Overall UI/UX rejected — redesign from scratch"
+  ],
+  "inspiration": {
+    "visual": ["Stripe"],
+    "functional": ["Optimistic updates"]
+  },
+  "brand": {
+    "adjectives": ["premium"],
+    "density": "comfortable",
+    "darkMode": "nice-to-have"
+  },
+  "persona": {
+    "primary": "Multi-role (operations + employees)",
+    "context": "both-equally",
+    "keyTasks": [
+      "Choose the correct portal from the landing page",
+      "Operate payroll/finance from the admin dashboard",
+      "Sign in as an employee and reach payslips"
+    ]
+  },
+  "constraints": {
+    "mustKeep": [],
+    "technical": ["use existing components where practical"],
+    "notes": "Visual identity may be fully replaced; prefer restyling Button/Input/Card over new libraries"
+  },
+  "inferredStyles": {
+    "legacyTokens": {
+      "sand": "#e8d5c4",
+      "clay": "#b87d6d",
+      "burgundy": "#5d2e46",
+      "dustyRose": "#d4a5a5"
+    },
+    "direction": "Leave industrial uppercase / zero-radius / hazard chrome behind. Explore Stripe-like premium clarity with comfortable spacing. Lab root resets global uppercase and forced zero radius for exploration only.",
+    "primitives": ["Button", "Input", "Card", "Label"]
+  },
+  "framework": "nextjs-app",
+  "packageManager": "npm",
+  "stylingSystem": "tailwind"
+}
