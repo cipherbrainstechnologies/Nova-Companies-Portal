@@ -4,8 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button, Card, Input, Label } from "@/components/ui";
+import { PublicChrome, BracketLabel, Meta } from "@/components/industrial";
+import { t } from "@/i18n";
 
 export default function LoginPage() {
+  const locale = "en" as const;
   const router = useRouter();
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -24,7 +27,7 @@ export default function LoginPage() {
     const data = await res.json();
     setLoading(false);
     if (!res.ok) {
-      setError(data.error ?? "Unable to sign in");
+      setError(data.error ?? t(locale, "login.error"));
       return;
     }
     if (data.mustChangePassword) {
@@ -36,33 +39,51 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6">
-      <Card>
-        <h1 className="h-display mb-4 text-2xl font-bold">Sign in</h1>
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="phone">Mobile number</Label>
-            <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} required />
-          </div>
-          <div>
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
-          <Button type="submit" disabled={loading} className="w-full">
-            {loading ? "Signing in…" : "Sign in"}
-          </Button>
-        </form>
-        <p className="mt-4 text-sm text-[var(--muted)]">
-          <Link href="/forgot-password">Forgot password</Link>
-        </p>
-      </Card>
-    </main>
+    <PublicChrome brand={t(locale, "brand")}>
+      <div className="mx-auto max-w-md">
+        <BracketLabel>AUTH / GATE</BracketLabel>
+        <h1 className="h-macro mt-2 text-[clamp(2rem,6vw,3.5rem)]">
+          {t(locale, "login.title")}
+        </h1>
+        <hr className="rule-accent mb-6 mt-3" />
+        <Card>
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="phone">{t(locale, "login.phone")}</Label>
+              <Input
+                id="phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                required
+                autoComplete="username"
+              />
+            </div>
+            <div>
+              <Label htmlFor="password">{t(locale, "login.password")}</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                className="normal-case"
+              />
+            </div>
+            {error ? (
+              <p className="meta text-[var(--accent)]" role="alert">
+                {'/// '} {error}
+              </p>
+            ) : null}
+            <Button type="submit" disabled={loading} className="w-full">
+              {loading ? t(locale, "login.signingIn") : `>>> ${t(locale, "login.submit")}`}
+            </Button>
+          </form>
+          <Meta className="mt-4 block">
+            <Link href="/forgot-password">{t(locale, "login.forgot")}</Link>
+          </Meta>
+        </Card>
+      </div>
+    </PublicChrome>
   );
 }

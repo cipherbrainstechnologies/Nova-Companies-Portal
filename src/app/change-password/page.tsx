@@ -3,8 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, Input, Label } from "@/components/ui";
+import { PublicChrome, BracketLabel } from "@/components/industrial";
+import { t } from "@/i18n";
 
 export default function ChangePasswordPage() {
+  const locale = "en" as const;
   const router = useRouter();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -19,7 +22,7 @@ export default function ChangePasswordPage() {
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error ?? "Failed");
+      setError(data.error ?? t(locale, "common.failed"));
       return;
     }
     const me = await fetch("/api/auth/me").then((r) => r.json());
@@ -28,35 +31,43 @@ export default function ChangePasswordPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6">
-      <Card>
-        <h1 className="h-display mb-4 text-2xl font-bold">Change password</h1>
-        <form onSubmit={onSubmit} className="space-y-3">
-          <div>
-            <Label>Current password</Label>
-            <Input
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              required
-            />
-          </div>
-          <div>
-            <Label>New password</Label>
-            <Input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
-              minLength={10}
-            />
-          </div>
-          {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
-          <Button type="submit" className="w-full">
-            Save
-          </Button>
-        </form>
-      </Card>
-    </main>
+    <PublicChrome brand={t(locale, "brand")}>
+      <div className="mx-auto max-w-md">
+        <BracketLabel>AUTH / ROTATE</BracketLabel>
+        <h1 className="h-macro mt-2 text-[clamp(2rem,6vw,3.5rem)]">
+          {t(locale, "change.title")}
+        </h1>
+        <hr className="rule-accent mb-6 mt-3" />
+        <Card>
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div>
+              <Label>{t(locale, "change.current")}</Label>
+              <Input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+                className="normal-case"
+              />
+            </div>
+            <div>
+              <Label>{t(locale, "change.new")}</Label>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                minLength={10}
+                className="normal-case"
+              />
+            </div>
+            {error ? <p className="meta text-[var(--accent)]">{'/// '} {error}</p> : null}
+            <Button type="submit" className="w-full">
+              {'>>> '} {t(locale, "change.submit")}
+            </Button>
+          </form>
+        </Card>
+      </div>
+    </PublicChrome>
   );
 }

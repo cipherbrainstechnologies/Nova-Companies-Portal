@@ -1,7 +1,7 @@
 import { requirePageUser } from "@/server/auth/page-guard";
 import { AdminShell } from "@/components/admin-shell";
 import { prisma } from "@/server/db";
-import { Card } from "@/components/ui";
+import { DataRow } from "@/components/industrial";
 import { t } from "@/i18n";
 
 export default async function UsersPermissionsPage() {
@@ -11,22 +11,20 @@ export default async function UsersPermissionsPage() {
     orderBy: { createdAt: "desc" },
   });
   return (
-    <AdminShell title={t("en", "admin.users")}>
+    <AdminShell title={t("en", "admin.users")} kicker="SECURITY / GRANTS">
       <div className="grid gap-3">
         {users.map((u) => (
-          <Card key={u.id}>
-            <div className="font-semibold">
-              {u.phone} · {u.globalRole}
-            </div>
-            <div className="text-sm text-[var(--muted)]">
-              Grants:{" "}
-              {u.permissionGrants.length
+          <DataRow
+            key={u.id}
+            title={`${u.phone} · ${u.globalRole}`}
+            subtitle={`${t("en", "admin.grants")}: ${
+              u.permissionGrants.length
                 ? u.permissionGrants
                     .map((g) => `${g.company.prefix}:${g.module}.${g.action}`)
                     .join(", ")
-                : "none"}
-            </div>
-          </Card>
+                : t("en", "admin.none")
+            }`}
+          />
         ))}
       </div>
     </AdminShell>

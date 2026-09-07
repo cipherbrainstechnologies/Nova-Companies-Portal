@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, Input, Label } from "@/components/ui";
+import { t } from "@/i18n";
 
 export function CreateEmployeeForm({ companyId }: { companyId: string }) {
   const router = useRouter();
@@ -26,40 +27,41 @@ export function CreateEmployeeForm({ companyId }: { companyId: string }) {
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error ?? "Failed");
+      setError(data.error ?? t("en", "common.failed"));
       return;
     }
     router.refresh();
   }
 
+  const fields = [
+    ["firstName", "admin.firstName", false],
+    ["lastName", "admin.lastName", false],
+    ["primaryPhone", "admin.primaryPhone", false],
+    ["officialEmail", "admin.officialEmail", false],
+    ["designation", "admin.designation", false],
+    ["temporaryPassword", "admin.tempPassword", true],
+  ] as const;
+
   return (
     <Card>
       <form onSubmit={onSubmit} className="grid gap-3 md:grid-cols-2">
-        {(
-          [
-            ["firstName", "First name"],
-            ["lastName", "Last name"],
-            ["primaryPhone", "Primary phone"],
-            ["officialEmail", "Official email"],
-            ["designation", "Designation"],
-            ["temporaryPassword", "Temporary password"],
-          ] as const
-        ).map(([key, label]) => (
+        {fields.map(([key, labelKey, isPassword]) => (
           <div key={key}>
-            <Label>{label}</Label>
+            <Label>{t("en", labelKey)}</Label>
             <Input
-              type={key === "temporaryPassword" ? "password" : "text"}
+              type={isPassword ? "password" : "text"}
               value={form[key]}
               onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
               required={key !== "designation"}
+              className={isPassword || key === "officialEmail" ? "normal-case" : undefined}
             />
           </div>
         ))}
         <div className="md:col-span-2">
-          <Button type="submit">Create employee</Button>
+          <Button type="submit">&gt;&gt;&gt; {t("en", "admin.createEmployee")}</Button>
         </div>
       </form>
-      {error ? <p className="mt-2 text-sm text-[var(--danger)]">{error}</p> : null}
+      {error ? <p className="meta mt-2 text-[var(--accent)]">{'/// '} {error}</p> : null}
     </Card>
   );
 }

@@ -1,7 +1,7 @@
 import { requirePageUser } from "@/server/auth/page-guard";
 import { AdminShell } from "@/components/admin-shell";
 import { prisma } from "@/server/db";
-import { Card } from "@/components/ui";
+import { DataRow } from "@/components/industrial";
 import { t } from "@/i18n";
 
 export default async function AuditLogsPage() {
@@ -11,17 +11,14 @@ export default async function AuditLogsPage() {
     take: 200,
   });
   return (
-    <AdminShell title={t("en", "admin.audit")}>
+    <AdminShell title={t("en", "admin.audit")} kicker="AUDIT / APPEND-ONLY">
       <div className="grid gap-2">
         {logs.map((l) => (
-          <Card key={l.id}>
-            <div className="text-sm font-medium">
-              {l.action} · {l.entityType}
-            </div>
-            <div className="text-xs text-[var(--muted)]">
-              {l.createdAt.toISOString()} · {l.entityId ?? "—"}
-            </div>
-          </Card>
+          <DataRow
+            key={l.id}
+            title={`${l.action} · ${l.entityType}`}
+            subtitle={`${l.createdAt.toISOString()} · ${l.entityId ?? "—"}`}
+          />
         ))}
       </div>
     </AdminShell>

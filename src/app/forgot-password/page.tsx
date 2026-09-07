@@ -1,10 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Card, Input, Label } from "@/components/ui";
 import Link from "next/link";
+import { Button, Card, Input, Label, Select } from "@/components/ui";
+import { PublicChrome, BracketLabel, Meta } from "@/components/industrial";
+import { t } from "@/i18n";
 
 export default function ForgotPasswordPage() {
+  const locale = "en" as const;
   const [phone, setPhone] = useState("");
   const [emailTarget, setEmailTarget] = useState<"personal" | "official">("official");
   const [message, setMessage] = useState("");
@@ -16,38 +19,43 @@ export default function ForgotPasswordPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone, emailTarget }),
     });
-    setMessage(res.ok ? "If the account exists, an OTP was sent." : "Request failed");
+    setMessage(res.ok ? t(locale, "forgot.sent") : t(locale, "forgot.failed"));
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6">
-      <Card>
-        <h1 className="h-display mb-4 text-2xl font-bold">Reset password</h1>
-        <form onSubmit={onSubmit} className="space-y-3">
-          <div>
-            <Label>Mobile number</Label>
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} required />
-          </div>
-          <div>
-            <Label>Send OTP to</Label>
-            <select
-              className="w-full rounded-md border border-[var(--line)] bg-[var(--paper)] px-3 py-2 text-sm"
-              value={emailTarget}
-              onChange={(e) => setEmailTarget(e.target.value as "personal" | "official")}
-            >
-              <option value="official">Official email</option>
-              <option value="personal">Personal email</option>
-            </select>
-          </div>
-          <Button type="submit" className="w-full">
-            Send OTP
-          </Button>
-        </form>
-        {message ? <p className="mt-3 text-sm text-[var(--muted)]">{message}</p> : null}
-        <p className="mt-4 text-sm">
-          <Link href="/reset-password">I have a code</Link>
-        </p>
-      </Card>
-    </main>
+    <PublicChrome brand={t(locale, "brand")}>
+      <div className="mx-auto max-w-md">
+        <BracketLabel>AUTH / RECOVERY</BracketLabel>
+        <h1 className="h-macro mt-2 text-[clamp(2rem,6vw,3.5rem)]">
+          {t(locale, "forgot.title")}
+        </h1>
+        <hr className="rule-accent mb-6 mt-3" />
+        <Card>
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div>
+              <Label>{t(locale, "login.phone")}</Label>
+              <Input value={phone} onChange={(e) => setPhone(e.target.value)} required />
+            </div>
+            <div>
+              <Label>{t(locale, "forgot.emailTarget")}</Label>
+              <Select
+                value={emailTarget}
+                onChange={(e) => setEmailTarget(e.target.value as "personal" | "official")}
+              >
+                <option value="official">{t(locale, "forgot.official")}</option>
+                <option value="personal">{t(locale, "forgot.personal")}</option>
+              </Select>
+            </div>
+            <Button type="submit" className="w-full">
+              {'>>> '} {t(locale, "forgot.submit")}
+            </Button>
+          </form>
+          {message ? <Meta className="mt-4 block text-[var(--muted)]">{message}</Meta> : null}
+          <Meta className="mt-4 block">
+            <Link href="/reset-password">{t(locale, "forgot.haveCode")}</Link>
+          </Meta>
+        </Card>
+      </div>
+    </PublicChrome>
   );
 }

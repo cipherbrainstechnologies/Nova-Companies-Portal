@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, Input, Label } from "@/components/ui";
+import { t } from "@/i18n";
 
 export function CreatePayrollForm({ companyId }: { companyId: string }) {
   const router = useRouter();
@@ -20,7 +21,7 @@ export function CreatePayrollForm({ companyId }: { companyId: string }) {
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error ?? "Failed");
+      setError(data.error ?? t("en", "common.failed"));
       return;
     }
     router.refresh();
@@ -30,16 +31,16 @@ export function CreatePayrollForm({ companyId }: { companyId: string }) {
     <Card>
       <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-3">
         <div>
-          <Label>Year</Label>
+          <Label>{t("en", "admin.year")}</Label>
           <Input value={year} onChange={(e) => setYear(e.target.value)} />
         </div>
         <div>
-          <Label>Month</Label>
+          <Label>{t("en", "admin.month")}</Label>
           <Input value={month} onChange={(e) => setMonth(e.target.value)} />
         </div>
-        <Button type="submit">Create payroll run</Button>
+        <Button type="submit">&gt;&gt;&gt; {t("en", "admin.createPayroll")}</Button>
       </form>
-      {error ? <p className="mt-2 text-sm text-[var(--danger)]">{error}</p> : null}
+      {error ? <p className="meta mt-2 text-[var(--accent)]">{'/// '} {error}</p> : null}
     </Card>
   );
 }

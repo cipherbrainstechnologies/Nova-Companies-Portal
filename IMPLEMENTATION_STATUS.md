@@ -55,6 +55,14 @@ Before real payroll:
 7. Install Playwright Chromium on the worker image for production PDF quality.
 8. Have a CA review TDS estimates and Form 16 exports — v1 does not file returns.
 
+## UI system
+
+Swiss Industrial Print (industrialist-brutalist skill) applied across all pages:
+- Substrate `#F4F4F0` / `#EAE8E3`, ink `#111`, sole accent hazard red `#E61919`
+- Archivo Black macro + IBM Plex Mono micro; zero radius; hard borders; hazard bar; unit stamps
+- Shared primitives in `src/components/industrial.tsx` + restyled `ui.tsx` / `admin-shell.tsx`
+- i18n catalog expanded en/fr/es for new UI copy
+
 ## Next precise task
 
 Operate locally with `npm run dev` + `npm run worker`, or deploy per `docs/RAILWAY_DEPLOYMENT.md`.

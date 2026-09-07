@@ -28,3 +28,10 @@
 - Employee payslip downloads validate payslip ownership, issue short-lived private-storage URLs, and append `DocumentDownloadAudit` records.
 - Public document verification exposes validity and provenance only; salary and bank details are never returned.
 - Password reset, forced password change, admin operations, employee self-service, statement reconciliation, payroll, TDS, and profit reporting are exposed through dedicated App Router pages.
+
+## Admin interface system
+
+- All admin pages use the Swiss Industrial Print system through `AdminShell`, `@/components/ui`, and `@/components/industrial`.
+- Administrative data is presented with hard two-pixel borders, square corners, uppercase monospace metadata, Archivo Black macro headings, and the single red hazard accent.
+- Company-scoped admin views use `CompanyTabs`; summary metrics use `StatCell`; operational records use `DataRow`.
+- Legacy rounded cards, soft shadows, gradients, and secondary accent palettes are prohibited on admin surfaces.

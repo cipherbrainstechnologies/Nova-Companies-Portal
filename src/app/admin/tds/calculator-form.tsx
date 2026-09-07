@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Button, Card, Input, Label } from "@/components/ui";
+import { Meta } from "@/components/industrial";
+import { t } from "@/i18n";
 
 export function TdsCalculatorForm() {
   const [monthly, setMonthly] = useState("35000");
@@ -35,16 +37,18 @@ export function TdsCalculatorForm() {
     <Card>
       <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-3">
         <div>
-          <Label>Monthly taxable components</Label>
+          <Label>{t("en", "admin.monthlyTaxable")}</Label>
           <Input value={monthly} onChange={(e) => setMonthly(e.target.value)} />
         </div>
-        <Button type="submit">Project TDS</Button>
+        <Button type="submit">&gt;&gt;&gt; {t("en", "admin.projectTds")}</Button>
       </form>
       {result ? (
-        <pre className="mt-4 overflow-auto rounded-md bg-[var(--paper-soft)] p-3 text-xs">
+        <pre className="meta mt-4 overflow-auto border-2 border-[var(--ink)] bg-[var(--bg-alt)] p-3 text-[0.65rem] normal-case tracking-[0.02em]">
           {JSON.stringify(result, null, 2)}
         </pre>
-      ) : null}
+      ) : (
+        <Meta className="mt-3 block text-[var(--muted)]">Awaiting projection input</Meta>
+      )}
     </Card>
   );
 }

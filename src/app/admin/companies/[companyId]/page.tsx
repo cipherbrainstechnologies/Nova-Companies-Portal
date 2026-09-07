@@ -2,6 +2,7 @@ import { requirePageUser } from "@/server/auth/page-guard";
 import { companyFacade } from "@/server/facades/company-facade";
 import { AdminShell } from "@/components/admin-shell";
 import { Card } from "@/components/ui";
+import { Meta } from "@/components/industrial";
 import { t } from "@/i18n";
 
 export default async function CompanyDetailPage({
@@ -13,22 +14,29 @@ export default async function CompanyDetailPage({
   const { companyId } = await params;
   const company = await companyFacade.getCompany(companyId);
   return (
-    <AdminShell title={company.name}>
+    <AdminShell title={company.name} kicker="REGISTRY / DETAIL">
       <Card>
-        <div className="grid gap-2 text-sm">
+        <dl className="grid gap-4 sm:grid-cols-2">
           <div>
-            <strong>Prefix:</strong> {company.prefix}
+            <dt className="meta text-[var(--muted)]">{t("en", "admin.prefix")}</dt>
+            <dd className="h-display text-2xl">{company.prefix}</dd>
           </div>
           <div>
-            <strong>GSTIN:</strong> {company.gstin ?? t("en", "common.needsConfig")}
+            <dt className="meta text-[var(--muted)]">{t("en", "admin.gstin")}</dt>
+            <dd>{company.gstin ?? t("en", "common.needsConfig")}</dd>
+          </div>
+          <div className="sm:col-span-2">
+            <dt className="meta text-[var(--muted)]">{t("en", "admin.address")}</dt>
+            <dd className="normal-case tracking-[0.04em]">
+              {company.address ?? t("en", "common.needsConfig")}
+            </dd>
           </div>
           <div>
-            <strong>Address:</strong> {company.address ?? t("en", "common.needsConfig")}
+            <Meta>
+              {company.isActive ? t("en", "admin.active") : t("en", "admin.inactive")}
+            </Meta>
           </div>
-          <div>
-            <strong>Active:</strong> {company.isActive ? "yes" : "no"}
-          </div>
-        </div>
+        </dl>
       </Card>
     </AdminShell>
   );

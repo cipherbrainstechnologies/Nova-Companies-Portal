@@ -1,7 +1,8 @@
 import { requirePageUser } from "@/server/auth/page-guard";
 import { AdminShell } from "@/components/admin-shell";
 import { prisma } from "@/server/db";
-import { Card } from "@/components/ui";
+import { StatCell } from "@/components/industrial";
+import { Meta } from "@/components/industrial";
 import { t } from "@/i18n";
 
 export default async function AdminDashboardPage() {
@@ -14,28 +15,24 @@ export default async function AdminDashboardPage() {
   ]);
 
   return (
-    <AdminShell title={t("en", "admin.dashboard")}>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <div className="text-sm text-[var(--muted)]">Companies</div>
-          <div className="mt-2 text-3xl font-semibold">{companies}</div>
-        </Card>
-        <Card>
-          <div className="text-sm text-[var(--muted)]">Statements processing</div>
-          <div className="mt-2 text-3xl font-semibold">{statements}</div>
-        </Card>
-        <Card>
-          <div className="text-sm text-[var(--muted)]">Unmatched / needs review</div>
-          <div className="mt-2 text-3xl font-semibold">{unmatched}</div>
-        </Card>
-        <Card>
-          <div className="text-sm text-[var(--muted)]">Slips waiting issue</div>
-          <div className="mt-2 text-3xl font-semibold">{pendingLines}</div>
-        </Card>
+    <AdminShell title={t("en", "admin.dashboard")} kicker="OPS / TELEMETRY">
+      <div className="grid gap-px bg-[var(--ink)] sm:grid-cols-2 lg:grid-cols-4">
+        <div className="bg-[var(--bg)]">
+          <StatCell label={t("en", "admin.stat.companies")} value={companies} />
+        </div>
+        <div className="bg-[var(--bg)]">
+          <StatCell label={t("en", "admin.stat.processing")} value={statements} />
+        </div>
+        <div className="bg-[var(--bg)]">
+          <StatCell label={t("en", "admin.stat.review")} value={unmatched} alert={unmatched > 0} />
+        </div>
+        <div className="bg-[var(--bg)]">
+          <StatCell label={t("en", "admin.stat.waiting")} value={pendingLines} alert={pendingLines > 0} />
+        </div>
       </div>
-      <p className="mt-6 text-sm text-[var(--muted)]">
-        Profit views separate earned operating profit from owner/financing outgoings. Bank balance is never labeled as profit.
-      </p>
+      <div className="mt-6 border-2 border-[var(--ink)] bg-[var(--bg-alt)] p-4">
+        <Meta className="text-[var(--muted)]">{t("en", "admin.profitNote")}</Meta>
+      </div>
     </AdminShell>
   );
 }

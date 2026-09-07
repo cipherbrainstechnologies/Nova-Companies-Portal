@@ -1,53 +1,149 @@
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Source+Sans+3:wght@400;600;700&display=swap");
 @import "tailwindcss";
 
 :root {
-  --ink: #14221c;
-  --ink-soft: #24362c;
-  --paper: #f7f3ea;
-  --paper-soft: #efe8d8;
-  --line: #d5cdb8;
-  --accent: #0f6b5c;
-  --accent-soft: #d7ebe5;
-  --muted: #6d746c;
-  --danger: #9b2c2c;
-  --hero-deep: #0b3d34;
-  --hero-mid: #146355;
-  --hero-glow: #c6a15b;
+  --bg: #f4f4f0;
+  --bg-alt: #eae8e3;
+  --ink: #111111;
+  --ink-deep: #050505;
+  --muted: #5c5c56;
+  --line: #111111;
+  --accent: #e61919;
+  --paper: #f4f4f0;
+  --paper-soft: #eae8e3;
+  --danger: #e61919;
+  --ok: #111111;
 }
 
 @theme inline {
-  --color-background: var(--paper);
+  --color-background: var(--bg);
   --color-foreground: var(--ink);
-  --font-sans: "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Fraunces", Georgia, serif;
+  --font-display: var(--font-display-loaded), "Archivo Black", "Arial Black", Impact, sans-serif;
+  --font-mono: var(--font-mono-loaded), "IBM Plex Mono", "Courier New", monospace;
+  --font-sans: var(--font-mono-loaded), "IBM Plex Mono", "Courier New", monospace;
 }
 
 * {
   box-sizing: border-box;
+  border-radius: 0 !important;
 }
 
+html,
 body {
   margin: 0;
-  min-height: 100vh;
-  background:
-    radial-gradient(1200px 500px at 10% -10%, rgba(20, 99, 85, 0.18), transparent 60%),
-    radial-gradient(900px 400px at 100% 0%, rgba(198, 161, 91, 0.16), transparent 55%),
-    linear-gradient(180deg, #fbf8f1 0%, var(--paper) 45%, #efe8d8 100%);
+  min-height: 100%;
+  background: var(--bg);
   color: var(--ink);
-  font-family: var(--font-sans);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-h1,
-h2,
-.h-display {
-  font-family: var(--font-display);
-  letter-spacing: -0.02em;
+body::before {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  opacity: 0.045;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 a {
   color: inherit;
   text-decoration: none;
+}
+
+a:hover {
+  color: var(--accent);
+}
+
+.h-macro {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.045em;
+  line-height: 0.9;
+  text-transform: uppercase;
+}
+
+.h-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.04em;
+  line-height: 0.92;
+  text-transform: uppercase;
+}
+
+.meta {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.rule {
+  border: 0;
+  border-top: 2px solid var(--ink);
+  margin: 0;
+}
+
+.rule-accent {
+  border: 0;
+  border-top: 4px solid var(--accent);
+  margin: 0;
+}
+
+.grid-lines {
+  display: grid;
+  gap: 1px;
+  background: var(--ink);
+}
+
+.grid-lines > * {
+  background: var(--bg);
+}
+
+.frame {
+  border: 2px solid var(--ink);
+  background: var(--bg);
+}
+
+.frame-inset {
+  border: 1px solid var(--ink);
+  background: var(--bg-alt);
+}
+
+.hazard-bar {
+  height: 10px;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--accent),
+    var(--accent) 8px,
+    var(--ink) 8px,
+    var(--ink) 16px
+  );
+}
+
+.crosshair::before {
+  content: "+";
+  color: var(--accent);
+  margin-right: 0.35rem;
+  font-family: var(--font-mono);
+}
+
+input,
+select,
+textarea,
+button {
+  font-family: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-radius: 0 !important;
+}
+
+::selection {
+  background: var(--accent);
+  color: #fff;
 }
 
 @media (prefers-reduced-motion: reduce) {

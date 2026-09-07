@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requirePageUser } from "@/server/auth/page-guard";
 import { AdminShell } from "@/components/admin-shell";
 import { companyFacade } from "@/server/facades/company-facade";
-import { Card } from "@/components/ui";
+import { DataRow, BracketLabel } from "@/components/industrial";
 import { t } from "@/i18n";
 import { CreateCompanyForm } from "./create-form";
 
@@ -11,26 +11,27 @@ export default async function CompaniesPage() {
   const companies = await companyFacade.listCompanies();
 
   return (
-    <AdminShell title={t("en", "admin.companies")}>
-      <div className="grid gap-4">
+    <AdminShell title={t("en", "admin.companies")} kicker="REGISTRY / ORG">
+      <div className="grid gap-3">
         {companies.map((c) => (
-          <Card key={c.id}>
-            <Link href={`/admin/companies/${c.id}`} className="flex items-center justify-between">
-              <div>
-                <div className="font-semibold">{c.name}</div>
-                <div className="text-sm text-[var(--muted)]">
-                  Prefix {c.prefix} · GSTIN {c.gstin ?? t("en", "common.needsConfig")}
-                </div>
-              </div>
-              <span className="text-sm text-[var(--accent)]">Open</span>
-            </Link>
-          </Card>
+          <DataRow
+            key={c.id}
+            title={c.name}
+            subtitle={`Prefix ${c.prefix} · GSTIN ${c.gstin ?? t("en", "common.needsConfig")}`}
+            action={
+              <Link href={`/admin/companies/${c.id}`} className="meta text-[var(--accent)]">
+                &gt;&gt;&gt; {t("en", "admin.open")}
+              </Link>
+            }
+          />
         ))}
       </div>
       {user.globalRole === "SUPER_ADMIN" ? (
         <div className="mt-8">
-          <h2 className="h-display mb-3 text-xl font-bold">Add company</h2>
-          <CreateCompanyForm />
+          <BracketLabel>{t("en", "admin.addCompany")}</BracketLabel>
+          <div className="mt-3">
+            <CreateCompanyForm />
+          </div>
         </div>
       ) : null}
     </AdminShell>
