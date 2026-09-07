@@ -43,7 +43,7 @@ export function AdminShell({
               <Link
                 key={l.href}
                 href={l.href}
-                className="meta flex items-center gap-2 border-b border-[var(--ink)] px-4 py-3 hover:bg-[var(--bg)] hover:text-[var(--accent)]"
+                className="meta flex min-h-12 items-center gap-2 border-b border-[var(--ink)] px-4 py-3 hover:bg-[var(--bg)] hover:text-[var(--accent)]"
               >
                 <span className="text-[var(--accent)]">{l.code}</span>
                 <span>{t("en", l.key)}</span>
@@ -51,7 +51,7 @@ export function AdminShell({
             ))}
             <button
               type="button"
-              className="meta border-b border-[var(--ink)] px-4 py-3 text-left text-[var(--muted)] hover:text-[var(--accent)]"
+              className="meta min-h-12 border-b border-[var(--ink)] px-4 py-3 text-left text-[var(--muted)] hover:text-[var(--accent)]"
               onClick={() => {
                 void fetch("/api/auth/logout", { method: "POST" }).then(() => {
                   window.location.href = "/login";

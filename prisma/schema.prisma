@@ -122,7 +122,8 @@ enum ProfitTreatment {
 model User {
   id                   String    @id @default(cuid())
   phone                String    @unique
-  email                String?
+  email                String?   @unique
+  displayName          String?
   passwordHash         String
   globalRole           GlobalRole
   mustChangePassword   Boolean   @default(true)

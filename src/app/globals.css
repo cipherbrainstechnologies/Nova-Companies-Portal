@@ -1,25 +1,35 @@
 @import "tailwindcss";
 
+/* Theme: Desert Rose (theme-factory) + industrial structure + mobile touch targets */
 :root {
-  --bg: #f4f4f0;
-  --bg-alt: #eae8e3;
-  --ink: #111111;
-  --ink-deep: #050505;
-  --muted: #5c5c56;
-  --line: #111111;
-  --accent: #e61919;
-  --paper: #f4f4f0;
-  --paper-soft: #eae8e3;
-  --danger: #e61919;
-  --ok: #111111;
+  --dusty-rose: #d4a5a5;
+  --clay: #b87d6d;
+  --sand: #e8d5c4;
+  --sand-deep: #ddc7b3;
+  --burgundy: #5d2e46;
+  --burgundy-deep: #3f1d2f;
+
+  --bg: var(--sand);
+  --bg-alt: var(--sand-deep);
+  --ink: var(--burgundy);
+  --ink-deep: var(--burgundy-deep);
+  --muted: #8a6570;
+  --line: var(--burgundy);
+  --accent: var(--clay);
+  --accent-soft: var(--dusty-rose);
+  --paper: var(--sand);
+  --paper-soft: var(--sand-deep);
+  --danger: var(--clay);
+  --ok: var(--burgundy);
+  --on-accent: #fffaf6;
 }
 
 @theme inline {
   --color-background: var(--bg);
   --color-foreground: var(--ink);
-  --font-display: var(--font-display-loaded), "Archivo Black", "Arial Black", Impact, sans-serif;
-  --font-mono: var(--font-mono-loaded), "IBM Plex Mono", "Courier New", monospace;
-  --font-sans: var(--font-mono-loaded), "IBM Plex Mono", "Courier New", monospace;
+  --font-display: var(--font-display-loaded), "Source Sans 3", "FreeSans", Arial, sans-serif;
+  --font-mono: var(--font-body-loaded), "Source Sans 3", "FreeSans", Arial, sans-serif;
+  --font-sans: var(--font-body-loaded), "Source Sans 3", "FreeSans", Arial, sans-serif;
 }
 
 * {
@@ -31,12 +41,19 @@ html,
 body {
   margin: 0;
   min-height: 100%;
+}
+
+body {
   background: var(--bg);
   color: var(--ink);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  letter-spacing: 0.04em;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
 }
 
 body::before {
@@ -45,8 +62,8 @@ body::before {
   position: fixed;
   inset: 0;
   z-index: 50;
-  opacity: 0.045;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 a {
@@ -60,22 +77,25 @@ a:hover {
 
 .h-macro {
   font-family: var(--font-display);
-  font-weight: 400;
-  letter-spacing: -0.045em;
-  line-height: 0.9;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 0.92;
   text-transform: uppercase;
+  color: var(--ink-deep);
 }
 
 .h-display {
   font-family: var(--font-display);
-  letter-spacing: -0.04em;
-  line-height: 0.92;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 0.94;
   text-transform: uppercase;
 }
 
 .meta {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
@@ -117,10 +137,10 @@ a:hover {
   height: 10px;
   background: repeating-linear-gradient(
     -45deg,
-    var(--accent),
-    var(--accent) 8px,
-    var(--ink) 8px,
-    var(--ink) 16px
+    var(--clay),
+    var(--clay) 8px,
+    var(--burgundy) 8px,
+    var(--burgundy) 16px
   );
 }
 
@@ -128,7 +148,7 @@ a:hover {
   content: "+";
   color: var(--accent);
   margin-right: 0.35rem;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
 }
 
 input,
@@ -137,13 +157,28 @@ textarea,
 button {
   font-family: inherit;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   border-radius: 0 !important;
+  min-height: 48px;
 }
 
 ::selection {
-  background: var(--accent);
-  color: #fff;
+  background: var(--clay);
+  color: var(--on-accent);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  body {
+    font-size: 13px;
+  }
+
+  .h-macro {
+    letter-spacing: -0.02em;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

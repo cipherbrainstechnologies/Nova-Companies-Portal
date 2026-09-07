@@ -14,28 +14,42 @@ async function main() {
     return;
   }
 
-  const adminPhone = "+919999000001";
+  const adminPassword = await hashPassword("Swrit#1311");
   const admin = await prisma.user.upsert({
-    where: { phone: adminPhone },
-    update: {},
-    create: {
-      phone: adminPhone,
-      email: "admin@nova.local",
-      passwordHash: await hashPassword("ChangeMeNow!!"),
+    where: { phone: "+919999131101" },
+    update: {
+      email: "thenovaworkforce@gmail.com",
+      displayName: "Love Chauhan",
+      passwordHash: adminPassword,
       globalRole: "SUPER_ADMIN",
-      mustChangePassword: true,
+      mustChangePassword: false,
+      isActive: true,
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+    },
+    create: {
+      phone: "+919999131101",
+      email: "thenovaworkforce@gmail.com",
+      displayName: "Love Chauhan",
+      passwordHash: adminPassword,
+      globalRole: "SUPER_ADMIN",
+      mustChangePassword: false,
     },
   });
 
   const nw = await prisma.company.upsert({
     where: { prefix: "NW" },
-    update: {},
+    update: {
+      name: "Nova Workforce",
+      gstin: "Needs configuration",
+      address: "Needs configuration",
+    },
     create: {
       name: "Nova Workforce",
       prefix: "NW",
       gstin: "Needs configuration",
       address: "Needs configuration",
-      sequence: { create: { nextNumber: 20 } },
+      sequence: { create: { nextNumber: 21 } },
     },
   });
 
@@ -70,7 +84,92 @@ async function main() {
     await seedDefaultProfitPolicies(company.id);
   }
 
-  console.log("Seeded super admin", admin.phone, "companies", nw.prefix, nq.prefix);
+  const demoCode = "NW-0020";
+  const demoPhone = "+919888000020";
+  let demoEmployee = await prisma.employee.findFirst({
+    where: { companyId: nw.id, employeeCode: demoCode },
+    include: { user: true, contact: true },
+  });
+
+  if (!demoEmployee) {
+    demoEmployee = await prisma.employee.create({
+      data: {
+        companyId: nw.id,
+        employeeCode: demoCode,
+        firstName: "Demo",
+        lastName: "Employee",
+        designation: "Operations Associate",
+        department: "Ops",
+        location: "India",
+        dateOfJoining: new Date("2025-04-01"),
+        status: "ACTIVE",
+        contact: {
+          create: {
+            personalEmail: "demo.employee@nova.local",
+            officialEmail: "demo.employee@novaworkforce.local",
+            primaryPhone: demoPhone,
+          },
+        },
+        bankAccount: {
+          create: {
+            bankName: "Axis Bank",
+            accountNumber: "XXXXXXXX4521",
+            accountLast4: "4521",
+            ifsc: "UTIB0000000",
+          },
+        },
+        salaryStructure: {
+          create: {
+            componentsJson: {
+              BASIC: 17500,
+              HRA: 8750,
+              CONV: 1200,
+              MED: 1000,
+              SPEC: 2600,
+              TRAV: 1200,
+              OTHER: 2750,
+              net: 33671,
+            },
+          },
+        },
+      },
+      include: { user: true, contact: true },
+    });
+  }
+
+  const demoPassword = await hashPassword("DemoEmp#1311");
+  if (demoEmployee.user) {
+    await prisma.user.update({
+      where: { id: demoEmployee.user.id },
+      data: {
+        phone: demoPhone,
+        email: "demo.employee@novaworkforce.local",
+        displayName: "Demo Employee",
+        passwordHash: demoPassword,
+        globalRole: "EMPLOYEE",
+        mustChangePassword: false,
+        isActive: true,
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      },
+    });
+  } else {
+    await prisma.user.create({
+      data: {
+        phone: demoPhone,
+        email: "demo.employee@novaworkforce.local",
+        displayName: "Demo Employee",
+        passwordHash: demoPassword,
+        globalRole: "EMPLOYEE",
+        mustChangePassword: false,
+        employeeId: demoEmployee.id,
+      },
+    });
+  }
+
+  console.log("Seeded admin:", admin.displayName, admin.email);
+  console.log("Seeded demo employee:", demoCode, demoPhone, "password DemoEmp#1311");
+  console.log("Companies:", nw.prefix, nq.prefix);
 }
 
 main()

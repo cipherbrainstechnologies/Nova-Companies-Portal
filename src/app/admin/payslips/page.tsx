@@ -1,7 +1,9 @@
 import { requirePageUser } from "@/server/auth/page-guard";
 import { AdminShell } from "@/components/admin-shell";
 import { prisma } from "@/server/db";
-import { DataRow } from "@/components/industrial";
+import { groupPayslipsAsFolders } from "@/server/documents/folder-tree";
+import { PayslipFolderBrowser } from "@/components/payslip-folder-browser";
+import { Meta } from "@/components/industrial";
 import { t } from "@/i18n";
 
 export default async function PayslipsAdminPage() {
@@ -9,20 +11,31 @@ export default async function PayslipsAdminPage() {
   const slips = await prisma.payslip.findMany({
     include: { employee: true, payrollRun: true, company: true },
     orderBy: { createdAt: "desc" },
-    take: 100,
+    take: 500,
   });
 
+  const tree = groupPayslipsAsFolders(
+    slips.map((s) => ({
+      id: s.id,
+      status: s.status,
+      verificationCode: s.verificationCode,
+      currentVersion: s.currentVersion,
+      employeeCode: s.employee.employeeCode,
+      employeeName: `${s.employee.firstName} ${s.employee.lastName}`,
+      companyPrefix: s.company.prefix,
+      year: s.payrollRun.year,
+      month: s.payrollRun.month,
+    })),
+  );
+
   return (
-    <AdminShell title={t("en", "admin.payslips")} kicker="DOCUMENTS / ISSUED">
-      <div className="grid gap-3">
-        {slips.map((s) => (
-          <DataRow
-            key={s.id}
-            title={`${s.company.name} · ${s.employee.employeeCode} · ${s.status}`}
-            subtitle={`${String(s.payrollRun.month).padStart(2, "0")}/${s.payrollRun.year} · verify ${s.verificationCode}`}
-          />
-        ))}
+    <AdminShell title={t("en", "admin.payslips")} kicker="DOCUMENTS / FOLDER TREE">
+      <div className="mb-4 border-2 border-[var(--ink)] bg-[var(--bg-alt)] p-4">
+        <Meta className="normal-case tracking-[0.04em] text-[var(--muted)]">
+          {t("en", "admin.payslipFolderHelp")}
+        </Meta>
       </div>
+      <PayslipFolderBrowser tree={tree} allowDownload />
     </AdminShell>
   );
 }

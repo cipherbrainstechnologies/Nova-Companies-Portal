@@ -29,20 +29,39 @@ export class LoginError extends Error {
   }
 }
 
-export async function loginWithPhonePassword(input: {
-  phone: string;
+export async function loginWithCredentials(input: {
+  portal: "admin" | "employee";
+  identifier: string;
   password: string;
   ipAddress?: string;
   userAgent?: string;
 }) {
-  const phone = normalizeIndianPhone(input.phone);
-  const user = await prisma.user.findUnique({
-    where: { phone },
-    include: { employee: true },
-  });
+  const identifier = input.identifier.trim();
+  const user =
+    input.portal === "admin"
+      ? await prisma.user.findFirst({
+          where: {
+            OR: [
+              { email: { equals: identifier, mode: "insensitive" } },
+              ...(looksLikePhone(identifier)
+                ? [{ phone: normalizeIndianPhone(identifier) }]
+                : []),
+            ],
+            globalRole: { in: ["SUPER_ADMIN", "OPERATIONS_MANAGER"] },
+          },
+          include: { employee: true },
+        })
+      : await findEmployeeUser(identifier);
 
   if (!user || !user.isActive) {
     throw new LoginError("Invalid credentials");
+  }
+
+  if (input.portal === "admin" && user.globalRole === "EMPLOYEE") {
+    throw new LoginError("Use employee login for this account");
+  }
+  if (input.portal === "employee" && user.globalRole !== "EMPLOYEE") {
+    throw new LoginError("Use admin login for this account");
   }
 
   if (user.lockedUntil && user.lockedUntil > new Date()) {
@@ -99,13 +118,59 @@ export async function loginWithPhonePassword(input: {
     action: "auth.login",
     entityType: "User",
     entityId: user.id,
+    metadata: { portal: input.portal },
     ipAddress: input.ipAddress,
   });
 
   return {
     mustChangePassword: user.mustChangePassword,
     globalRole: user.globalRole,
+    displayName: user.displayName,
   };
+}
+
+/** @deprecated prefer loginWithCredentials */
+export async function loginWithPhonePassword(input: {
+  phone: string;
+  password: string;
+  ipAddress?: string;
+  userAgent?: string;
+}) {
+  return loginWithCredentials({
+    portal: "employee",
+    identifier: input.phone,
+    password: input.password,
+    ipAddress: input.ipAddress,
+    userAgent: input.userAgent,
+  });
+}
+
+function looksLikePhone(value: string): boolean {
+  return /\d{10}/.test(value.replace(/\D/g, ""));
+}
+
+async function findEmployeeUser(identifier: string) {
+  if (looksLikePhone(identifier)) {
+    try {
+      const phone = normalizeIndianPhone(identifier);
+      return prisma.user.findUnique({
+        where: { phone },
+        include: { employee: true },
+      });
+    } catch {
+      /* fall through to employee code */
+    }
+  }
+
+  const code = identifier.toUpperCase().trim();
+  const employee = await prisma.employee.findFirst({
+    where: { employeeCode: { equals: code, mode: "insensitive" } },
+  });
+  if (!employee) return null;
+  return prisma.user.findUnique({
+    where: { employeeId: employee.id },
+    include: { employee: true },
+  });
 }
 
 export async function changePassword(input: {

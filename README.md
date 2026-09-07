@@ -19,7 +19,14 @@ npm run dev
 npm run worker
 ```
 
-Dev super admin (after seed): phone `+919999000001` / password `ChangeMeNow!!` (forced change on first login).
+Dev credentials (after `SEED_DEV=1` seed):
+
+| Portal | Login | Password |
+|---|---|---|
+| Admin | `thenovaworkforce@gmail.com` | `Swrit#1311` |
+| Employee | `NW-0020` | `DemoEmp#1311` |
+
+Use `/login/admin` and `/login/employee` (chooser at `/login`).
 
 ## Scripts
 

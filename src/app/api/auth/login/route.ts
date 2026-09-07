@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { loginWithPhonePassword, LoginError } from "@/server/auth/login";
+import { loginWithCredentials, LoginError } from "@/server/auth/login";
 
 const schema = z.object({
-  phone: z.string().min(10),
+  portal: z.enum(["admin", "employee"]),
+  identifier: z.string().min(3),
   password: z.string().min(1),
 });
 
 export async function POST(req: NextRequest) {
   try {
     const body = schema.parse(await req.json());
-    const result = await loginWithPhonePassword({
-      phone: body.phone,
+    const result = await loginWithCredentials({
+      portal: body.portal,
+      identifier: body.identifier,
       password: body.password,
       ipAddress: req.headers.get("x-forwarded-for") ?? undefined,
       userAgent: req.headers.get("user-agent") ?? undefined,

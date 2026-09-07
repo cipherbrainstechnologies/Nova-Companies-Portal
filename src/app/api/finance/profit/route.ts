@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "companyId, year, month required" }, { status: 400 });
     }
     await requirePermission({ user, companyId, module: "finance", action: "view" });
-    const profit = await computeMonthlyProfit({ companyId, year, month });
+    const profit = await computeMonthlyProfit({ companyId, year, month, persistSheet: true });
     return NextResponse.json({
       profit,
       labels: {
@@ -26,6 +26,9 @@ export async function GET(req: NextRequest) {
     if (err instanceof AuthError || err instanceof AuthzError) {
       return NextResponse.json({ error: err.message }, { status: err.status });
     }
-    return NextResponse.json({ error: "Failed" }, { status: 500 });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed" },
+      { status: 500 },
+    );
   }
 }

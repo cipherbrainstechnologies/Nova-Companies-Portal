@@ -1,17 +1,20 @@
 import type { Metadata } from "next";
-import { Archivo_Black, IBM_Plex_Mono } from "next/font/google";
+import { Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 
-const display = Archivo_Black({
-  weight: "400",
+/** Desert Rose ≈ FreeSans Bold / FreeSans via Source Sans 3 */
+const sourceSans = Source_Sans_3({
+  weight: ["400", "600", "700"],
   subsets: ["latin"],
-  variable: "--font-display-loaded",
+  variable: "--font-body-loaded",
+  display: "swap",
 });
 
-const mono = IBM_Plex_Mono({
-  weight: ["400", "500", "600"],
+const sourceSansDisplay = Source_Sans_3({
+  weight: ["700"],
   subsets: ["latin"],
-  variable: "--font-mono-loaded",
+  variable: "--font-display-loaded",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -21,13 +24,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${mono.variable}`}>
-      <body
-        style={{
-          fontFamily: "var(--font-mono-loaded), var(--font-mono)",
-          // display font applied via CSS vars override
-        }}
-      >
+    <html lang="en" className={`${sourceSans.variable} ${sourceSansDisplay.variable}`}>
+      <body style={{ fontFamily: "var(--font-body-loaded), var(--font-sans)" }}>
         {children}
       </body>
     </html>

@@ -63,6 +63,28 @@ Swiss Industrial Print (industrialist-brutalist skill) applied across all pages:
 - Shared primitives in `src/components/industrial.tsx` + restyled `ui.tsx` / `admin-shell.tsx`
 - i18n catalog expanded en/fr/es for new UI copy
 
+## UI theme
+
+**Desert Rose** (theme-factory #7) applied globally via CSS tokens:
+- Sand `#e8d5c4` / Clay `#b87d6d` / Dusty Rose `#d4a5a5` / Deep Burgundy `#5d2e46`
+- Typography: Source Sans 3 (FreeSans equivalent) bold headers + body
+- Industrial structure retained: zero radius, hard borders, hazard bar, folder telemetry
+- Mobile: `min-h-12` / 48px controls, safe-area insets
+
+## Auth seed (SEED_DEV=1)
+
+| Portal | Identifier | Password |
+|---|---|---|
+| Admin | `thenovaworkforce@gmail.com` (Love Chauhan) | `Swrit#1311` |
+| Employee | `NW-0020` or `+919888000020` | `DemoEmp#1311` |
+
+Separate gates: `/login/admin` and `/login/employee`.
+
+## Document folders
+
+- Payslips: `payslips/{PREFIX}/{EMPLOYEE_CODE_Last_First}/{YYYY-MM}/Payslip_{CODE}_{YYYY-MM}_vN.pdf`
+- Profit: `profit/{PREFIX}/{YYYY-MM}/Profit_Sheet_{PREFIX}_{YYYY-MM}.json`
+
 ## Next precise task
 
 Operate locally with `npm run dev` + `npm run worker`, or deploy per `docs/RAILWAY_DEPLOYMENT.md`.

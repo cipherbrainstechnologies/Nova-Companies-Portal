@@ -66,9 +66,10 @@ export class PayrollFacade {
     const run = await prisma.payrollRun.findUniqueOrThrow({ where: { id: input.payrollRunId } });
     if (run.status === "ISSUED") throw new Error("Cannot edit issued payroll");
 
-    const grossEarnings = input.earnings.reduce((s, e) => s + e.payable, 0);
-    const grossDeductions = input.deductions.reduce((s, d) => s + d.amount, 0);
-    const netAmount = grossEarnings - grossDeductions + (input.cashComponent ?? 0);
+    const { money, moneySum, roundInr } = await import("@/server/finance/money");
+    const grossEarnings = roundInr(moneySum(input.earnings.map((e) => e.payable)));
+    const grossDeductions = roundInr(moneySum(input.deductions.map((d) => d.amount)));
+    const netAmount = roundInr(money(grossEarnings).minus(grossDeductions).plus(input.cashComponent ?? 0));
 
     const line = await prisma.$transaction(async (tx) => {
       const upserted = await tx.payrollEmployeeLine.upsert({
@@ -507,19 +508,53 @@ export class PayrollFacade {
 
   async generateAndStorePayslip(payslipId: string, version: number) {
     const data = await this.buildRenderData(payslipId);
+    const slip = await prisma.payslip.findUniqueOrThrow({
+      where: { id: payslipId },
+      include: {
+        company: true,
+        employee: true,
+        payrollRun: true,
+      },
+    });
+    const folder = (
+      await import("@/server/documents/naming")
+    ).payslipFolderPrefix({
+      companyPrefix: slip.company.prefix,
+      employeeCode: slip.employee.employeeCode,
+      firstName: slip.employee.firstName,
+      lastName: slip.employee.lastName,
+      year: slip.payrollRun.year,
+      month: slip.payrollRun.month,
+    });
+    const { payslipPdfFileName, payslipCalcFileName } = await import(
+      "@/server/documents/naming"
+    );
+    const pdfName = payslipPdfFileName({
+      employeeCode: slip.employee.employeeCode,
+      year: slip.payrollRun.year,
+      month: slip.payrollRun.month,
+      version,
+    });
+    const calcName = payslipCalcFileName({
+      employeeCode: slip.employee.employeeCode,
+      year: slip.payrollRun.year,
+      month: slip.payrollRun.month,
+      version,
+    });
+
     const html = renderPayslipHtml(data);
     const { buffer, sha256 } = await generatePayslipPdf(html);
     const pdfFile = await storePrivateFile({
       buffer,
       mimeType: "application/pdf",
-      originalName: `payslip-${payslipId}-v${version}.pdf`,
-      prefix: "payslips",
+      originalName: pdfName,
+      prefix: folder,
     });
     const calcFile = await storePrivateFile({
       buffer: Buffer.from(JSON.stringify(data), "utf8"),
       mimeType: "application/json",
-      originalName: `payslip-${payslipId}-v${version}.json`,
-      prefix: "calc-snapshots",
+      originalName: calcName,
+      prefix: folder,
     });
     await this.markPayslipIssued({
       payslipId,
@@ -528,7 +563,7 @@ export class PayrollFacade {
       calcSnapshotFileId: calcFile.id,
       sha256,
     });
-    return { sha256, pdfFileId: pdfFile.id };
+    return { sha256, pdfFileId: pdfFile.id, storagePath: `${folder}/${pdfName}` };
   }
 }
 

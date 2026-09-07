@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { requirePageUser } from "@/server/auth/page-guard";
 import { prisma } from "@/server/db";
-import { Button, Card } from "@/components/ui";
-import { PublicChrome, BracketLabel, Meta, DataRow } from "@/components/industrial";
+import { Button } from "@/components/ui";
+import { PublicChrome, BracketLabel, Meta } from "@/components/industrial";
+import { groupPayslipsAsFolders } from "@/server/documents/folder-tree";
+import { PayslipFolderBrowser } from "@/components/payslip-folder-browser";
 import { t } from "@/i18n";
-import { DownloadButton } from "./download-button";
 
 export default async function EmployeePayslipsPage() {
   const locale = "en" as const;
@@ -12,40 +13,45 @@ export default async function EmployeePayslipsPage() {
   const slips = user.employeeId
     ? await prisma.payslip.findMany({
         where: { employeeId: user.employeeId, status: "ISSUED" },
-        include: { payrollRun: true, company: true },
+        include: { payrollRun: true, company: true, employee: true },
         orderBy: { issuedAt: "desc" },
       })
     : [];
+
+  const tree = groupPayslipsAsFolders(
+    slips.map((s) => ({
+      id: s.id,
+      status: s.status,
+      verificationCode: s.verificationCode,
+      currentVersion: s.currentVersion,
+      employeeCode: s.employee.employeeCode,
+      employeeName: `${s.employee.firstName} ${s.employee.lastName}`,
+      companyPrefix: s.company.prefix,
+      year: s.payrollRun.year,
+      month: s.payrollRun.month,
+    })),
+  );
 
   return (
     <PublicChrome
       brand={t(locale, "brand")}
       right={
         <Link href="/employee/dashboard">
-          <Button variant="ghost">{t(locale, "employee.dashboard")}</Button>
+          <Button variant="ghost" className="min-h-12">
+            {t(locale, "employee.dashboard")}
+          </Button>
         </Link>
       }
     >
-      <BracketLabel>EMPLOYEE / DOCUMENTS</BracketLabel>
+      <BracketLabel>EMPLOYEE / SALARY FOLDER</BracketLabel>
       <h1 className="h-macro mt-2 text-[clamp(2rem,6vw,3.75rem)]">
         {t(locale, "employee.payslips")}
       </h1>
-      <hr className="rule-accent mb-6 mt-3" />
-      <div className="grid gap-3">
-        {slips.map((s) => (
-          <DataRow
-            key={s.id}
-            title={`${s.company.name} · ${String(s.payrollRun.month).padStart(2, "0")}/${s.payrollRun.year}`}
-            subtitle={`Status ${s.status}`}
-            action={<DownloadButton payslipId={s.id} label={t(locale, "employee.download")} />}
-          />
-        ))}
-        {!slips.length ? (
-          <Card>
-            <Meta>{t(locale, "employee.noPayslips")}</Meta>
-          </Card>
-        ) : null}
-      </div>
+      <Meta className="mt-3 block normal-case tracking-[0.04em] text-[var(--muted)]">
+        {t(locale, "employee.payslipFolderHelp")}
+      </Meta>
+      <hr className="rule-accent mb-6 mt-4" />
+      <PayslipFolderBrowser tree={tree} allowDownload />
     </PublicChrome>
   );
 }

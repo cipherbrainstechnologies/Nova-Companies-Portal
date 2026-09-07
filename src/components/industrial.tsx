@@ -132,7 +132,7 @@ export function CompanyTabs({
               "meta border-[var(--ink)] px-3 py-2",
               i > 0 && "border-l-2",
               active
-                ? "bg-[var(--ink)] text-[var(--bg)]"
+                ? "bg-[var(--ink)] text-[var(--on-accent)]"
                 : "bg-[var(--bg-alt)] text-[var(--ink)] hover:text-[var(--accent)]",
             )}
           >

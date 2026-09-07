@@ -11,15 +11,15 @@ export const Button = React.forwardRef<
     <button
       ref={ref}
       className={cn(
-        "inline-flex items-center justify-center border-2 border-[var(--ink)] px-4 py-2 text-[0.7rem] font-normal tracking-[0.1em] uppercase disabled:opacity-40",
+        "inline-flex items-center justify-center border-2 border-[var(--ink)] px-4 py-2 text-[0.7rem] font-normal tracking-[0.1em] uppercase disabled:opacity-40 min-h-12 active:scale-[0.96] transition-transform",
         variant === "primary" &&
-          "bg-[var(--ink)] text-[var(--bg)] hover:bg-[var(--accent)] hover:border-[var(--accent)]",
+          "bg-[var(--ink)] text-[var(--on-accent)] hover:bg-[var(--accent)] hover:border-[var(--accent)]",
         variant === "outline" &&
           "bg-[var(--bg)] text-[var(--ink)] hover:border-[var(--accent)] hover:text-[var(--accent)]",
         variant === "ghost" &&
           "border-transparent bg-transparent text-[var(--ink)] hover:text-[var(--accent)]",
         variant === "danger" &&
-          "border-[var(--accent)] bg-[var(--accent)] text-white hover:bg-[var(--ink)] hover:border-[var(--ink)]",
+          "border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)] hover:bg-[var(--ink)] hover:border-[var(--ink)]",
         className,
       )}
       {...props}
