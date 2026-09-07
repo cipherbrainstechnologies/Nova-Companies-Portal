@@ -1,0 +1,671 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum GlobalRole {
+  SUPER_ADMIN
+  OPERATIONS_MANAGER
+  EMPLOYEE
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  BLOCKED
+  EXITED
+}
+
+enum AppModule {
+  dashboard
+  companies
+  employees
+  templates
+  statements
+  payroll
+  payslips
+  finance
+  tds
+  reports
+  users
+  audit
+}
+
+enum AppAction {
+  view
+  create
+  edit
+  approve
+  issue
+  download
+  manage
+}
+
+enum PayrollRunStatus {
+  DRAFT
+  PARSING
+  RECONCILIATION_REQUIRED
+  READY_FOR_REVIEW
+  APPROVED
+  ISSUING
+  ISSUED
+  FAILED
+  CANCELLED
+  SUPERSEDED
+}
+
+enum PayslipStatus {
+  DRAFT
+  APPROVED
+  ISSUING
+  ISSUED
+  SUPERSEDED
+  CANCELLED
+}
+
+enum StatementStatus {
+  UPLOADED
+  PARSING
+  PARSED
+  FAILED
+}
+
+enum TransactionClassification {
+  SALARY
+  OVERTIME
+  REIMBURSEMENT
+  TAX
+  EXPENSE
+  LOAN_EMI
+  OWNER_TRANSFER
+  CREDIT_CARD
+  CASH_WITHDRAWAL
+  REVENUE
+  PF_ESI
+  CONTRACTOR
+  IGNORE
+  UNCLASSIFIED
+}
+
+enum MatchSuggestionStatus {
+  SUGGESTED
+  ACCEPTED
+  REJECTED
+  NEEDS_REVIEW
+  AUTO_SELECTED
+}
+
+enum TaxRegime {
+  OLD
+  NEW
+}
+
+enum DeclarationStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum ProfitTreatment {
+  BUSINESS_EXPENSE
+  FINANCING_OR_PERSONAL
+  OWNER_EXCLUDED
+  REVENUE
+  IGNORE
+}
+
+model User {
+  id                   String    @id @default(cuid())
+  phone                String    @unique
+  email                String?
+  passwordHash         String
+  globalRole           GlobalRole
+  mustChangePassword   Boolean   @default(true)
+  failedLoginAttempts  Int       @default(0)
+  lockedUntil          DateTime?
+  isActive             Boolean   @default(true)
+  employeeId           String?   @unique
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  employee             Employee? @relation(fields: [employeeId], references: [id])
+  sessions             Session[]
+  passwordResetOtps    PasswordResetOtp[]
+  permissionGrants     PermissionGrant[]
+  auditLogs            AuditLog[] @relation("AuditActor")
+}
+
+model Session {
+  id               String   @id @default(cuid())
+  userId           String
+  tokenHash        String   @unique
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  ipAddress        String?
+  userAgent        String?
+  createdAt        DateTime @default(now())
+
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetOtp {
+  id          String    @id @default(cuid())
+  userId      String
+  emailTarget String
+  codeHash    String
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model PermissionGrant {
+  id        String    @id @default(cuid())
+  userId    String
+  companyId String
+  module    AppModule
+  action    AppAction
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, companyId, module, action])
+  @@index([companyId])
+}
+
+model Company {
+  id          String   @id @default(cuid())
+  name        String
+  prefix      String   @unique
+  gstin       String?
+  address     String?
+  logoKey     String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sequence            CompanySequence?
+  templates           CompanyTemplate[]
+  employees           Employee[]
+  permissionGrants    PermissionGrant[]
+  bankStatements      BankStatement[]
+  payrollRuns         PayrollRun[]
+  payslips            Payslip[]
+  financialCategories FinancialCategory[]
+  financialTransactions FinancialTransaction[]
+  profitSnapshots     ProfitReportSnapshot[]
+  taxConfigs          TaxFinancialYearConfig[]
+  profitPolicies      ProfitPolicyRule[]
+  salaryComponents    SalaryComponent[]
+}
+
+model CompanySequence {
+  id           String @id @default(cuid())
+  companyId    String @unique
+  nextNumber   Int    @default(1)
+  company      Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model CompanyTemplate {
+  id          String   @id @default(cuid())
+  companyId   String
+  name        String
+  version     Int
+  htmlBody    String
+  cssBody     String
+  sourceDocKey String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  payslipVersions PayslipVersion[]
+
+  @@unique([companyId, version])
+}
+
+model Employee {
+  id              String         @id @default(cuid())
+  companyId       String
+  employeeCode    String
+  firstName       String
+  lastName        String
+  designation     String?
+  department      String?
+  location        String?
+  dateOfJoining   DateTime?
+  status          EmployeeStatus @default(ACTIVE)
+  pan             String?
+  pfNumber        String?
+  uan             String?
+  esiNumber       String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  company         Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user            User?
+  contact         EmployeeContact?
+  bankAccount     EmployeeBankAccount?
+  salaryStructure EmployeeSalaryStructure?
+  payrollLines    PayrollEmployeeLine[]
+  payslips        Payslip[]
+  taxDeclarations EmployeeTaxDeclaration[]
+  tdsProjections  TdsProjection[]
+  matchSuggestions StatementMatchSuggestion[]
+  priorMappings   EmployeeNarrationMapping[]
+
+  @@unique([companyId, employeeCode])
+  @@index([companyId, status])
+}
+
+model EmployeeContact {
+  id             String  @id @default(cuid())
+  employeeId     String  @unique
+  personalEmail  String?
+  officialEmail  String?
+  primaryPhone   String
+  alternatePhone String?
+
+  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+model EmployeeBankAccount {
+  id            String  @id @default(cuid())
+  employeeId    String  @unique
+  bankName      String?
+  accountNumber String?
+  ifsc          String?
+  accountLast4  String?
+
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+model SalaryComponent {
+  id          String  @id @default(cuid())
+  companyId   String
+  code        String
+  name        String
+  kind        String
+  isEarning   Boolean
+  sortOrder   Int     @default(0)
+
+  company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, code])
+}
+
+model EmployeeSalaryStructure {
+  id          String   @id @default(cuid())
+  employeeId  String   @unique
+  effectiveFrom DateTime @default(now())
+  componentsJson Json
+  notes       String?
+
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+model DocumentFile {
+  id           String   @id @default(cuid())
+  storageKey   String   @unique
+  bucket       String
+  mimeType     String
+  sizeBytes    Int
+  checksumSha256 String
+  originalName String
+  createdAt    DateTime @default(now())
+
+  bankStatements BankStatement[]
+  payslipVersions PayslipVersion[] @relation("PdfFile")
+  calculationSnapshots PayslipVersion[] @relation("CalcSnapshot")
+}
+
+model BankStatement {
+  id           String          @id @default(cuid())
+  companyId    String
+  bankCode     String
+  accountHint  String?
+  periodStart  DateTime?
+  periodEnd    DateTime?
+  status       StatementStatus @default(UPLOADED)
+  fileId       String
+  checksumSha256 String
+  parseError   String?
+  uploadedById String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  company      Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  file         DocumentFile    @relation(fields: [fileId], references: [id])
+  transactions StatementTransaction[]
+
+  @@unique([companyId, checksumSha256])
+  @@index([companyId, status])
+}
+
+model StatementTransaction {
+  id              String   @id @default(cuid())
+  statementId     String
+  txnDate         DateTime
+  valueDate       DateTime?
+  particulars     String
+  debit           Decimal? @db.Decimal(18, 2)
+  credit          Decimal? @db.Decimal(18, 2)
+  balance         Decimal? @db.Decimal(18, 2)
+  chequeNumber    String?
+  branch          String?
+  rowIndex        Int
+  classification  TransactionClassification @default(UNCLASSIFIED)
+  createdAt       DateTime @default(now())
+
+  statement       BankStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  matchSuggestions StatementMatchSuggestion[]
+  classifications StatementClassification[]
+  payrollLinks    PayrollEmployeeLine[] @relation("PrimaryTxn")
+
+  @@index([statementId, txnDate])
+}
+
+model StatementClassification {
+  id            String                    @id @default(cuid())
+  transactionId String
+  classification TransactionClassification
+  classifiedById String?
+  notes         String?
+  createdAt     DateTime                  @default(now())
+
+  transaction   StatementTransaction      @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model StatementMatchSuggestion {
+  id            String                @id @default(cuid())
+  transactionId String
+  employeeId    String
+  score         Int
+  breakdownJson Json
+  status        MatchSuggestionStatus @default(SUGGESTED)
+  createdAt     DateTime              @default(now())
+
+  transaction   StatementTransaction  @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  employee      Employee              @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([transactionId, score])
+}
+
+model EmployeeNarrationMapping {
+  id             String   @id @default(cuid())
+  employeeId     String
+  normalizedName String
+  createdAt      DateTime @default(now())
+
+  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, normalizedName])
+}
+
+model PayrollRun {
+  id          String           @id @default(cuid())
+  companyId   String
+  year        Int
+  month       Int
+  status      PayrollRunStatus @default(DRAFT)
+  statementId String?
+  createdById String?
+  approvedAt  DateTime?
+  issuedAt    DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  company     Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  lines       PayrollEmployeeLine[]
+  payslips    Payslip[]
+
+  @@unique([companyId, year, month])
+  @@index([companyId, status])
+}
+
+model PayrollEmployeeLine {
+  id                String   @id @default(cuid())
+  payrollRunId      String
+  employeeId        String
+  primaryTxnId      String?
+  status            PayslipStatus @default(DRAFT)
+  workingDays       Decimal? @db.Decimal(8, 2)
+  weeklyOffs        Decimal? @db.Decimal(8, 2)
+  paidHolidays      Decimal? @db.Decimal(8, 2)
+  presentDays       Decimal? @db.Decimal(8, 2)
+  casualLeave       Decimal? @db.Decimal(8, 2)
+  privilegedLeave   Decimal? @db.Decimal(8, 2)
+  sickLeave         Decimal? @db.Decimal(8, 2)
+  leaveWithoutPay   Decimal? @db.Decimal(8, 2)
+  cashComponent     Decimal? @db.Decimal(18, 2)
+  grossEarnings     Decimal  @default(0) @db.Decimal(18, 2)
+  grossDeductions   Decimal  @default(0) @db.Decimal(18, 2)
+  netAmount         Decimal  @default(0) @db.Decimal(18, 2)
+  amountInWords     String?
+  approvedAt        DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  payrollRun        PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employee          Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  primaryTxn        StatementTransaction? @relation("PrimaryTxn", fields: [primaryTxnId], references: [id])
+  earnings          PayrollEarningLine[]
+  deductions        PayrollDeductionLine[]
+  payslip           Payslip?
+
+  @@unique([payrollRunId, employeeId])
+}
+
+model PayrollEarningLine {
+  id        String  @id @default(cuid())
+  lineId    String
+  code      String
+  label     String
+  actual    Decimal @db.Decimal(18, 2)
+  payable   Decimal @db.Decimal(18, 2)
+
+  line      PayrollEmployeeLine @relation(fields: [lineId], references: [id], onDelete: Cascade)
+}
+
+model PayrollDeductionLine {
+  id        String  @id @default(cuid())
+  lineId    String
+  code      String
+  label     String
+  amount    Decimal @db.Decimal(18, 2)
+
+  line      PayrollEmployeeLine @relation(fields: [lineId], references: [id], onDelete: Cascade)
+}
+
+model Payslip {
+  id               String        @id @default(cuid())
+  companyId        String
+  employeeId       String
+  payrollRunId     String
+  payrollLineId    String        @unique
+  status           PayslipStatus @default(DRAFT)
+  verificationCode String        @unique
+  currentVersion   Int           @default(0)
+  issuedAt         DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  company          Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee         Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  payrollRun       PayrollRun    @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  payrollLine      PayrollEmployeeLine @relation(fields: [payrollLineId], references: [id], onDelete: Cascade)
+  versions         PayslipVersion[]
+  downloads        DocumentDownloadAudit[]
+
+  @@index([companyId, employeeId])
+}
+
+model PayslipVersion {
+  id                 String   @id @default(cuid())
+  payslipId          String
+  version            Int
+  templateId         String
+  pdfFileId          String?
+  calcSnapshotFileId String?
+  sha256             String?
+  correctionReason   String?
+  createdById        String?
+  createdAt          DateTime @default(now())
+
+  payslip            Payslip  @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+  template           CompanyTemplate @relation(fields: [templateId], references: [id])
+  pdfFile            DocumentFile? @relation("PdfFile", fields: [pdfFileId], references: [id])
+  calcSnapshotFile   DocumentFile? @relation("CalcSnapshot", fields: [calcSnapshotFileId], references: [id])
+
+  @@unique([payslipId, version])
+}
+
+model DocumentDownloadAudit {
+  id          String   @id @default(cuid())
+  payslipId   String
+  userId      String?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  payslip     Payslip  @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+}
+
+model TaxFinancialYearConfig {
+  id          String   @id @default(cuid())
+  companyId   String
+  financialYear String
+  regime      TaxRegime
+  slabsJson   Json
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, financialYear, regime])
+}
+
+model EmployeeTaxDeclaration {
+  id          String            @id @default(cuid())
+  employeeId  String
+  financialYear String
+  regime      TaxRegime
+  status      DeclarationStatus @default(DRAFT)
+  itemsJson   Json
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  employee    Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, financialYear])
+}
+
+model TdsProjection {
+  id            String   @id @default(cuid())
+  employeeId    String
+  financialYear String
+  month         Int
+  projectedAnnual Decimal @db.Decimal(18, 2)
+  monthlyTds    Decimal @db.Decimal(18, 2)
+  deductedYtd   Decimal @db.Decimal(18, 2)
+  remaining     Decimal @db.Decimal(18, 2)
+  assumptionsJson Json?
+  createdAt     DateTime @default(now())
+
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, financialYear, month])
+}
+
+model FinancialCategory {
+  id          String   @id @default(cuid())
+  companyId   String
+  code        String
+  name        String
+  treatment   ProfitTreatment
+  createdAt   DateTime @default(now())
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  transactions FinancialTransaction[]
+
+  @@unique([companyId, code])
+}
+
+model FinancialTransaction {
+  id          String   @id @default(cuid())
+  companyId   String
+  categoryId  String?
+  txnDate     DateTime
+  description String
+  amount      Decimal  @db.Decimal(18, 2)
+  isCredit    Boolean
+  sourceTxnId String?
+  createdAt   DateTime @default(now())
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category    FinancialCategory? @relation(fields: [categoryId], references: [id])
+}
+
+model ProfitPolicyRule {
+  id          String   @id @default(cuid())
+  companyId   String
+  matchPattern String
+  classification TransactionClassification?
+  treatment   ProfitTreatment
+  priority    Int      @default(100)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, priority])
+}
+
+model ProfitReportSnapshot {
+  id          String   @id @default(cuid())
+  companyId   String
+  year        Int
+  month       Int
+  revenue     Decimal  @db.Decimal(18, 2)
+  businessExpenses Decimal @db.Decimal(18, 2)
+  earnedOperatingProfit Decimal @db.Decimal(18, 2)
+  ownerFinancingOutgoings Decimal @db.Decimal(18, 2)
+  cashRemaining Decimal @db.Decimal(18, 2)
+  detailsJson Json?
+  createdAt   DateTime @default(now())
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, year, month])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  companyId   String?
+  action      String
+  entityType  String
+  entityId    String?
+  metadataJson Json?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  actor       User?    @relation("AuditActor", fields: [actorUserId], references: [id])
+
+  @@index([companyId, createdAt])
+  @@index([entityType, entityId])
+  @@index([action, createdAt])
+}
