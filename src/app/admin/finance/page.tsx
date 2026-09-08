@@ -6,9 +6,14 @@ import { prisma } from "@/server/db";
 import { t } from "@/i18n";
 import { FinanceOverviewCards, ProfitForm } from "./profit-form";
 import { ProfitPolicyEditor } from "./profit-policy-editor";
+import { RecomputeProfitButton } from "./recompute-button";
 
 function n(v: { toString(): string } | number) {
   return Number(v);
+}
+
+function periodKey(year: number, month: number) {
+  return `${year}-${String(month).padStart(2, "0")}`;
 }
 
 export default async function FinancePage() {
@@ -20,33 +25,78 @@ export default async function FinancePage() {
     take: 240,
   });
 
-  const companyIds = new Set(snapshots.map((s) => s.companyId));
+  // Only months that actually have statement rows contribute to collective cards.
+  const monthsWithTxns = await prisma.statementTransaction.findMany({
+    where: { isDuplicate: false },
+    select: {
+      salaryYear: true,
+      salaryMonth: true,
+      txnDate: true,
+      statement: { select: { companyId: true } },
+    },
+  });
+  const liveKeys = new Set<string>();
+  for (const txn of monthsWithTxns) {
+    const year = txn.salaryYear ?? txn.txnDate.getUTCFullYear();
+    const month = txn.salaryMonth ?? txn.txnDate.getUTCMonth() + 1;
+    liveKeys.add(`${txn.statement.companyId}:${periodKey(year, month)}`);
+  }
+
+  const liveSnapshots = snapshots.filter((row) =>
+    liveKeys.has(`${row.companyId}:${periodKey(row.year, row.month)}`),
+  );
+
+  const companyIds = new Set(liveSnapshots.map((s) => s.companyId));
   const totals = {
-    revenue: snapshots.reduce((s, row) => s + n(row.revenue), 0),
-    earnedOperatingProfit: snapshots.reduce((s, row) => s + n(row.earnedOperatingProfit), 0),
-    cashRemaining: snapshots.reduce((s, row) => s + n(row.cashRemaining), 0),
+    revenue: liveSnapshots.reduce((s, row) => s + n(row.revenue), 0),
+    earnedOperatingProfit: liveSnapshots.reduce((s, row) => s + n(row.earnedOperatingProfit), 0),
+    cashRemaining: liveSnapshots.reduce((s, row) => s + n(row.cashRemaining), 0),
     companiesReporting: companyIds.size,
   };
 
-  const byPeriod = new Map<string, number>();
-  for (const row of snapshots) {
-    const key = `${row.year}-${String(row.month).padStart(2, "0")}`;
-    byPeriod.set(key, (byPeriod.get(key) ?? 0) + n(row.earnedOperatingProfit));
+  const byPeriod = new Map<
+    string,
+    { earned: number; complete: boolean; details: unknown }
+  >();
+  for (const row of liveSnapshots) {
+    const key = periodKey(row.year, row.month);
+    const details = row.detailsJson as { reconciliationStatus?: string } | null;
+    const complete = details?.reconciliationStatus === "COMPLETE";
+    const prev = byPeriod.get(key);
+    byPeriod.set(key, {
+      earned: (prev?.earned ?? 0) + n(row.earnedOperatingProfit),
+      complete: (prev?.complete ?? true) && complete,
+      details: row.detailsJson,
+    });
   }
+
   const periods = [...byPeriod.entries()]
     .sort((a, b) => b[0].localeCompare(a[0]))
     .slice(0, 12)
     .reverse();
-  const mom = periods.map(([period, earnedOperatingProfit], idx) => {
+
+  const mom = periods.map(([period, current], idx) => {
     const prev = idx > 0 ? periods[idx - 1][1] : null;
-    const growthPct =
-      prev != null && prev !== 0
-        ? ((earnedOperatingProfit - prev) / Math.abs(prev)) * 100
-        : prev === 0 && earnedOperatingProfit !== 0
-          ? 100
-          : null;
-    return { period, earnedOperatingProfit, growthPct };
+    let growthPct: number | null = null;
+    let growthLabel: string | undefined;
+    if (!current.complete || (prev && !prev.complete)) {
+      growthLabel = "Not available — reconciliation incomplete";
+    } else if (prev == null) {
+      growthLabel = "Not available — reconciliation incomplete";
+    } else if (prev.earned === 0) {
+      growthLabel = "Not available — reconciliation incomplete";
+    } else {
+      growthPct = ((current.earned - prev.earned) / Math.abs(prev.earned)) * 100;
+    }
+    return {
+      period,
+      earnedOperatingProfit: current.earned,
+      growthPct,
+      growthLabel,
+    };
   });
+
+  const latestComputed = liveSnapshots[0]?.createdAt;
 
   return (
     <AdminShell
@@ -57,8 +107,20 @@ export default async function FinancePage() {
     >
       <AlertBanner tone="info">{t("en", "admin.financeFormula")}</AlertBanner>
 
+      <div className="mt-4">
+        <RecomputeProfitButton />
+      </div>
+
       <div className="mt-6">
-        <FinanceOverviewCards totals={totals} mom={mom} />
+        <FinanceOverviewCards
+          totals={totals}
+          mom={mom}
+          snapshotNote={
+            latestComputed
+              ? `Snapshot figures from live statement months only. Latest snapshot row ${latestComputed.toLocaleString()}. After importing statements or editing rules, click Recompute.`
+              : "No profit snapshots yet — compute a company/month or click Recompute."
+          }
+        />
       </div>
 
       <div className="mt-8">

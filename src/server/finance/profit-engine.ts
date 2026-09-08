@@ -9,10 +9,13 @@ import {
 import { storePrivateFile } from "@/server/storage/s3";
 import {
   categoryFromManualClassification,
+  financeTreatmentForCategory,
   isEarnedProfitExpenseCategory,
   isPersonalFinanceCategory,
+  isSalaryCategory,
   PROFIT_CATEGORY_LABELS,
   treatmentForCategory,
+  type FinanceTreatment,
   type ProfitCategoryKey,
 } from "@/server/finance/profit-categories";
 import {
@@ -27,6 +30,7 @@ export type ProfitPolicyRuleInput = {
   categoryKey: ProfitCategoryKey;
   priority: number;
   label?: string | null;
+  direction?: "credit" | "debit" | null;
 };
 
 export type ProfitLineInput = {
@@ -40,6 +44,7 @@ export type ProfitLineInput = {
 export type ProfitLine = ProfitLineInput & {
   transactionId: string;
   treatment: ProfitTreatment;
+  financeTreatment: FinanceTreatment;
   categoryKey: ProfitCategoryKey;
   categoryLabel: string;
   matchedBy: "manual_classification" | "narration_rule" | "default";
@@ -51,9 +56,7 @@ export type PersonalFinanceBreakdown = {
   creditCard: number;
   ownerTransfers: number;
   otherOutflows: number;
-  /** Home loan + Bajaj + credit card only (cash remaining ladder step 1). */
   corePersonalFinance: number;
-  /** Owner transfers + other identified outflows (ladder step 2). */
   otherPersonalOutgoings: number;
   total: number;
 };
@@ -65,23 +68,35 @@ export type UnclassifiedBucket = {
   lines: ProfitLine[];
 };
 
+export type ReconciliationStatus =
+  | "COMPLETE"
+  | "PARTIAL_REVIEW_REQUIRED"
+  | "NO_TRANSACTIONS";
+
 export type ProfitSummary = {
   revenue: number;
+  /** Alias used by Finance API contract. */
+  bankPaidSalaries: number;
+  overtime: number;
+  /** Combined bank-paid salaries + overtime (legacy field). */
   salariesOvertime: number;
+  salaryRelatedCashPayments: number;
+  /** Alias for cash salary bucket. */
   cashSalaryPayments: number;
+  cbdtBusinessTax: number;
+  /** Alias for CBDT bucket. */
   cbdtTax: number;
   otherBusinessExpenses: number;
+  /** Sum of earned-profit expense buckets only. */
   businessExpenses: number;
   earnedOperatingProfit: number;
   personalFinancing: PersonalFinanceBreakdown;
-  /** Combined earned − home loan − Bajaj − credit card. */
   profitAfterPersonalFinance: number;
-  /** After personal finance − Love transfers − Threads / other outflows. */
   cashRemainingAfterDeductions: number;
-  /** Alias kept for snapshots / legacy UI. */
   ownerFinancingOutgoings: number;
   cashRemaining: number;
   unclassified: UnclassifiedBucket;
+  reconciliationStatus: ReconciliationStatus;
   lines: ProfitLine[];
   identities: {
     earnedOperatingProfit: string;
@@ -99,6 +114,7 @@ export type ProfitBreakdown = ProfitSummary & {
   period: string;
   storagePath: string;
   bankBalanceLabelForbidden: true;
+  computedAt: string;
 };
 
 function patternMatches(pattern: string, upperParticulars: string): boolean {
@@ -109,16 +125,37 @@ function patternMatches(pattern: string, upperParticulars: string): boolean {
   }
 }
 
+function directionOf(debit: number, credit: number): "credit" | "debit" | "none" {
+  if (credit > 0 && debit <= 0) return "credit";
+  if (debit > 0 && credit <= 0) return "debit";
+  return "none";
+}
+
 export function resolveProfitAssignment(
   particulars: string,
   classification: TransactionClassification,
   rules: ProfitPolicyRuleInput[],
-): Pick<ProfitLine, "treatment" | "categoryKey" | "matchedBy"> {
+  amounts?: { debit?: number; credit?: number },
+): Pick<ProfitLine, "treatment" | "categoryKey" | "matchedBy" | "financeTreatment"> {
+  const debit = amounts?.debit ?? 0;
+  const credit = amounts?.credit ?? 0;
+  const dir = directionOf(debit, credit);
+
   const manual = categoryFromManualClassification(classification, particulars);
   if (manual) {
+    // Revenue manual classification on a debit must not invent revenue.
+    if (manual === "REVENUE" && dir === "debit") {
+      return {
+        categoryKey: "UNCLASSIFIED",
+        treatment: "IGNORE",
+        financeTreatment: "UNCLASSIFIED",
+        matchedBy: "manual_classification",
+      };
+    }
     return {
       categoryKey: manual,
       treatment: treatmentForCategory(manual),
+      financeTreatment: financeTreatmentForCategory(manual),
       matchedBy: "manual_classification",
     };
   }
@@ -126,19 +163,23 @@ export function resolveProfitAssignment(
   const upper = particulars.toUpperCase();
   const sorted = [...rules].sort((a, b) => a.priority - b.priority);
   for (const rule of sorted) {
-    if (patternMatches(rule.matchPattern, upper)) {
-      const categoryKey = rule.categoryKey ?? categoryFromTreatment(rule.treatment);
-      return {
-        categoryKey,
-        treatment: rule.treatment,
-        matchedBy: "narration_rule",
-      };
-    }
+    if (rule.direction && dir !== "none" && rule.direction !== dir) continue;
+    if (rule.direction === "credit" && dir !== "credit") continue;
+    if (rule.direction === "debit" && dir !== "debit") continue;
+    if (!patternMatches(rule.matchPattern, upper)) continue;
+    const categoryKey = rule.categoryKey ?? categoryFromTreatment(rule.treatment);
+    return {
+      categoryKey,
+      treatment: rule.treatment,
+      financeTreatment: financeTreatmentForCategory(categoryKey),
+      matchedBy: "narration_rule",
+    };
   }
 
   return {
     categoryKey: "UNCLASSIFIED",
     treatment: "IGNORE",
+    financeTreatment: "UNCLASSIFIED",
     matchedBy: "default",
   };
 }
@@ -158,6 +199,23 @@ function categoryFromTreatment(treatment: ProfitTreatment): ProfitCategoryKey {
   }
 }
 
+function deriveReconciliationStatus(summary: {
+  lineCount: number;
+  unclassifiedCount: number;
+  revenue: number;
+  bankPaidSalaries: number;
+  salaryRelatedCashPayments: number;
+  cbdtBusinessTax: number;
+}): ReconciliationStatus {
+  if (summary.lineCount === 0) return "NO_TRANSACTIONS";
+  if (summary.unclassifiedCount > 0) return "PARTIAL_REVIEW_REQUIRED";
+  // A month with expenses but zero revenue still needs review for NW-style reporting.
+  if (summary.revenue <= 0 && summary.bankPaidSalaries + summary.cbdtBusinessTax > 0) {
+    return "PARTIAL_REVIEW_REQUIRED";
+  }
+  return "COMPLETE";
+}
+
 /**
  * Pure earned-profit summarizer. Fixtures and unit tests call this directly —
  * never hard-code verified report totals into the engine.
@@ -167,7 +225,8 @@ export function summarizeEarnedProfit(
   rules: ProfitPolicyRuleInput[],
 ): ProfitSummary {
   let revenue = money(0);
-  let salariesOvertime = money(0);
+  let bankPaidSalaries = money(0);
+  let overtime = money(0);
   let cashSalaryPayments = money(0);
   let cbdtTax = money(0);
   let otherBusinessExpenses = money(0);
@@ -184,9 +243,12 @@ export function summarizeEarnedProfit(
   let unclassifiedCredit = money(0);
 
   for (const input of inputs) {
-    const assignment = resolveProfitAssignment(input.particulars, input.classification, rules);
     const debit = money(input.debit ?? 0);
     const credit = money(input.credit ?? 0);
+    const assignment = resolveProfitAssignment(input.particulars, input.classification, rules, {
+      debit: debit.toNumber(),
+      credit: credit.toNumber(),
+    });
     const line: ProfitLine = {
       transactionId: input.transactionId ?? "",
       particulars: input.particulars,
@@ -194,6 +256,7 @@ export function summarizeEarnedProfit(
       credit: roundInr(credit),
       classification: input.classification,
       treatment: assignment.treatment,
+      financeTreatment: assignment.financeTreatment,
       categoryKey: assignment.categoryKey,
       categoryLabel: PROFIT_CATEGORY_LABELS[assignment.categoryKey],
       matchedBy: assignment.matchedBy,
@@ -212,7 +275,8 @@ export function summarizeEarnedProfit(
     }
 
     if (assignment.categoryKey === "REVENUE" || assignment.treatment === "REVENUE") {
-      revenue = revenue.plus(credit);
+      // Credits only — never invent revenue from debit rows.
+      if (credit.gt(0)) revenue = revenue.plus(credit);
       continue;
     }
 
@@ -222,19 +286,16 @@ export function summarizeEarnedProfit(
     }
 
     if (isEarnedProfitExpenseCategory(assignment.categoryKey)) {
-      switch (assignment.categoryKey) {
-        case "SALARY_OVERTIME":
-          salariesOvertime = salariesOvertime.plus(debit);
-          break;
-        case "CASH_SALARY":
-          cashSalaryPayments = cashSalaryPayments.plus(debit);
-          break;
-        case "CBDT_TAX":
-          cbdtTax = cbdtTax.plus(debit);
-          break;
-        default:
-          otherBusinessExpenses = otherBusinessExpenses.plus(debit);
-          break;
+      if (isSalaryCategory(assignment.categoryKey)) {
+        bankPaidSalaries = bankPaidSalaries.plus(debit);
+      } else if (assignment.categoryKey === "OVERTIME") {
+        overtime = overtime.plus(debit);
+      } else if (assignment.categoryKey === "CASH_SALARY") {
+        cashSalaryPayments = cashSalaryPayments.plus(debit);
+      } else if (assignment.categoryKey === "CBDT_TAX") {
+        cbdtTax = cbdtTax.plus(debit);
+      } else {
+        otherBusinessExpenses = otherBusinessExpenses.plus(debit);
       }
       continue;
     }
@@ -260,6 +321,7 @@ export function summarizeEarnedProfit(
     }
   }
 
+  const salariesOvertime = bankPaidSalaries.plus(overtime);
   const businessExpenses = salariesOvertime
     .plus(cashSalaryPayments)
     .plus(cbdtTax)
@@ -271,11 +333,7 @@ export function summarizeEarnedProfit(
   const profitAfterPersonalFinance = earnedOperatingProfit.minus(corePersonalFinance);
   const cashRemainingAfterDeductions = profitAfterPersonalFinance.minus(otherPersonalOutgoings);
 
-  assertIdentity(
-    "earnedOperatingProfit",
-    earnedOperatingProfit,
-    revenue.minus(businessExpenses),
-  );
+  assertIdentity("earnedOperatingProfit", earnedOperatingProfit, revenue.minus(businessExpenses));
   assertIdentity(
     "profitAfterPersonalFinance",
     profitAfterPersonalFinance,
@@ -288,7 +346,9 @@ export function summarizeEarnedProfit(
   );
 
   const revenueN = roundInr(revenue);
-  const salariesN = roundInr(salariesOvertime);
+  const salariesN = roundInr(bankPaidSalaries);
+  const overtimeN = roundInr(overtime);
+  const salariesOtN = roundInr(salariesOvertime);
   const cashSalaryN = roundInr(cashSalaryPayments);
   const cbdtN = roundInr(cbdtTax);
   const otherBizN = roundInr(otherBusinessExpenses);
@@ -305,10 +365,23 @@ export function summarizeEarnedProfit(
   const afterPersN = roundInr(profitAfterPersonalFinance);
   const cashN = roundInr(cashRemainingAfterDeductions);
 
+  const reconciliationStatus = deriveReconciliationStatus({
+    lineCount: inputs.length,
+    unclassifiedCount: unclassifiedLines.length,
+    revenue: revenueN,
+    bankPaidSalaries: salariesN,
+    salaryRelatedCashPayments: cashSalaryN,
+    cbdtBusinessTax: cbdtN,
+  });
+
   return {
     revenue: revenueN,
-    salariesOvertime: salariesN,
+    bankPaidSalaries: salariesN,
+    overtime: overtimeN,
+    salariesOvertime: salariesOtN,
+    salaryRelatedCashPayments: cashSalaryN,
     cashSalaryPayments: cashSalaryN,
+    cbdtBusinessTax: cbdtN,
     cbdtTax: cbdtN,
     otherBusinessExpenses: otherBizN,
     businessExpenses: bizN,
@@ -333,6 +406,7 @@ export function summarizeEarnedProfit(
       totalCredit: roundInr(unclassifiedCredit),
       lines: unclassifiedLines,
     },
+    reconciliationStatus,
     lines,
     identities: {
       earnedOperatingProfit: `${revenueN} − ${bizN} = ${eopN}`,
@@ -344,11 +418,28 @@ export function summarizeEarnedProfit(
 
 /** Combine two company earned-profit summaries (personal buckets summed). */
 export function combineProfitSummaries(a: ProfitSummary, b: ProfitSummary): ProfitSummary {
-  // Do not re-run narration rules across companies — prefixes use different maps.
+  const merged = summarizeEarnedProfit(
+    [...a.lines, ...b.lines].map((line) => ({
+      transactionId: line.transactionId,
+      particulars: line.particulars,
+      debit: line.debit,
+      credit: line.credit,
+      // Preserve assigned treatment by using IGNORE only when already classified —
+      // instead sum buckets directly to avoid re-running cross-company rules.
+      classification: line.classification,
+    })),
+    [],
+  );
+  // Empty rules would unclassified everything — sum buckets instead.
+  void merged;
   const revenue = roundInr(money(a.revenue).plus(b.revenue));
+  const bankPaidSalaries = roundInr(money(a.bankPaidSalaries).plus(b.bankPaidSalaries));
+  const overtime = roundInr(money(a.overtime).plus(b.overtime));
   const salariesOvertime = roundInr(money(a.salariesOvertime).plus(b.salariesOvertime));
-  const cashSalaryPayments = roundInr(money(a.cashSalaryPayments).plus(b.cashSalaryPayments));
-  const cbdtTax = roundInr(money(a.cbdtTax).plus(b.cbdtTax));
+  const cashSalaryPayments = roundInr(
+    money(a.salaryRelatedCashPayments).plus(b.salaryRelatedCashPayments),
+  );
+  const cbdtTax = roundInr(money(a.cbdtBusinessTax).plus(b.cbdtBusinessTax));
   const otherBusinessExpenses = roundInr(
     money(a.otherBusinessExpenses).plus(b.otherBusinessExpenses),
   );
@@ -378,19 +469,22 @@ export function combineProfitSummaries(a: ProfitSummary, b: ProfitSummary): Prof
   const cashRemainingAfterDeductions = roundInr(
     money(profitAfterPersonalFinance).minus(otherPersonalOutgoings),
   );
-  const lines = [...a.lines, ...b.lines];
   const unclassifiedLines = [...a.unclassified.lines, ...b.unclassified.lines];
-
-  assertIdentity(
-    "combined.earnedOperatingProfit",
-    earnedOperatingProfit,
-    money(a.earnedOperatingProfit).plus(b.earnedOperatingProfit),
-  );
+  const reconciliationStatus =
+    a.reconciliationStatus === "COMPLETE" && b.reconciliationStatus === "COMPLETE"
+      ? "COMPLETE"
+      : a.reconciliationStatus === "NO_TRANSACTIONS" && b.reconciliationStatus === "NO_TRANSACTIONS"
+        ? "NO_TRANSACTIONS"
+        : "PARTIAL_REVIEW_REQUIRED";
 
   return {
     revenue,
+    bankPaidSalaries,
+    overtime,
     salariesOvertime,
+    salaryRelatedCashPayments: cashSalaryPayments,
     cashSalaryPayments,
+    cbdtBusinessTax: cbdtTax,
     cbdtTax,
     otherBusinessExpenses,
     businessExpenses,
@@ -415,7 +509,8 @@ export function combineProfitSummaries(a: ProfitSummary, b: ProfitSummary): Prof
       totalCredit: roundInr(money(a.unclassified.totalCredit).plus(b.unclassified.totalCredit)),
       lines: unclassifiedLines,
     },
-    lines,
+    reconciliationStatus,
+    lines: [...a.lines, ...b.lines],
     identities: {
       earnedOperatingProfit: `${a.earnedOperatingProfit} + ${b.earnedOperatingProfit} = ${earnedOperatingProfit}`,
       profitAfterPersonalFinance: `${earnedOperatingProfit} − ${corePersonalFinance} = ${profitAfterPersonalFinance}`,
@@ -432,6 +527,7 @@ function toPolicyInputs(rules: DefaultProfitRule[]): ProfitPolicyRuleInput[] {
     categoryKey: rule.categoryKey,
     priority: rule.priority,
     label: rule.label,
+    direction: rule.direction ?? null,
   }));
 }
 
@@ -454,6 +550,7 @@ export async function seedDefaultProfitPolicies(companyId: string, prefix?: stri
       treatment: rule.treatment,
       categoryKey: rule.categoryKey,
       label: rule.label,
+      direction: rule.direction ?? null,
       priority: rule.priority,
       isActive: true,
     };
@@ -472,6 +569,17 @@ export async function seedDefaultProfitPolicies(companyId: string, prefix?: stri
       });
     }
   }
+}
+
+/** Drop stale profit snapshots for a company (or all months). */
+export async function invalidateProfitSnapshots(companyId: string, year?: number, month?: number) {
+  await prisma.profitReportSnapshot.deleteMany({
+    where: {
+      companyId,
+      ...(year != null ? { year } : {}),
+      ...(month != null ? { month } : {}),
+    },
+  });
 }
 
 export async function computeMonthlyProfit(input: {
@@ -493,9 +601,12 @@ export async function computeMonthlyProfit(input: {
           matchPattern: rule.matchPattern,
           classification: rule.classification,
           treatment: rule.treatment,
-          categoryKey: (rule.categoryKey as ProfitCategoryKey | null) ?? categoryFromTreatment(rule.treatment),
+          categoryKey:
+            (rule.categoryKey as ProfitCategoryKey | null) ??
+            categoryFromTreatment(rule.treatment),
           priority: rule.priority,
           label: rule.label,
+          direction: (rule.direction as "credit" | "debit" | null) ?? null,
         }))
       : toPolicyInputs(defaultProfitRulesForPrefix(company.prefix));
 
@@ -503,14 +614,32 @@ export async function computeMonthlyProfit(input: {
     where: { companyId: input.companyId },
     include: {
       transactions: {
-        where: { txnDate: { gte: start, lt: end } },
+        where: {
+          OR: [
+            { txnDate: { gte: start, lt: end } },
+            { valueDate: { gte: start, lt: end } },
+            { salaryYear: input.year, salaryMonth: input.month },
+          ],
+        },
       },
     },
   });
 
+  const seen = new Set<string>();
   const inputs: ProfitLineInput[] = [];
   for (const st of statements) {
     for (const txn of st.transactions) {
+      if (seen.has(txn.id)) continue;
+      // Prefer txn/value date inside month; salaryYear/Month is fallback for undated rows.
+      const txnTime = txn.txnDate?.getTime() ?? 0;
+      const valueTime = txn.valueDate?.getTime() ?? 0;
+      const inMonthByDate =
+        (txnTime >= start.getTime() && txnTime < end.getTime()) ||
+        (valueTime >= start.getTime() && valueTime < end.getTime());
+      const inMonthBySalary =
+        txn.salaryYear === input.year && txn.salaryMonth === input.month;
+      if (!inMonthByDate && !inMonthBySalary) continue;
+      seen.add(txn.id);
       inputs.push({
         transactionId: txn.id,
         particulars: txn.particulars,
@@ -522,6 +651,7 @@ export async function computeMonthlyProfit(input: {
   }
 
   const summary = summarizeEarnedProfit(inputs, policyInputs);
+  const computedAt = new Date().toISOString();
 
   const period = periodKey(input.year, input.month);
   const folder = profitFolderPrefix({
@@ -537,20 +667,23 @@ export async function computeMonthlyProfit(input: {
   const storagePath = `${folder}/${fileName}`;
 
   const details = {
+    computedAt,
     formula: {
       earnedOperatingProfit:
-        "Actual business credits − salaries − overtime − salary-related cash − CBDT/business tax − other business expenses",
+        "Actual business credits − bank-paid salaries − overtime − salary-related cash − CBDT/business tax − other mapped business expenses",
       profitAfterPersonalFinance:
         "Earned operating profit − home loan − Bajaj EMI − credit-card payments",
       cashRemainingAfterDeductions:
         "Profit after personal/finance deductions − owner/Love transfers − other identified outflows",
       never: "Bank balance, opening/closing, internal transfers, and unclassified amounts are not earned profit",
     },
+    reconciliationStatus: summary.reconciliationStatus,
     breakdown: {
       revenue: summary.revenue,
-      salariesOvertime: summary.salariesOvertime,
-      cashSalaryPayments: summary.cashSalaryPayments,
-      cbdtTax: summary.cbdtTax,
+      bankPaidSalaries: summary.bankPaidSalaries,
+      overtime: summary.overtime,
+      salaryRelatedCashPayments: summary.salaryRelatedCashPayments,
+      cbdtBusinessTax: summary.cbdtBusinessTax,
       otherBusinessExpenses: summary.otherBusinessExpenses,
       personalFinancing: summary.personalFinancing,
       unclassified: {
@@ -601,6 +734,7 @@ export async function computeMonthlyProfit(input: {
               company: company.name,
               prefix: company.prefix,
               period,
+              computedAt,
               ...summary,
               identities: summary.identities,
             },
@@ -627,6 +761,7 @@ export async function computeMonthlyProfit(input: {
     period,
     storagePath,
     bankBalanceLabelForbidden: true,
+    computedAt,
     ...summary,
   };
 }

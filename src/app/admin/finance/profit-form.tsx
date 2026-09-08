@@ -11,6 +11,7 @@ type ProfitLine = {
   debit: number;
   credit: number;
   treatment: string;
+  financeTreatment?: string;
   categoryKey?: string;
   categoryLabel?: string;
 };
@@ -32,8 +33,12 @@ type ProfitResult = {
     companyName: string;
     period: string;
     revenue: number;
+    bankPaidSalaries?: number;
+    overtime?: number;
     salariesOvertime: number;
+    salaryRelatedCashPayments?: number;
     cashSalaryPayments: number;
+    cbdtBusinessTax?: number;
     cbdtTax: number;
     otherBusinessExpenses: number;
     businessExpenses: number;
@@ -42,6 +47,8 @@ type ProfitResult = {
     profitAfterPersonalFinance: number;
     cashRemainingAfterDeductions: number;
     cashRemaining: number;
+    reconciliationStatus?: string;
+    computedAt?: string;
     personalFinancing: PersonalFinancing;
     unclassified: {
       count: number;
@@ -54,7 +61,6 @@ type ProfitResult = {
       earnedOperatingProfit: string;
       profitAfterPersonalFinance: string;
       cashRemainingAfterDeductions: string;
-      cashRemaining?: string;
     };
     lines?: ProfitLine[];
   };
@@ -101,6 +107,10 @@ export function ProfitForm({
   const p = result?.profit;
   const lockedName = companies.find((c) => c.id === companyId)?.name ?? companyId;
   const pf = p?.personalFinancing;
+  const salaries = p?.bankPaidSalaries ?? p?.salariesOvertime ?? 0;
+  const overtime = p?.overtime ?? 0;
+  const cash = p?.salaryRelatedCashPayments ?? p?.cashSalaryPayments ?? 0;
+  const cbdt = p?.cbdtBusinessTax ?? p?.cbdtTax ?? 0;
 
   return (
     <div className="space-y-4">
@@ -136,24 +146,35 @@ export function ProfitForm({
       {p ? (
         <div className="space-y-4">
           <div className="overflow-hidden rounded-[var(--nova-radius)] border border-[var(--nova-border)] bg-[var(--nova-surface)] shadow-[var(--nova-shadow)]">
-            <div className="border-b border-[var(--nova-border)] bg-[var(--nova-surface-muted)] px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--nova-border)] bg-[var(--nova-surface-muted)] px-4 py-3">
               <BracketLabel>
                 {p.companyName} · {p.period}
               </BracketLabel>
+              <div className="text-right">
+                <Meta>
+                  Status: {p.reconciliationStatus ?? "—"}
+                  {p.computedAt ? ` · computed ${new Date(p.computedAt).toLocaleString()}` : ""}
+                </Meta>
+              </div>
             </div>
 
             <section className="border-b border-[var(--nova-border)] p-4">
               <BracketLabel>1 · Earned business profit</BracketLabel>
               <p className="mt-1 text-sm text-[var(--nova-muted)]">
-                Actual business credits only. Bank balance growth is never profit.
+                Actual business credits − salaries − overtime − cash salary − CBDT/tax. Bank balance
+                is never profit.
               </p>
               <div className="mt-3">
-                <LineRow label="Revenue" value={p.revenue} />
-                <LineRow label="Salaries / overtime" value={-(p.salariesOvertime ?? 0)} />
-                <LineRow label="Salary-related cash payments" value={-(p.cashSalaryPayments ?? 0)} />
-                <LineRow label="CBDT / business tax" value={-(p.cbdtTax ?? 0)} />
+                <LineRow label="Actual business credits (revenue)" value={p.revenue} />
+                <LineRow label="Bank-paid salaries" value={-salaries} />
+                <LineRow label="Overtime" value={-overtime} />
+                <LineRow label="Salary-related cash payments" value={-cash} />
+                <LineRow label="CBDT / business tax" value={-cbdt} />
                 {(p.otherBusinessExpenses ?? 0) !== 0 ? (
-                  <LineRow label="Other business expenses" value={-(p.otherBusinessExpenses ?? 0)} />
+                  <LineRow
+                    label="Other mapped business expenses"
+                    value={-(p.otherBusinessExpenses ?? 0)}
+                  />
                 ) : null}
                 <div className="mt-3 flex items-baseline justify-between gap-4 rounded-[var(--nova-radius-sm)] bg-[var(--nova-canvas)] px-3 py-3">
                   <span className="font-semibold text-[var(--nova-ink)]">Earned operating profit</span>
@@ -178,11 +199,6 @@ export function ProfitForm({
                 <LineRow label="Credit-card payment" value={-(pf?.creditCard ?? 0)} />
                 <LineRow label="Owner / Love transfers" value={-(pf?.ownerTransfers ?? 0)} />
                 <LineRow label="Threads cheque / other outflows" value={-(pf?.otherOutflows ?? 0)} />
-                <LineRow
-                  label="Total personal / financing"
-                  value={-(pf?.total ?? p.ownerFinancingOutgoings)}
-                  muted
-                />
               </div>
             </section>
 
@@ -194,18 +210,12 @@ export function ProfitForm({
                   <div className="mt-2 text-2xl font-bold text-[var(--nova-ink)]">
                     <MoneyValue value={p.profitAfterPersonalFinance ?? p.earnedOperatingProfit} />
                   </div>
-                  <p className="mt-2 text-xs text-[var(--nova-muted)]">
-                    {p.identities?.profitAfterPersonalFinance}
-                  </p>
                 </div>
                 <div className="rounded-[var(--nova-radius-sm)] border border-[var(--nova-border)] bg-[var(--nova-canvas)] p-4">
                   <Meta>Actual remaining after other outgoings</Meta>
                   <div className="mt-2 text-2xl font-bold text-[var(--nova-teal)]">
                     <MoneyValue value={p.cashRemainingAfterDeductions ?? p.cashRemaining} />
                   </div>
-                  <p className="mt-2 text-xs text-[var(--nova-muted)]">
-                    {p.identities?.cashRemainingAfterDeductions}
-                  </p>
                 </div>
               </div>
             </section>
@@ -265,6 +275,7 @@ export function ProfitForm({
 export function FinanceOverviewCards({
   totals,
   mom,
+  snapshotNote,
 }: {
   totals: {
     revenue: number;
@@ -276,16 +287,19 @@ export function FinanceOverviewCards({
     period: string;
     earnedOperatingProfit: number;
     growthPct: number | null;
+    growthLabel?: string;
   }>;
+  snapshotNote?: string;
 }) {
   return (
     <div className="space-y-6">
+      {snapshotNote ? <AlertBanner tone="info">{snapshotNote}</AlertBanner> : null}
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCell label="Companies with snapshots" value={totals.companiesReporting} />
         <StatCell
           label="Collective revenue"
           value={<MoneyValue value={totals.revenue} />}
-          hint="All companies · stored snapshots"
+          hint="Recomputed snapshots only"
         />
         <StatCell
           label="Collective earned profit"
@@ -325,9 +339,10 @@ export function FinanceOverviewCards({
                             : "text-[var(--nova-danger)]"
                       }`}
                     >
-                      {row.growthPct == null
-                        ? "—"
-                        : `${row.growthPct > 0 ? "+" : ""}${row.growthPct.toFixed(1)}%`}
+                      {row.growthLabel ??
+                        (row.growthPct == null
+                          ? "Not available — reconciliation incomplete"
+                          : `${row.growthPct > 0 ? "+" : ""}${row.growthPct.toFixed(1)}%`)}
                     </td>
                   </tr>
                 ))}

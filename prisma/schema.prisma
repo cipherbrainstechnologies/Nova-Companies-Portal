@@ -787,6 +787,8 @@ model ProfitPolicyRule {
   /** Fine-grained reporting bucket (revenue, salary, CBDT, home loan, …). */
   categoryKey    String?
   label          String?
+  /** Optional: credit | debit — rule applies only to that direction. */
+  direction      String?
   priority       Int                         @default(100)
   isActive       Boolean                     @default(true)
   createdAt      DateTime                    @default(now())

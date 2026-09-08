@@ -39,6 +39,7 @@ const upsertSchema = z.object({
   ]),
   categoryKey: z.enum(categoryKeys),
   label: z.string().optional(),
+  direction: z.enum(["credit", "debit"]).nullable().optional(),
   priority: z.number().int().min(0).max(1000).default(100),
   isActive: z.boolean().optional(),
 });
@@ -81,6 +82,7 @@ export async function POST(req: NextRequest) {
       treatment: body.treatment,
       categoryKey: body.categoryKey,
       label: body.label ?? PROFIT_CATEGORY_LABELS[body.categoryKey],
+      direction: body.direction ?? null,
       priority: body.priority,
       isActive: body.isActive ?? true,
     };

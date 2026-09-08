@@ -15,10 +15,39 @@ export async function GET(req: NextRequest) {
     await requirePermission({ user, companyId, module: "finance", action: "view" });
     const profit = await computeMonthlyProfit({ companyId, year, month, persistSheet: true });
     return NextResponse.json({
-      profit,
+      profit: {
+        company: profit.companyName,
+        companyId: profit.companyId,
+        companyPrefix: profit.companyPrefix,
+        companyName: profit.companyName,
+        period: profit.period,
+        revenue: profit.revenue,
+        bankPaidSalaries: profit.bankPaidSalaries,
+        overtime: profit.overtime,
+        salariesOvertime: profit.salariesOvertime,
+        salaryRelatedCashPayments: profit.salaryRelatedCashPayments,
+        cashSalaryPayments: profit.cashSalaryPayments,
+        cbdtBusinessTax: profit.cbdtBusinessTax,
+        cbdtTax: profit.cbdtTax,
+        otherBusinessExpenses: profit.otherBusinessExpenses,
+        businessExpenses: profit.businessExpenses,
+        earnedOperatingProfit: profit.earnedOperatingProfit,
+        ownerFinancingOutgoings: profit.ownerFinancingOutgoings,
+        profitAfterPersonalFinance: profit.profitAfterPersonalFinance,
+        cashRemainingAfterDeductions: profit.cashRemainingAfterDeductions,
+        cashRemaining: profit.cashRemaining,
+        personalFinancing: profit.personalFinancing,
+        unclassified: profit.unclassified,
+        reconciliationStatus: profit.reconciliationStatus,
+        computedAt: profit.computedAt,
+        storagePath: profit.storagePath,
+        identities: profit.identities,
+        lines: profit.lines,
+        bankBalanceLabelForbidden: profit.bankBalanceLabelForbidden,
+      },
       labels: {
         earnedOperatingProfit:
-          "Actual business credits − salaries − overtime − cash salary − CBDT/tax − other business expenses",
+          "Actual business credits − bank-paid salaries − overtime − cash salary − CBDT/tax − other mapped business expenses",
         profitAfterPersonalFinance:
           "Earned operating profit − home loan − Bajaj EMI − credit-card payments",
         cashRemainingAfterDeductions:

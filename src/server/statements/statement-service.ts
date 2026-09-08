@@ -244,6 +244,10 @@ export async function parseStatementJob(statementId: string) {
       statementId,
       actorUserId: statement.uploadedById ?? undefined,
     });
+    // Statement import changes month totals — drop stale profit snapshots for this company.
+    await prisma.profitReportSnapshot.deleteMany({
+      where: { companyId: statement.companyId },
+    });
   } catch (error) {
     await prisma.bankStatement.update({
       where: { id: statementId },
@@ -295,6 +299,7 @@ export async function updateStatementClassification(input: {
         },
       },
     });
+    await tx.profitReportSnapshot.deleteMany({ where: { companyId: input.companyId } });
     return updated;
   });
 }

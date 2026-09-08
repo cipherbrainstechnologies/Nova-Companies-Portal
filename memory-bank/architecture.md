@@ -29,6 +29,8 @@
 - Audit action names are centralised in `src/server/payroll/audit-actions.ts` and grouped by stage (match → approve → issue → email).
 - Statement uploads parse **inline in the web process by default** so rows appear without a BullMQ worker. Set `STATEMENT_PARSE_VIA_QUEUE=1` only when a worker is confirmed. Stuck `UPLOADED` / `FAILED` rows can be reparsed via `POST /api/statements/[id]/reparse`.
 - Axis PDF parser accepts official **Account Statement Report** text layout (`S.NO + Tran Date + Value Date + Particulars + Debit/Credit + Balance`), classifies single-amount rows via opening-balance deltas, and ignores `TRANSACTION TOTAL` / closing-balance footers.
+- Profit rules are **direction-aware** (credit vs debit). Sana/Skydotec count as revenue only on credits. NW bank salaries match `NEFT/EB/`; approved `MOB/TPFT/LOVE N CHAUHAN` is Hardik cash salary; bare `HARDIK` is not used (false-positive on HARDIKKUMAR). Unclassified never alters earned profit. See `FINANCE_RECONCILIATION_BUG_REPORT.md`.
+- Profit snapshots invalidate on statement parse and manual classify; Finance page offers **Recompute all profit snapshots**. MoM growth is suppressed when reconciliation is incomplete or the prior month earned profit is zero.
 
 ## Templates
 
