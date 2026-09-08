@@ -3,6 +3,22 @@ import { DataRow, StatusBadge, EmptyState } from "@/components/industrial";
 import { t } from "@/i18n";
 import { StatementUploadForm } from "@/app/admin/statements/upload-form";
 import { ReconciliationPanel } from "@/app/admin/statements/reconciliation-panel";
+import { StatementReparseButton } from "@/app/admin/statements/reparse-button";
+
+function statementSubtitle(s: {
+  status: string;
+  parseError: string | null;
+  createdAt: Date;
+  checksumSha256: string;
+  _count: { transactions: number };
+}) {
+  const base = `${s._count.transactions} rows · ${s.createdAt.toLocaleString()} · checksum ${s.checksumSha256.slice(0, 12)}…`;
+  if (s.parseError) return `${base} · ${s.parseError}`;
+  if (s._count.transactions === 0 && s.status === "UPLOADED") {
+    return `${base} · waiting to parse (click Parse now)`;
+  }
+  return base;
+}
 
 export default async function CompanyStatementsPage({
   params,
@@ -46,14 +62,19 @@ export default async function CompanyStatementsPage({
           <DataRow
             key={s.id}
             title={`${s.bankCode} statement`}
-            subtitle={`${s._count.transactions} rows · ${s.createdAt.toLocaleString()} · checksum ${s.checksumSha256.slice(0, 12)}…`}
+            subtitle={statementSubtitle(s)}
             action={
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge
                   status={s.status}
                   tone={
                     s.status === "PARSED" ? "success" : s.status === "FAILED" ? "danger" : "info"
                   }
+                />
+                <StatementReparseButton
+                  statementId={s.id}
+                  status={s.status}
+                  rowCount={s._count.transactions}
                 />
                 <a
                   className="text-sm font-semibold text-[var(--nova-teal)] hover:underline"

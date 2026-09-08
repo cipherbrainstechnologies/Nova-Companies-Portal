@@ -105,21 +105,34 @@ export async function uploadStatement(input: UploadStatementInput) {
     throw error;
   }
 
-  try {
-    await statementParseQueue.add(
-      "parse-statement",
-      { statementId: statement.id },
-      { jobId: `statement-${statement.id}` },
-    );
-  } catch (error) {
-    await prisma.bankStatement.update({
-      where: { id: statement.id },
-      data: { status: "FAILED", parseError: "Statement parsing could not be queued" },
-    });
-    throw error;
+  // Statement rows are user-facing. Default is inline parse in the web process so
+  // uploads do not sit at 0 rows when the BullMQ worker is missing. Opt into queue
+  // with STATEMENT_PARSE_VIA_QUEUE=1 once a worker is confirmed running.
+  const viaQueue = process.env.STATEMENT_PARSE_VIA_QUEUE === "1";
+  if (viaQueue) {
+    try {
+      await statementParseQueue.add(
+        "parse-statement",
+        { statementId: statement.id },
+        { jobId: `statement-${statement.id}` },
+      );
+    } catch (error) {
+      await prisma.bankStatement.update({
+        where: { id: statement.id },
+        data: { status: "FAILED", parseError: "Statement parsing could not be queued" },
+      });
+      throw error;
+    }
+  } else {
+    await parseStatementJob(statement.id);
   }
+
+  const refreshed = await prisma.bankStatement.findUniqueOrThrow({
+    where: { id: statement.id },
+    include: { _count: { select: { transactions: true } } },
+  });
   // Uploading and parsing only create reconciliation data; they never issue payslips.
-  return { statement, duplicate: false as const };
+  return { statement: refreshed, duplicate: false as const };
 }
 
 export async function parseStatementJob(statementId: string) {

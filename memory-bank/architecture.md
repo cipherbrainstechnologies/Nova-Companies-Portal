@@ -27,6 +27,7 @@
 - `resolveExpectedMonthlyNet` is the `Decimal`-tolerant wrapper used against persisted rows: stored figures first, then the component payload, so structures captured only as components still reconcile.
 - Match suggestion generation lives in `reconciliation-automation.ts` alongside the rest of the pipeline. `matcher-integration.ts` is retained only as a re-export shim for existing importers.
 - Audit action names are centralised in `src/server/payroll/audit-actions.ts` and grouped by stage (match → approve → issue → email).
+- Statement uploads parse **inline in the web process by default** so rows appear without a BullMQ worker. Set `STATEMENT_PARSE_VIA_QUEUE=1` only when a worker is confirmed. Stuck `UPLOADED` / `FAILED` rows can be reparsed via `POST /api/statements/[id]/reparse`.
 
 ## Templates
 
