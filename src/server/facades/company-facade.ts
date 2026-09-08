@@ -49,6 +49,8 @@ export class CompanyFacade {
     name?: string;
     gstin?: string | null;
     address?: string | null;
+    email?: string | null;
+    phone?: string | null;
     isActive?: boolean;
     logoKey?: string | null;
     autoIssueExactMatches?: boolean;
@@ -67,6 +69,8 @@ export class CompanyFacade {
         name: input.name,
         gstin: input.gstin,
         address: input.address,
+        email: input.email,
+        phone: input.phone,
         isActive: input.isActive,
         logoKey: input.logoKey,
         autoIssueExactMatches: input.autoIssueExactMatches,

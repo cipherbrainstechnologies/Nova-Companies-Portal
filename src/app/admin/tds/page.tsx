@@ -10,7 +10,7 @@ export default async function TdsPage() {
   return (
     <AdminShell
       title={t("en", "admin.tds")}
-      description="Project estimated TDS from monthly taxable components. Results are estimates — not filed returns."
+      description="Salary calculator for taxable bifurcation and estimated monthly TDS. Estimates only — not statutory filing."
       userName={user.email ?? user.phone}
       userRole={user.globalRole}
     >

@@ -6,6 +6,7 @@ import { Button, Card, Input, Label } from "@/components/ui";
 import { AlertBanner, BracketLabel } from "@/components/industrial";
 import { PayslipPreview } from "@/components/payslip-preview";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { MonthYearPicker } from "@/components/month-year-picker";
 import { t } from "@/i18n";
 
 type EarningRow = { code: string; label: string; actual: string; payable: string };
@@ -208,16 +209,13 @@ export function SalarySlipForm({ companyId, employeeId, defaultBasic }: Props) {
     <div className="grid gap-6 xl:grid-cols-2">
       <Card className="space-y-5">
         <BracketLabel>{t("en", "admin.createSalarySlip")}</BracketLabel>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <Label>{t("en", "admin.year")}</Label>
-            <Input value={year} onChange={(e) => setYear(e.target.value)} />
-          </div>
-          <div>
-            <Label>{t("en", "admin.month")}</Label>
-            <Input value={month} onChange={(e) => setMonth(e.target.value)} />
-          </div>
-        </div>
+        <MonthYearPicker
+          year={year}
+          month={month}
+          onYearChange={setYear}
+          onMonthChange={setMonth}
+          idPrefix="slip"
+        />
 
         <div>
           <p className="mb-2 text-sm font-semibold text-[var(--nova-ink)]">

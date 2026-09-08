@@ -239,6 +239,8 @@ model Company {
   prefix      String   @unique
   gstin       String?
   address     String?
+  email       String?
+  phone       String?
   logoKey     String?
   isActive    Boolean  @default(true)
   autoIssueExactMatches Boolean @default(false)

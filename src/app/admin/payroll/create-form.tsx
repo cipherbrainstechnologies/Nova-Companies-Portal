@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Card, Input, Label } from "@/components/ui";
+import { Button, Card } from "@/components/ui";
 import { AlertBanner } from "@/components/industrial";
+import { MonthYearPicker } from "@/components/month-year-picker";
+import { Modal } from "@/components/modal";
 import { t } from "@/i18n";
 
 export function CreatePayrollForm({ companyId }: { companyId: string }) {
@@ -40,14 +42,13 @@ export function CreatePayrollForm({ companyId }: { companyId: string }) {
         }}
         className="flex flex-wrap items-end gap-3"
       >
-        <div>
-          <Label>{t("en", "admin.year")}</Label>
-          <Input value={year} onChange={(e) => setYear(e.target.value)} />
-        </div>
-        <div>
-          <Label>{t("en", "admin.month")}</Label>
-          <Input value={month} onChange={(e) => setMonth(e.target.value)} />
-        </div>
+        <MonthYearPicker
+          year={year}
+          month={month}
+          onYearChange={setYear}
+          onMonthChange={setMonth}
+          idPrefix="payroll-run"
+        />
         <Button type="submit">{t("en", "admin.createPayroll")}</Button>
       </form>
       {error ? (
@@ -55,23 +56,21 @@ export function CreatePayrollForm({ companyId }: { companyId: string }) {
           <AlertBanner tone="danger">{error}</AlertBanner>
         </div>
       ) : null}
-      {confirmOpen ? (
-        <div className="mt-4 rounded-[var(--nova-radius)] border border-[var(--nova-border)] bg-[var(--nova-surface-muted)] p-4">
-          <p className="text-sm font-semibold text-[var(--nova-ink)]">Create payroll run?</p>
-          <p className="mt-1 text-sm text-[var(--nova-muted)]">
-            This creates a run for {String(month).padStart(2, "0")}/{year}. Issuing payslips later
-            still requires explicit confirmation.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button type="button" onClick={() => void createRun()}>
-              Confirm create
-            </Button>
-            <Button type="button" variant="ghost" onClick={() => setConfirmOpen(false)}>
-              Cancel
-            </Button>
-          </div>
+      <Modal
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        title="Create payroll run?"
+        description={`This creates a run for ${String(month).padStart(2, "0")}/${year}. Issuing payslips later still requires explicit confirmation.`}
+      >
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={() => setConfirmOpen(false)}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={() => void createRun()}>
+            Confirm create
+          </Button>
         </div>
-      ) : null}
+      </Modal>
     </Card>
   );
 }

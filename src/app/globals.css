@@ -190,6 +190,11 @@ button {
   color: var(--nova-ink);
 }
 
+/* Native title tips are often low-contrast; prefer HoverTip. Keep titles readable when used. */
+[title]:hover::after {
+  content: none;
+}
+
 @media (max-width: 640px) {
   body {
     font-size: 14px;

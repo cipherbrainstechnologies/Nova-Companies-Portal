@@ -5,6 +5,7 @@ import { t } from "@/i18n";
 import { prisma } from "@/server/db";
 import Link from "next/link";
 import { AutomationSettingsForm } from "@/app/admin/companies/automation-settings-form";
+import { EditCompanyButton } from "@/app/admin/companies/edit-company-form";
 
 const quickLinks = [
   { segment: "employees", key: "admin.employees" },
@@ -42,14 +43,24 @@ export default async function CompanyOverviewPage({
           <div className="flex h-14 w-14 items-center justify-center rounded-[var(--nova-radius)] bg-[var(--nova-teal-soft)] text-lg font-bold text-[var(--nova-teal)]">
             {company.prefix}
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <BracketLabel>{t("en", "company.hub.legalEntity")}</BracketLabel>
             <div className="mt-1 text-lg font-semibold text-[var(--nova-ink)]">{company.name}</div>
           </div>
-          <div className="ml-auto">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
             <StatusBadge
               status={company.isActive ? t("en", "admin.active") : t("en", "admin.inactive")}
               tone={company.isActive ? "success" : "neutral"}
+            />
+            <EditCompanyButton
+              company={{
+                id: company.id,
+                name: company.name,
+                gstin: company.gstin,
+                address: company.address,
+                email: company.email,
+                phone: company.phone,
+              }}
             />
           </div>
         </div>
@@ -62,15 +73,40 @@ export default async function CompanyOverviewPage({
           </div>
           <div>
             <dt className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--nova-muted)]">
+              Company email
+            </dt>
+            <dd className="mt-1 text-base font-medium">
+              {company.email ?? t("en", "common.needsConfig")}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--nova-muted)]">
+              Company phone
+            </dt>
+            <dd className="mt-1 text-base font-medium">
+              {company.phone ?? t("en", "common.needsConfig")}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--nova-muted)]">
               {t("en", "admin.gstin")}
             </dt>
-            <dd className="mt-1 text-base font-medium">{company.gstin ?? t("en", "common.needsConfig")}</dd>
+            <dd className="mt-1 text-base font-medium">
+              {company.gstin ?? t("en", "common.needsConfig")}
+            </dd>
           </div>
           <div>
             <dt className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--nova-muted)]">
               {t("en", "company.hub.activeEmployees")}
             </dt>
-            <dd className="mt-1 text-base font-semibold tabular-nums">{employeeCount}</dd>
+            <dd className="mt-1 text-base font-semibold tabular-nums">
+              <Link
+                href={`/admin/companies/${companyId}/employees`}
+                className="text-[var(--nova-teal)] hover:underline"
+              >
+                {employeeCount}
+              </Link>
+            </dd>
           </div>
           <div className="sm:col-span-2">
             <dt className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--nova-muted)]">

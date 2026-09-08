@@ -67,6 +67,9 @@
 - Visual system: premium SaaS payroll UI (Nova ink + teal tokens in `globals.css`).
 - Shells: `AdminShell` (desktop sidebar, mobile drawer, profile/logout) and `EmployeeShell` in `src/components/admin-shell.tsx`.
 - Company workspace: `src/app/admin/companies/[companyId]/layout.tsx` wraps nested module routes with `AdminShell` + `CompanyHub` (breadcrumb, sticky module tabs under `/admin/companies/[companyId]/…`, optional company switcher).
-- Shared primitives: `src/components/ui.tsx` (Button/Input/Card) and `src/components/industrial.tsx` (StatCell, DataRow, CompanyTabs, StatusBadge, EmptyState, MoneyValue, AlertBanner, PublicChrome).
+- Shared primitives: `src/components/ui.tsx` (Button/Input/Card), `Modal`, `MonthYearPicker`, `HoverTip`, and `src/components/industrial.tsx` (StatCell, DataRow, CompanyTabs, StatusBadge, EmptyState, MoneyValue, AlertBanner, PublicChrome).
+- Company contact fields: `Company.email` / `Company.phone` editable via modal on the legal-entity overview.
+- Employees roster: searchable table (name, email, phone, company, view icon). Profile shows salary hike history (structure versions) and payslip folders by assessment year → month (admin + employee portal).
+- Nav label `admin.tds` = Salary calculator (bifurcation UI; no raw JSON dump). Finance overview aggregates profit snapshots with MoM growth %. Operations dashboard shows recent salary changes instead of audit logs.
 - Soft borders, 8px spacing scale, sentence-case typography (Plus Jakarta Sans). Industrial/Desert Rose styling is retired.
 - Audit of preserved routes: `UI_REDESIGN_AUDIT.md`.

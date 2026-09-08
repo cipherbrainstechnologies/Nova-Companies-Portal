@@ -2,8 +2,9 @@ import Link from "next/link";
 import { requirePageUser } from "@/server/auth/page-guard";
 import { AdminShell } from "@/components/admin-shell";
 import { prisma } from "@/server/db";
-import { StatCell, AlertBanner, DataRow, StatusBadge } from "@/components/industrial";
+import { StatCell, AlertBanner, DataRow, StatusBadge, MoneyValue } from "@/components/industrial";
 import { Button } from "@/components/ui";
+import { PAYROLL_AUDIT_ACTIONS } from "@/server/payroll/audit-actions";
 import { t } from "@/i18n";
 
 export default async function AdminDashboardPage() {
@@ -20,7 +21,7 @@ export default async function AdminDashboardPage() {
     activeEmployees,
     blockedEmployees,
     issuedPayslips,
-    recentAudit,
+    recentHikes,
     payrollRunsThisMonth,
   ] = await Promise.all([
     prisma.company.count(),
@@ -35,9 +36,13 @@ export default async function AdminDashboardPage() {
         payrollRun: { year, month },
       },
     }),
-    prisma.auditLog.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 6,
+    prisma.employeeSalaryStructureVersion.findMany({
+      where: { version: { gt: 1 } },
+      include: {
+        employee: { include: { company: true } },
+      },
+      orderBy: { effectiveFrom: "desc" },
+      take: 8,
     }),
     prisma.payrollRun.findMany({
       where: { year, month },
@@ -106,7 +111,10 @@ export default async function AdminDashboardPage() {
           value={blockedEmployees}
           alert={blockedEmployees > 0}
         />
-        <StatCell label={`Payslips issued (${String(month).padStart(2, "0")}/${year})`} value={issuedPayslips} />
+        <StatCell
+          label={`Payslips issued (${String(month).padStart(2, "0")}/${year})`}
+          value={issuedPayslips}
+        />
         <StatCell label="Payroll runs this month" value={payrollRunsThisMonth.length} />
       </section>
 
@@ -143,18 +151,41 @@ export default async function AdminDashboardPage() {
 
         <section>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.06em] text-[var(--nova-muted)]">
-            Recent activity
+            Recent salary changes / hikes
           </h2>
           <div className="grid gap-2">
-            {recentAudit.map((l) => (
+            {recentHikes.map((v) => (
               <DataRow
-                key={l.id}
-                title={l.action}
-                subtitle={`${l.entityType}${l.entityId ? ` · ${l.entityId.slice(0, 8)}…` : ""} · ${l.createdAt.toLocaleString()}`}
+                key={v.id}
+                title={`${v.employee.firstName} ${v.employee.lastName} · v${v.version}`}
+                subtitle={`${v.employee.company.name} · effective ${v.effectiveFrom.toLocaleDateString()}${
+                  v.expectedMonthlyNet != null
+                    ? ` · net `
+                    : ""
+                }`}
+                action={
+                  <div className="flex items-center gap-2">
+                    {v.expectedMonthlyNet != null ? (
+                      <span className="text-sm font-semibold tabular-nums text-[var(--nova-ink)]">
+                        <MoneyValue value={Number(v.expectedMonthlyNet)} />
+                      </span>
+                    ) : null}
+                    <Link
+                      href={`/admin/companies/${v.employee.companyId}/employees/${v.employeeId}`}
+                    >
+                      <Button size="sm" variant="ghost">
+                        View
+                      </Button>
+                    </Link>
+                  </div>
+                }
               />
             ))}
-            {!recentAudit.length ? (
-              <DataRow title="No audit events yet" subtitle="Actions will appear here as the team works." />
+            {!recentHikes.length ? (
+              <DataRow
+                title="No salary changes recorded yet"
+                subtitle={`Saving a new salary structure creates a version (${PAYROLL_AUDIT_ACTIONS.salaryStructureUpsert}).`}
+              />
             ) : null}
           </div>
         </section>

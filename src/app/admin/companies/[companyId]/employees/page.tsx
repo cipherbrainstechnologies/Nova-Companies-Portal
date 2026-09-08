@@ -1,12 +1,10 @@
-import Link from "next/link";
 import { employeeFacade } from "@/server/facades/employee-facade";
-import { BracketLabel, DataRow, StatusBadge, EmptyState } from "@/components/industrial";
+import { companyFacade } from "@/server/facades/company-facade";
+import { BracketLabel } from "@/components/industrial";
 import { t } from "@/i18n";
 import { CreateEmployeeForm } from "@/app/admin/employees/create-form";
-
-function initials(first: string, last: string) {
-  return `${first.slice(0, 1)}${last.slice(0, 1)}`.toUpperCase();
-}
+import { EmployeeRosterTable } from "@/app/admin/employees/employee-roster-table";
+import { ModalTriggerCreateEmployee } from "@/app/admin/employees/create-employee-modal";
 
 export default async function CompanyEmployeesPage({
   params,
@@ -14,54 +12,30 @@ export default async function CompanyEmployeesPage({
   params: Promise<{ companyId: string }>;
 }) {
   const { companyId } = await params;
-  const employees = await employeeFacade.listByCompany(companyId);
+  const [employees, company] = await Promise.all([
+    employeeFacade.listByCompany(companyId),
+    companyFacade.getCompany(companyId),
+  ]);
+
+  const rows = employees.map((e) => ({
+    id: e.id,
+    companyId: e.companyId,
+    companyName: company.name,
+    employeeCode: e.employeeCode,
+    firstName: e.firstName,
+    lastName: e.lastName,
+    status: e.status,
+    email: e.contact?.officialEmail ?? e.contact?.personalEmail ?? "",
+    phone: e.contact?.primaryPhone ?? "",
+  }));
 
   return (
     <div>
-      {employees.length ? (
-        <div className="grid gap-3">
-          {employees.map((e) => {
-            const blocked = e.status === "BLOCKED";
-            return (
-              <DataRow
-                key={e.id}
-                leading={
-                  <div
-                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-                      blocked
-                        ? "bg-[var(--nova-surface-muted)] text-[var(--nova-muted)]"
-                        : "bg-[var(--nova-teal-soft)] text-[var(--nova-teal)]"
-                    }`}
-                  >
-                    {initials(e.firstName, e.lastName)}
-                  </div>
-                }
-                title={
-                  <Link
-                    href={`/admin/companies/${companyId}/employees/${e.id}`}
-                    className="text-[var(--nova-teal)] hover:underline"
-                  >
-                    {e.firstName} {e.lastName}
-                  </Link>
-                }
-                subtitle={`${e.employeeCode} · ${e.designation ?? "—"} · ${e.contact?.primaryPhone ?? ""} · ${e.contact?.officialEmail ?? ""}`}
-                action={
-                  <StatusBadge
-                    status={e.status}
-                    tone={blocked ? "neutral" : e.status === "ACTIVE" ? "success" : "warning"}
-                  />
-                }
-              />
-            );
-          })}
-        </div>
-      ) : (
-        <EmptyState
-          title={t("en", "company.hub.noEmployees")}
-          description={t("en", "company.hub.noEmployeesBody")}
-        />
-      )}
-      <div className="mt-8">
+      <div className="mb-4 flex justify-end">
+        <ModalTriggerCreateEmployee companyId={companyId} />
+      </div>
+      <EmployeeRosterTable rows={rows} />
+      <div className="mt-8 lg:hidden">
         <BracketLabel>{t("en", "admin.addEmployee")}</BracketLabel>
         <div className="mt-3">
           <CreateEmployeeForm companyId={companyId} />

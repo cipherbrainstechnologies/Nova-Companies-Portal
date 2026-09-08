@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Button, Card, Input, Label, Select } from "@/components/ui";
-import { Meta, BracketLabel, MoneyValue, AlertBanner } from "@/components/industrial";
+import { Meta, BracketLabel, MoneyValue, AlertBanner, StatCell } from "@/components/industrial";
+import { MonthYearPicker } from "@/components/month-year-picker";
 import { t } from "@/i18n";
 
 type ProfitResult = {
@@ -32,9 +33,10 @@ export function ProfitForm({
   initialCompanyId?: string;
   lockCompanyId?: boolean;
 }) {
+  const now = new Date();
   const [companyId, setCompanyId] = useState(initialCompanyId ?? companies[0]?.id ?? "");
-  const [year, setYear] = useState("2026");
-  const [month, setMonth] = useState("9");
+  const [year, setYear] = useState(String(now.getFullYear()));
+  const [month, setMonth] = useState(String(now.getMonth() + 1));
   const [result, setResult] = useState<ProfitResult | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
@@ -66,14 +68,13 @@ export function ProfitForm({
               </Select>
             )}
           </div>
-          <div>
-            <Label>{t("en", "admin.year")}</Label>
-            <Input value={year} onChange={(e) => setYear(e.target.value)} />
-          </div>
-          <div>
-            <Label>{t("en", "admin.month")}</Label>
-            <Input value={month} onChange={(e) => setMonth(e.target.value)} />
-          </div>
+          <MonthYearPicker
+            year={year}
+            month={month}
+            onYearChange={setYear}
+            onMonthChange={setMonth}
+            idPrefix="profit"
+          />
           <Button type="submit">{t("en", "admin.compute")}</Button>
         </form>
       </Card>
@@ -86,7 +87,6 @@ export function ProfitForm({
             <BracketLabel>
               {p.companyName} · {p.period}
             </BracketLabel>
-            <Meta className="mt-2 break-all">{p.storagePath}</Meta>
           </div>
           <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
             {[
@@ -120,6 +120,88 @@ export function ProfitForm({
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+export function FinanceOverviewCards({
+  totals,
+  mom,
+}: {
+  totals: {
+    revenue: number;
+    earnedOperatingProfit: number;
+    cashRemaining: number;
+    companiesReporting: number;
+  };
+  mom: Array<{
+    period: string;
+    earnedOperatingProfit: number;
+    growthPct: number | null;
+  }>;
+}) {
+  return (
+    <div className="space-y-6">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCell label="Companies with snapshots" value={totals.companiesReporting} />
+        <StatCell
+          label="Collective revenue"
+          value={<MoneyValue value={totals.revenue} />}
+          hint="All companies · stored snapshots"
+        />
+        <StatCell
+          label="Collective operating profit"
+          value={<MoneyValue value={totals.earnedOperatingProfit} />}
+        />
+        <StatCell
+          label="Collective cash remaining"
+          value={<MoneyValue value={totals.cashRemaining} />}
+        />
+      </section>
+
+      <Card>
+        <BracketLabel>Month on month · earned operating profit</BracketLabel>
+        {mom.length ? (
+          <div className="mt-4 overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead className="border-b border-[var(--nova-border)] text-xs uppercase tracking-[0.06em] text-[var(--nova-muted)]">
+                <tr>
+                  <th className="py-2 pr-4">Period</th>
+                  <th className="py-2 pr-4">Operating profit</th>
+                  <th className="py-2">Growth %</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--nova-border)]">
+                {mom.map((row) => (
+                  <tr key={row.period}>
+                    <td className="py-2.5 pr-4 font-medium">{row.period}</td>
+                    <td className="py-2.5 pr-4 tabular-nums">
+                      <MoneyValue value={row.earnedOperatingProfit} />
+                    </td>
+                    <td
+                      className={`py-2.5 font-semibold tabular-nums ${
+                        row.growthPct == null
+                          ? "text-[var(--nova-muted)]"
+                          : row.growthPct >= 0
+                            ? "text-[var(--nova-success)]"
+                            : "text-[var(--nova-danger)]"
+                      }`}
+                    >
+                      {row.growthPct == null
+                        ? "—"
+                        : `${row.growthPct > 0 ? "+" : ""}${row.growthPct.toFixed(1)}%`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-[var(--nova-muted)]">
+            Compute profit for companies below to build month-on-month history.
+          </p>
+        )}
+      </Card>
     </div>
   );
 }

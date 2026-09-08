@@ -4,6 +4,8 @@ import { prisma } from "@/server/db";
 import { Card } from "@/components/ui";
 import { BracketLabel, MoneyValue, StatusBadge } from "@/components/industrial";
 import { deriveExpectedMonthlyNet, toAmount } from "@/server/payroll/salary-structure";
+import { groupPayslipsAsFolders } from "@/server/documents/folder-tree";
+import { PayslipFolderBrowser } from "@/components/payslip-folder-browser";
 import { t } from "@/i18n";
 import { SalarySlipForm } from "@/app/admin/employees/salary-slip-form";
 import { SalaryStructureForm } from "@/app/admin/employees/salary-structure-form";
@@ -27,13 +29,31 @@ export default async function CompanyEmployeeDetailPage({
   const { companyId, employeeId } = await params;
   const employee = await employeeFacade.getById(employeeId, companyId);
   const defaultBasic = basicFromStructure(employee.salaryStructure?.componentsJson);
-  const [versions, aliases] = await Promise.all([
+  const [versions, aliases, slips] = await Promise.all([
     employeeFacade.listSalaryStructureVersions(employeeId),
     prisma.employeePaymentAlias.findMany({
       where: { employeeId },
       orderBy: { alias: "asc" },
     }),
+    prisma.payslip.findMany({
+      where: { employeeId, companyId, status: "ISSUED" },
+      include: { payrollRun: true, company: true, employee: true },
+      orderBy: { issuedAt: "desc" },
+    }),
   ]);
+  const payslipTree = groupPayslipsAsFolders(
+    slips.map((s) => ({
+      id: s.id,
+      status: s.status,
+      verificationCode: s.verificationCode,
+      currentVersion: s.currentVersion,
+      employeeCode: s.employee.employeeCode,
+      employeeName: `${s.employee.firstName} ${s.employee.lastName}`,
+      companyPrefix: s.company.prefix,
+      year: s.payrollRun.year,
+      month: s.payrollRun.month,
+    })),
+  );
   const structure = employee.salaryStructure;
   const expectedMonthlyNet = structure ? deriveExpectedMonthlyNet(structure) : null;
   const componentMap = Object.fromEntries(
@@ -126,7 +146,7 @@ export default async function CompanyEmployeeDetailPage({
 
         <Card>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <BracketLabel>Structure history</BracketLabel>
+            <BracketLabel>Salary change / hike history</BracketLabel>
             <StatusBadge
               status={
                 expectedMonthlyNet != null
@@ -136,30 +156,51 @@ export default async function CompanyEmployeeDetailPage({
               tone={expectedMonthlyNet != null ? "success" : "warning"}
             />
           </div>
+          <p className="mt-2 text-sm text-[var(--nova-muted)]">
+            Each save creates a version. The effective-from date is when the hike or structure change
+            applied.
+          </p>
           {versions.length ? (
             <ul className="mt-4 divide-y divide-[var(--nova-border)]">
-              {versions.map((version) => (
-                <li key={version.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-3">
-                  <span className="w-16 text-sm font-semibold text-[var(--nova-ink)]">
-                    v{version.version}
-                  </span>
-                  <span className="text-sm text-[var(--nova-text-secondary)]">
-                    {version.effectiveFrom.toLocaleDateString()}
-                    {version.effectiveTo ? ` → ${version.effectiveTo.toLocaleDateString()}` : " → current"}
-                  </span>
-                  <span className="text-sm text-[var(--nova-text-secondary)]">
-                    Net{" "}
-                    {version.expectedMonthlyNet != null ? (
-                      <MoneyValue value={Number(version.expectedMonthlyNet)} />
-                    ) : (
-                      "—"
-                    )}
-                  </span>
-                  {version.notes ? (
-                    <span className="text-xs text-[var(--nova-muted)]">{version.notes}</span>
-                  ) : null}
-                </li>
-              ))}
+              {versions.map((version, index) => {
+                const prior = versions[index + 1];
+                const currentNet =
+                  version.expectedMonthlyNet != null ? Number(version.expectedMonthlyNet) : null;
+                const priorNet =
+                  prior?.expectedMonthlyNet != null ? Number(prior.expectedMonthlyNet) : null;
+                const delta =
+                  currentNet != null && priorNet != null ? currentNet - priorNet : null;
+                return (
+                  <li key={version.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-3">
+                    <span className="w-16 text-sm font-semibold text-[var(--nova-ink)]">
+                      v{version.version}
+                    </span>
+                    <span className="text-sm text-[var(--nova-text-secondary)]">
+                      From {version.effectiveFrom.toLocaleDateString()}
+                      {version.effectiveTo
+                        ? ` → ${version.effectiveTo.toLocaleDateString()}`
+                        : " → current"}
+                    </span>
+                    <span className="text-sm text-[var(--nova-text-secondary)]">
+                      Net{" "}
+                      {currentNet != null ? <MoneyValue value={currentNet} /> : "—"}
+                    </span>
+                    {delta != null && delta !== 0 ? (
+                      <span
+                        className={`text-sm font-semibold ${
+                          delta > 0 ? "text-[var(--nova-success)]" : "text-[var(--nova-danger)]"
+                        }`}
+                      >
+                        {delta > 0 ? "+" : ""}
+                        <MoneyValue value={delta} /> hike
+                      </span>
+                    ) : null}
+                    {version.notes ? (
+                      <span className="text-xs text-[var(--nova-muted)]">{version.notes}</span>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <p className="mt-3 text-sm text-[var(--nova-muted)]">
@@ -167,6 +208,14 @@ export default async function CompanyEmployeeDetailPage({
             </p>
           )}
         </Card>
+      </section>
+
+      <section className="mb-8">
+        <BracketLabel>Salary slips</BracketLabel>
+        <p className="mb-3 mt-2 text-sm text-[var(--nova-muted)]">
+          Issued payslips filed by assessment year, then month.
+        </p>
+        <PayslipFolderBrowser tree={payslipTree} allowDownload singleEmployee />
       </section>
 
       <SalarySlipForm
