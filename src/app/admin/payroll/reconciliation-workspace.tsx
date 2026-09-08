@@ -16,10 +16,15 @@ type EmployeeOption = { id: string; label: string };
 type AllocatableTxn = {
   id: string;
   txnDate: string;
+  displayDate?: string;
   particulars: string;
   debit: number | null;
   utrReference: string | null;
   reconciliationStatus: string;
+  preferred?: boolean;
+  inWindow?: boolean;
+  excludedReason?: string;
+  beneficiary?: string;
 };
 
 type ReviewAction = "approve" | "reject" | "map" | "ignore" | "non_payroll";
@@ -50,7 +55,35 @@ const VARIANCE_OPTIONS = [
 
 function formatDate(iso: string | null | undefined) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-IN");
+  return new Date(iso).toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function outcomeLabel(outcome: string | null | undefined) {
+  switch (outcome) {
+    case "EXACT_MATCH":
+      return "Exact match";
+    case "BELOW_EXPECTED_NET":
+      return "Below expected net";
+    case "ABOVE_EXPECTED_NET":
+      return "Above expected net";
+    case "MULTIPLE_CANDIDATES":
+      return "Ambiguous candidates";
+    case "NO_CANDIDATE":
+      return "No candidate found";
+    case "HISTORICAL_SALARY_REQUIRED":
+      return "Historical salary required";
+    case "IDENTITY_UNCERTAIN":
+      return "Identity uncertain";
+    case "PAYMENT_ALREADY_ALLOCATED":
+      return "Payment already allocated";
+    default:
+      return "Not run yet";
+  }
 }
 
 export function PayrollReconciliationWorkspace({
@@ -63,6 +96,9 @@ export function PayrollReconciliationWorkspace({
   unresolvedCount,
   filterCounts,
   activeFilter,
+  searchWindowDisplay,
+  defaultDaysBefore,
+  defaultDaysAfter,
   employees,
   allocatableTransactions,
   canEdit,
@@ -78,6 +114,9 @@ export function PayrollReconciliationWorkspace({
   unresolvedCount: number;
   filterCounts: Record<ReconciliationFilter, number>;
   activeFilter: ReconciliationFilter;
+  searchWindowDisplay: string;
+  defaultDaysBefore: number;
+  defaultDaysAfter: number;
   employees: EmployeeOption[];
   allocatableTransactions: AllocatableTxn[];
   canEdit: boolean;
@@ -86,10 +125,43 @@ export function PayrollReconciliationWorkspace({
 }) {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [daysBefore, setDaysBefore] = useState(String(defaultDaysBefore));
+  const [daysAfter, setDaysAfter] = useState(String(defaultDaysAfter));
+  const [matchBusy, setMatchBusy] = useState(false);
+  const [matchError, setMatchError] = useState("");
+  const [matchSummary, setMatchSummary] = useState<string>("");
   const selected = useMemo(
     () => items.find((item) => item.lineId === selectedId) ?? null,
     [items, selectedId],
   );
+
+  async function runAutoMatch() {
+    setMatchBusy(true);
+    setMatchError("");
+    setMatchSummary("Matching uploaded bank payments…");
+    try {
+      const response = await fetch(`/api/payroll/runs/${runId}/auto-match`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          daysBefore: Number(daysBefore),
+          daysAfter: Number(daysAfter),
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Auto-match failed");
+      const s = body.summary;
+      setMatchSummary(
+        `Completed · checked ${s.employeesChecked} · searched ${s.transactionsSearched} (excluded ${s.transactionsExcluded}) · linked ${s.autoLinked} · exact ${s.exactMatches} · amount diffs ${s.amountDifferences} · ambiguous ${s.ambiguousMatches} · no candidate ${s.noCandidates} · window ${s.searchWindow.display}`,
+      );
+      router.refresh();
+    } catch (cause) {
+      setMatchError(cause instanceof Error ? cause.message : "Auto-match failed");
+      setMatchSummary("");
+    } finally {
+      setMatchBusy(false);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -102,15 +174,54 @@ export function PayrollReconciliationWorkspace({
             Salary month {String(month).padStart(2, "0")}/{year} · {unresolvedCount} unresolved
           </Meta>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href={`/admin/payroll?companyId=${companyId}`}
-            className="inline-flex min-h-11 items-center rounded-[var(--nova-radius-sm)] px-3 text-sm font-semibold text-[var(--nova-teal)] hover:underline"
-          >
-            ← Back to Payroll
-          </Link>
-        </div>
+        <Link
+          href={`/admin/payroll?companyId=${companyId}`}
+          className="inline-flex min-h-11 items-center rounded-[var(--nova-radius-sm)] px-3 text-sm font-semibold text-[var(--nova-teal)] hover:underline"
+        >
+          ← Back to Payroll
+        </Link>
       </div>
+
+      <Card className="space-y-3 p-4">
+        <div className="text-sm font-semibold text-[var(--nova-ink)]">Payment search window</div>
+        <p className="text-sm text-[var(--nova-text-secondary)]">{searchWindowDisplay}</p>
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <Label>Days before month start</Label>
+            <Input
+              type="number"
+              className="w-28"
+              value={daysBefore}
+              onChange={(e) => setDaysBefore(e.target.value)}
+              disabled={!canEdit || matchBusy}
+            />
+          </div>
+          <div>
+            <Label>Days after month end</Label>
+            <Input
+              type="number"
+              className="w-28"
+              value={daysAfter}
+              onChange={(e) => setDaysAfter(e.target.value)}
+              disabled={!canEdit || matchBusy}
+            />
+          </div>
+          <Button
+            type="button"
+            disabled={!canEdit || matchBusy}
+            onClick={() => void runAutoMatch()}
+          >
+            {matchBusy ? "Matching uploaded bank payments…" : "Run Auto-Match Again"}
+          </Button>
+        </div>
+        {matchSummary ? <AlertBanner tone="success">{matchSummary}</AlertBanner> : null}
+        {matchError ? <AlertBanner tone="danger">{matchError}</AlertBanner> : null}
+        {!canEdit ? (
+          <AlertBanner tone="warning">
+            Auto-match requires statements reconcile permission.
+          </AlertBanner>
+        ) : null}
+      </Card>
 
       {!canEdit ? (
         <AlertBanner tone="warning">
@@ -145,24 +256,25 @@ export function PayrollReconciliationWorkspace({
       <div className="grid gap-3">
         {items.map((item) => {
           const reason =
+            item.matchExplanation ||
             item.approvalReason ||
             item.transaction?.reviewReason ||
             item.transaction?.matchExplanation ||
-            (item.paymentStatus === "SALARY_STRUCTURE_INCOMPLETE"
-              ? "Historical salary review required"
-              : item.paymentStatus === "UNMATCHED"
-                ? "No confident bank match"
-                : "Payment differs from expected net");
+            outcomeLabel(item.matchOutcome);
+          const suggested = item.matchCandidates[0];
           return (
             <Card key={item.lineId} className="p-4">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0 flex-1 space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <ReconciliationStatusBadge status={item.paymentStatus} />
+                    <Meta>{outcomeLabel(item.matchOutcome)}</Meta>
                     <Meta>
                       {item.transaction
-                        ? formatDate(item.transaction.txnDate)
-                        : `${String(item.month).padStart(2, "0")}/${item.year}`}
+                        ? formatDate(item.transaction.valueDate ?? item.transaction.txnDate)
+                        : suggested
+                          ? formatDate(suggested.txnDate)
+                          : `${String(item.month).padStart(2, "0")}/${item.year}`}
                     </Meta>
                     {item.paymentReference ? <Meta>Ref {item.paymentReference}</Meta> : null}
                     {item.contactIncomplete ? <Meta>Contact details pending</Meta> : null}
@@ -172,7 +284,13 @@ export function PayrollReconciliationWorkspace({
                   </div>
                   <p className="text-sm text-[var(--nova-text-secondary)]">
                     {item.transaction?.particulars ??
-                      "No bank payment linked yet — choose a debit in Review."}
+                      (suggested
+                        ? `Suggested: ${suggested.particulars}`
+                        : item.matchOutcome === "NO_CANDIDATE"
+                          ? "No candidate found in the payment search window."
+                          : item.matchOutcome
+                            ? "No payment linked yet — review suggestions or choose a debit."
+                            : "Matching not run yet for this line.")}
                   </p>
                   <dl className="grid gap-2 text-sm sm:grid-cols-3">
                     <div>
@@ -190,6 +308,8 @@ export function PayrollReconciliationWorkspace({
                       <dd>
                         {item.actualAmount != null ? (
                           <MoneyValue value={item.actualAmount} />
+                        ) : suggested ? (
+                          <MoneyValue value={suggested.debit} />
                         ) : (
                           "—"
                         )}
@@ -214,14 +334,17 @@ export function PayrollReconciliationWorkspace({
                       </dd>
                     </div>
                   </dl>
-                  <p className="text-xs text-[var(--nova-muted)]">Reason: {reason}</p>
-                  {item.transaction?.suggestions?.length ? (
+                  <p className="text-xs text-[var(--nova-muted)]">Match: {reason}</p>
+                  {item.matchCandidates.length > 1 ? (
                     <p className="text-xs text-[var(--nova-muted)]">
-                      Suggested:{" "}
-                      {item.transaction.suggestions
+                      Candidates:{" "}
+                      {item.matchCandidates
                         .slice(0, 3)
-                        .map((s) => `${s.employeeCode} (${s.score})`)
-                        .join(", ")}
+                        .map(
+                          (candidate) =>
+                            `₹${candidate.debit.toLocaleString("en-IN")} (${candidate.identityScore})`,
+                        )
+                        .join(" · ")}
                     </p>
                   ) : null}
                 </div>
@@ -403,16 +526,34 @@ function ReviewDrawer({
               <option value="">Select payment…</option>
               {item.primaryTxnId && item.transaction ? (
                 <option value={item.primaryTxnId}>
-                  Current · ₹{item.transaction.debit?.toLocaleString("en-IN") ?? "—"} ·{" "}
+                  Linked · {formatDate(item.transaction.txnDate)} · ₹
+                  {item.transaction.debit?.toLocaleString("en-IN") ?? "—"} ·{" "}
                   {item.transaction.particulars.slice(0, 48)}
                 </option>
               ) : null}
-              {allocatableTransactions.map((txn) => (
-                <option key={txn.id} value={txn.id}>
-                  {formatDate(txn.txnDate)} · ₹{txn.debit?.toLocaleString("en-IN") ?? "—"} ·{" "}
-                  {txn.particulars.slice(0, 48)}
-                </option>
-              ))}
+              <optgroup label="Preferred (in window)">
+                {allocatableTransactions
+                  .filter((txn) => txn.preferred)
+                  .map((txn) => (
+                    <option key={txn.id} value={txn.id}>
+                      {txn.displayDate ?? formatDate(txn.txnDate)} · ₹
+                      {txn.debit?.toLocaleString("en-IN") ?? "—"} ·{" "}
+                      {txn.beneficiary || txn.particulars.slice(0, 40)}
+                    </option>
+                  ))}
+              </optgroup>
+              <optgroup label="Search other transactions">
+                {allocatableTransactions
+                  .filter((txn) => !txn.preferred)
+                  .map((txn) => (
+                    <option key={txn.id} value={txn.id}>
+                      {txn.excludedReason ? `[${txn.excludedReason}] ` : ""}
+                      {txn.displayDate ?? formatDate(txn.txnDate)} · ₹
+                      {txn.debit?.toLocaleString("en-IN") ?? "—"} ·{" "}
+                      {txn.particulars.slice(0, 40)}
+                    </option>
+                  ))}
+              </optgroup>
             </Select>
           </div>
           <div>

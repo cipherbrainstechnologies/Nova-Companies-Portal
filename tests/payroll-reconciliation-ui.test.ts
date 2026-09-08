@@ -28,6 +28,10 @@ function item(
     approvalReason: null,
     primaryTxnId: null,
     contactIncomplete: false,
+    matchOutcome: null,
+    matchExplanation: null,
+    matchCandidates: [],
+    searchWindowDisplay: null,
     transaction: null,
     ...overrides,
   };

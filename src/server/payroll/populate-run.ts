@@ -1,14 +1,10 @@
-import type { ReconciliationStatus } from "@prisma/client";
+﻿import type { ReconciliationStatus } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { writeAudit } from "@/server/audit";
 import { amountInWordsInr } from "@/server/payroll/amount-in-words";
-import {
-  decidePaymentAutomation,
-  extractUtrReference,
-} from "@/server/payroll/payment-decision";
+import { runPayrollPaymentMatch } from "@/server/payroll/payment-auto-match";
 import {
   evaluateEmploymentEligibility,
-  paymentSearchWindow,
   payrollPeriodBounds,
   selectEffectiveSalaryStructure,
   summarizePopulateReason,
@@ -18,16 +14,9 @@ import {
   isSalaryStructureComplete,
   resolveExpectedMonthlyNet,
   structureToEarningsDeductions,
-  toAmount,
   toSalarySnapshot,
   type SalaryStructureRecord,
 } from "@/server/payroll/salary-structure";
-import {
-  extractBeneficiaryFromParticulars,
-  normalizeName,
-  rankMatchSuggestions,
-  type MatchCandidateInput,
-} from "@/server/statements/matching";
 
 const EDITABLE_RUN_STATUSES = new Set([
   "DRAFT",
@@ -48,14 +37,13 @@ const PRESERVE_PAYMENT_STATUSES = new Set<ReconciliationStatus>([
   "NON_PAYROLL",
 ]);
 
-const COLLISION_MARGIN = 5;
-
 export type PopulatePayrollResult = {
   payrollRunId: string;
   companyId: string;
   year: number;
   month: number;
   diagnostics: PopulateDiagnostics;
+  matchSummary?: Awaited<ReturnType<typeof runPayrollPaymentMatch>>;
 };
 
 function asStructureRecord(row: {
@@ -231,7 +219,7 @@ export async function populatePayrollEmployeeLines(input: {
         approvalReason = "Historical salary review required";
         snapshot = {
           ...snapshot,
-          notes: "Historical salary review required — structure incomplete for this month",
+          notes: "Historical salary review required â€” structure incomplete for this month",
         };
       }
     } else {
@@ -254,7 +242,7 @@ export async function populatePayrollEmployeeLines(input: {
         netAmount: 0,
         complete: false,
         missing: ["historicalSalaryStructure"],
-        notes: "Historical salary review required — no structure covering this payroll month",
+        notes: "Historical salary review required â€” no structure covering this payroll month",
       };
     }
 
@@ -353,18 +341,18 @@ export async function populatePayrollEmployeeLines(input: {
 
   let paymentsMatched = 0;
   let paymentsUnmatched = 0;
+  let matchSummary: Awaited<ReturnType<typeof runPayrollPaymentMatch>> | undefined;
 
   if (input.matchPayments !== false) {
-    const matchResult = await enrichLinesWithPaymentMatches({
+    matchSummary = await runPayrollPaymentMatch({
+      actorUserId: input.actorUserId,
       payrollRunId: run.id,
-      companyId: run.companyId,
-      period,
-      matchScoreThreshold: run.company.matchScoreThreshold,
       daysBefore: input.daysBefore,
       daysAfter: input.daysAfter,
+      preserveManual: true,
     });
-    paymentsMatched = matchResult.matched;
-    paymentsUnmatched = matchResult.unmatched;
+    paymentsMatched = matchSummary.autoLinked;
+    paymentsUnmatched = Math.max(0, eligible.length - matchSummary.autoLinked);
   } else {
     paymentsUnmatched = eligible.length;
   }
@@ -389,9 +377,10 @@ export async function populatePayrollEmployeeLines(input: {
     await prisma.payrollRun.update({
       where: { id: run.id },
       data: {
-        status: salaryReviewRequired > 0 || paymentsUnmatched > 0
-          ? "RECONCILIATION_REQUIRED"
-          : "READY_FOR_REVIEW",
+        status:
+          salaryReviewRequired > 0 || paymentsUnmatched > 0
+            ? "RECONCILIATION_REQUIRED"
+            : "READY_FOR_REVIEW",
       },
     });
   }
@@ -402,7 +391,7 @@ export async function populatePayrollEmployeeLines(input: {
     action: "payroll.populate_lines",
     entityType: "PayrollRun",
     entityId: run.id,
-    metadata: { ...counts, reason, nextAction },
+    metadata: { ...counts, reason, nextAction, matchSummary },
   });
 
   return {
@@ -411,191 +400,6 @@ export async function populatePayrollEmployeeLines(input: {
     year: run.year,
     month: run.month,
     diagnostics: { ...counts, reason, nextAction },
+    matchSummary,
   };
-}
-
-async function enrichLinesWithPaymentMatches(input: {
-  payrollRunId: string;
-  companyId: string;
-  period: ReturnType<typeof payrollPeriodBounds>;
-  matchScoreThreshold: number;
-  daysBefore?: number;
-  daysAfter?: number;
-}): Promise<{ matched: number; unmatched: number }> {
-  const window = paymentSearchWindow(input.period, {
-    daysBefore: input.daysBefore,
-    daysAfter: input.daysAfter,
-  });
-
-  const lines = await prisma.payrollEmployeeLine.findMany({
-    where: {
-      payrollRunId: input.payrollRunId,
-      status: { in: ["DRAFT"] },
-      OR: [{ primaryTxnId: null }, { paymentStatus: "UNMATCHED" }],
-    },
-    include: {
-      employee: {
-        include: {
-          bankAccount: true,
-          paymentAliases: true,
-          priorMappings: true,
-          salaryStructure: true,
-        },
-      },
-    },
-  });
-
-  // Company-scoped debits in the search window that are not already allocated to any line.
-  const usedTxnIds = new Set(
-    (
-      await prisma.payrollEmployeeLine.findMany({
-        where: { primaryTxnId: { not: null }, payrollRun: { companyId: input.companyId } },
-        select: { primaryTxnId: true },
-      })
-    )
-      .map((row) => row.primaryTxnId)
-      .filter((id): id is string => !!id),
-  );
-
-  const transactions = await prisma.statementTransaction.findMany({
-    where: {
-      statement: { companyId: input.companyId },
-      debit: { gt: 0 },
-      isDuplicate: false,
-      OR: [
-        { valueDate: { gte: window.searchStart, lte: window.searchEnd } },
-        { txnDate: { gte: window.searchStart, lte: window.searchEnd } },
-      ],
-    },
-    orderBy: [{ valueDate: "asc" }, { txnDate: "asc" }],
-  });
-
-  const available = transactions.filter((txn) => !usedTxnIds.has(txn.id));
-  let matched = 0;
-  let unmatched = 0;
-
-  for (const line of lines) {
-    if (line.primaryTxnId && PRESERVE_PAYMENT_STATUSES.has(line.paymentStatus)) {
-      matched += 1;
-      continue;
-    }
-
-    const employee = line.employee;
-    const expectedNet =
-      toAmount(line.expectedAmount) ?? resolveExpectedMonthlyNet(employee.salaryStructure);
-
-    const candidate: MatchCandidateInput = {
-      employeeId: employee.id,
-      employeeName:
-        employee.displayName?.trim() || `${employee.firstName} ${employee.lastName}`,
-      accountHolderName: employee.bankAccount?.accountHolderName,
-      paymentAliases: employee.paymentAliases.map((alias) => alias.alias),
-      accountLast4: employee.bankAccount?.accountLast4,
-      expectedNetPay: expectedNet,
-      hasPriorApprovedMapping: false,
-    };
-
-    type Scored = { txnId: string; score: number; amount: number; particulars: string; utr?: string | null; cheque?: string | null };
-    const scored: Scored[] = [];
-
-    for (const txn of available) {
-      if (usedTxnIds.has(txn.id)) continue;
-      const beneficiary = normalizeName(extractBeneficiaryFromParticulars(txn.particulars));
-      const hasPrior = employee.priorMappings.some(
-        (mapping) => normalizeName(mapping.normalizedName) === beneficiary,
-      );
-      const ranked = rankMatchSuggestions(
-        { particulars: txn.particulars, amount: Number(txn.debit) },
-        [{ ...candidate, hasPriorApprovedMapping: hasPrior }],
-        input.matchScoreThreshold,
-      );
-      const top = ranked[0];
-      if (!top || top.score <= 0) continue;
-      scored.push({
-        txnId: txn.id,
-        score: top.score,
-        amount: Number(txn.debit),
-        particulars: txn.particulars,
-        utr: txn.utrReference,
-        cheque: txn.chequeNumber,
-      });
-    }
-
-    scored.sort((a, b) => b.score - a.score);
-    const best = scored[0];
-    const runnerUp = scored[1];
-    const confident =
-      !!best &&
-      best.score >= input.matchScoreThreshold &&
-      (!runnerUp || best.score - runnerUp.score > COLLISION_MARGIN);
-
-    if (!confident || !best) {
-      unmatched += 1;
-      continue;
-    }
-
-    // Ambiguous: another open line could claim the same debit — skip auto-link.
-    const competing = lines.filter((other) => other.id !== line.id && !other.primaryTxnId);
-    let contested = false;
-    for (const other of competing) {
-      const otherEmp = other.employee;
-      const otherCandidate: MatchCandidateInput = {
-        employeeId: otherEmp.id,
-        employeeName:
-          otherEmp.displayName?.trim() || `${otherEmp.firstName} ${otherEmp.lastName}`,
-        accountHolderName: otherEmp.bankAccount?.accountHolderName,
-        paymentAliases: otherEmp.paymentAliases.map((a) => a.alias),
-        accountLast4: otherEmp.bankAccount?.accountLast4,
-        expectedNetPay: toAmount(other.expectedAmount),
-      };
-      const ranked = rankMatchSuggestions(
-        { particulars: best.particulars, amount: best.amount },
-        [otherCandidate],
-        input.matchScoreThreshold,
-      );
-      if (ranked[0] && ranked[0].score >= input.matchScoreThreshold) {
-        contested = true;
-        break;
-      }
-    }
-    if (contested) {
-      unmatched += 1;
-      continue;
-    }
-
-    const structureComplete = isSalaryStructureComplete(employee.salaryStructure) &&
-      line.paymentStatus !== "SALARY_STRUCTURE_INCOMPLETE";
-    const decision = decidePaymentAutomation({
-      matchConfident: true,
-      salaryStructureComplete: structureComplete && expectedNet != null,
-      expectedMonthlyNet: expectedNet,
-      actualAmount: best.amount,
-      autoIssueExactMatches: false,
-    });
-
-    try {
-      await prisma.payrollEmployeeLine.update({
-        where: { id: line.id },
-        data: {
-          primaryTxnId: best.txnId,
-          paymentStatus: decision.status as ReconciliationStatus,
-          actualAmount: decision.actualAmount,
-          varianceAmount: decision.varianceAmount,
-          expectedAmount: decision.expectedAmount ?? line.expectedAmount,
-          paymentReference: best.utr ?? extractUtrReference(best.particulars) ?? best.cheque,
-        },
-      });
-      usedTxnIds.add(best.txnId);
-      available.splice(
-        available.findIndex((txn) => txn.id === best.txnId),
-        1,
-      );
-      matched += 1;
-    } catch {
-      // Unique primaryTxnId collision — leave unmatched for review.
-      unmatched += 1;
-    }
-  }
-
-  return { matched, unmatched };
 }

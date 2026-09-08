@@ -30,7 +30,12 @@ export function CreatePayrollForm({ companyId }: { companyId: string }) {
       return;
     }
     const d = data.diagnostics;
-    if (d) {
+    const match = data.matchSummary;
+    if (match) {
+      setInfo(
+        `Matching uploaded bank payments… done. Linked ${match.autoLinked}/${match.employeesChecked} · exact ${match.exactMatches} · amount diffs ${match.amountDifferences} · ambiguous ${match.ambiguousMatches} · no candidate ${match.noCandidates} · window ${match.searchWindow?.display ?? "default"}`,
+      );
+    } else if (d) {
       setInfo(
         `${d.nextAction} (found ${d.employeesFound}, eligible ${d.eligibleEmployees}, lines ${d.linesCreated}, salary review ${d.salaryReviewRequired})`,
       );

@@ -77,7 +77,11 @@ export class PayrollFacade {
         payrollRunId: run.id,
         matchPayments: input.matchPayments !== false,
       });
-      return { ...run, diagnostics: populated.diagnostics };
+      return {
+        ...run,
+        diagnostics: populated.diagnostics,
+        matchSummary: populated.matchSummary,
+      };
     }
 
     return run;

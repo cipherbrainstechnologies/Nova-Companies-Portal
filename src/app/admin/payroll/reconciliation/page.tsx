@@ -4,10 +4,14 @@ import { companyFacade } from "@/server/facades/company-facade";
 import { prisma } from "@/server/db";
 import { requirePermission, AuthzError } from "@/server/rbac/permissions";
 import {
-  listAllocatableTransactions,
   listPayrollReconciliationItems,
   type ReconciliationFilter,
 } from "@/server/payroll/unresolved-payments";
+import { listPreferredAllocatableTransactions } from "@/server/payroll/payment-auto-match";
+import {
+  DEFAULT_PAYMENT_SEARCH_DAYS_AFTER,
+  DEFAULT_PAYMENT_SEARCH_DAYS_BEFORE,
+} from "@/server/payroll/period-eligibility";
 import { PayrollReconciliationWorkspace } from "@/app/admin/payroll/reconciliation-workspace";
 import { AlertBanner } from "@/components/industrial";
 import Link from "next/link";
@@ -118,11 +122,17 @@ export default async function PayrollReconciliationPage({
     }),
   ]);
 
-  const allocatableTransactions = await listAllocatableTransactions({
+  const allocatableTransactions = await listPreferredAllocatableTransactions({
     companyId,
     year: bundle.run.year,
     month: bundle.run.month,
+    daysBefore: DEFAULT_PAYMENT_SEARCH_DAYS_BEFORE,
+    daysAfter: DEFAULT_PAYMENT_SEARCH_DAYS_AFTER,
   });
+
+  const latestMatch = bundle.items
+    .map((item) => item.searchWindowDisplay)
+    .find(Boolean);
 
   return (
     <AdminShell
@@ -141,6 +151,12 @@ export default async function PayrollReconciliationPage({
         unresolvedCount={bundle.unresolvedCount}
         filterCounts={bundle.filterCounts}
         activeFilter={filter}
+        searchWindowDisplay={
+          latestMatch ??
+          `Default window: −${DEFAULT_PAYMENT_SEARCH_DAYS_BEFORE} / +${DEFAULT_PAYMENT_SEARCH_DAYS_AFTER} days around ${String(bundle.run.month).padStart(2, "0")}/${bundle.run.year}`
+        }
+        defaultDaysBefore={DEFAULT_PAYMENT_SEARCH_DAYS_BEFORE}
+        defaultDaysAfter={DEFAULT_PAYMENT_SEARCH_DAYS_AFTER}
         employees={employees.map((employee) => ({
           id: employee.id,
           label: `${employee.employeeCode} · ${employee.displayName?.trim() || `${employee.firstName} ${employee.lastName}`}`,

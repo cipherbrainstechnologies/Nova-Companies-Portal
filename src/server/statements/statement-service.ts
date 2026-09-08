@@ -3,6 +3,7 @@ import { sha256Buffer } from "@/server/auth/crypto";
 import { prisma } from "@/server/db";
 import { generateStatementMatchSuggestions } from "@/server/payroll/matcher-integration";
 import { applyAutomaticReconciliation } from "@/server/payroll/reconciliation-automation";
+import { runPayrollPaymentMatch } from "@/server/payroll/payment-auto-match";
 import { statementParseQueue } from "@/server/queue/queues";
 import { getObjectBuffer, storePrivateFile } from "@/server/storage/s3";
 import { validateStatementBalances } from "@/server/finance/finance-ledger";
@@ -285,6 +286,23 @@ export async function parseStatementJob(statementId: string) {
       statementId,
       actorUserId: statement.uploadedById ?? undefined,
     });
+
+    // After transactions are committed, refresh identity-first matches on open payroll runs.
+    const openRuns = await prisma.payrollRun.findMany({
+      where: {
+        companyId: statement.companyId,
+        status: { in: ["DRAFT", "RECONCILIATION_REQUIRED", "READY_FOR_REVIEW", "FAILED"] },
+      },
+      select: { id: true },
+    });
+    for (const openRun of openRuns) {
+      await runPayrollPaymentMatch({
+        actorUserId: statement.uploadedById ?? undefined,
+        payrollRunId: openRun.id,
+        preserveManual: true,
+      });
+    }
+
     // Statement import changes month totals — drop stale profit snapshots for this company.
     await prisma.profitReportSnapshot.deleteMany({
       where: { companyId: statement.companyId },

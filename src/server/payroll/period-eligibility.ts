@@ -161,7 +161,8 @@ export type PaymentSearchWindow = {
 };
 
 export const DEFAULT_PAYMENT_SEARCH_DAYS_BEFORE = 10;
-export const DEFAULT_PAYMENT_SEARCH_DAYS_AFTER = 45;
+/** Enough to cover next-month salary credits without sweeping the following month. */
+export const DEFAULT_PAYMENT_SEARCH_DAYS_AFTER = 28;
 
 export function paymentSearchWindow(
   period: PayrollPeriodBounds,

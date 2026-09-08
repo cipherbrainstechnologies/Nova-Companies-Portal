@@ -32,6 +32,16 @@ export type PayrollReconciliationItem = {
   approvalReason: string | null;
   primaryTxnId: string | null;
   contactIncomplete: boolean;
+  matchOutcome: string | null;
+  matchExplanation: string | null;
+  matchCandidates: Array<{
+    transactionId: string;
+    identityScore: number;
+    debit: number;
+    particulars: string;
+    txnDate: string;
+  }>;
+  searchWindowDisplay: string | null;
   transaction: {
     id: string;
     txnDate: string;
@@ -154,6 +164,30 @@ export async function listPayrollReconciliationItems(input: {
           ? Math.round((actual - expected) * 100) / 100
           : null;
 
+    const snapshot =
+      line.calculationSnapshotJson &&
+      typeof line.calculationSnapshotJson === "object" &&
+      !Array.isArray(line.calculationSnapshotJson)
+        ? (line.calculationSnapshotJson as Record<string, unknown>)
+        : {};
+    const matchRun =
+      snapshot.matchRun && typeof snapshot.matchRun === "object"
+        ? (snapshot.matchRun as Record<string, unknown>)
+        : null;
+    const matchCandidates = Array.isArray(matchRun?.candidates)
+      ? (matchRun!.candidates as Array<Record<string, unknown>>).slice(0, 5).map((candidate) => ({
+          transactionId: String(candidate.transactionId ?? ""),
+          identityScore: Number(candidate.identityScore ?? 0),
+          debit: Number(candidate.debit ?? 0),
+          particulars: String(candidate.particulars ?? ""),
+          txnDate: String(candidate.txnDate ?? ""),
+        }))
+      : [];
+    const searchWindow =
+      matchRun?.searchWindow && typeof matchRun.searchWindow === "object"
+        ? (matchRun.searchWindow as { display?: string }).display ?? null
+        : null;
+
     return {
       kind: "payroll_line",
       lineId: line.id,
@@ -176,6 +210,10 @@ export async function listPayrollReconciliationItems(input: {
       approvalReason: line.approvalReason,
       primaryTxnId: line.primaryTxnId,
       contactIncomplete,
+      matchOutcome: matchRun?.outcome ? String(matchRun.outcome) : null,
+      matchExplanation: matchRun?.explanation ? String(matchRun.explanation) : null,
+      matchCandidates,
+      searchWindowDisplay: searchWindow,
       transaction: txn
         ? {
             id: txn.id,
