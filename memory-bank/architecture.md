@@ -28,6 +28,7 @@
 - Match suggestion generation lives in `reconciliation-automation.ts` alongside the rest of the pipeline. `matcher-integration.ts` is retained only as a re-export shim for existing importers.
 - Audit action names are centralised in `src/server/payroll/audit-actions.ts` and grouped by stage (match → approve → issue → email).
 - Statement uploads parse **inline in the web process by default** so rows appear without a BullMQ worker. Set `STATEMENT_PARSE_VIA_QUEUE=1` only when a worker is confirmed. Stuck `UPLOADED` / `FAILED` rows can be reparsed via `POST /api/statements/[id]/reparse`.
+- Axis PDF parser accepts official **Account Statement Report** text layout (`S.NO + Tran Date + Value Date + Particulars + Debit/Credit + Balance`), classifies single-amount rows via opening-balance deltas, and ignores `TRANSACTION TOTAL` / closing-balance footers.
 
 ## Templates
 
