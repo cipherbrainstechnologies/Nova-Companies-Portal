@@ -13,6 +13,7 @@ import type { EmailDeliveryPreference, EmailDeliveryStatus } from "@prisma/clien
 import { Decimal } from "@prisma/client/runtime/library";
 import { templateFacade } from "@/server/facades/template-facade";
 import { employeeFacade } from "@/server/facades/employee-facade";
+import { populatePayrollEmployeeLines } from "@/server/payroll/populate-run";
 
 export class PayrollFacade {
   async createPayrollRun(
@@ -21,12 +22,16 @@ export class PayrollFacade {
     companyId: string;
     year: number;
     month: number;
+    /** When false, creates the run shell only (used by statement automation that creates lines itself). */
+    populateLines?: boolean;
+    /** Forwarded to populate; default true. Statement automation sets false to own payment decisions. */
+    matchPayments?: boolean;
     },
     year?: number,
     month?: number,
   ) {
     const input = typeof companyIdOrInput === "string"
-      ? { actorUserId: undefined, companyId: companyIdOrInput, year: year!, month: month! }
+      ? { actorUserId: undefined, companyId: companyIdOrInput, year: year!, month: month!, populateLines: true, matchPayments: true }
       : companyIdOrInput;
     if (!Number.isInteger(input.year) || !Number.isInteger(input.month) || input.month < 1 || input.month > 12) {
       throw new Error("Invalid payroll period");
@@ -40,25 +45,50 @@ export class PayrollFacade {
         },
       },
     });
-    if (existing) return existing;
 
-    const run = await prisma.payrollRun.create({
-      data: {
+    const run =
+      existing ??
+      (await prisma.payrollRun.create({
+        data: {
+          companyId: input.companyId,
+          year: input.year,
+          month: input.month,
+          status: "DRAFT",
+          createdById: input.actorUserId,
+        },
+      }));
+
+    if (!existing) {
+      await writeAudit({
+        actorUserId: input.actorUserId,
         companyId: input.companyId,
-        year: input.year,
-        month: input.month,
-        status: "DRAFT",
-        createdById: input.actorUserId,
-      },
-    });
-    await writeAudit({
-      actorUserId: input.actorUserId,
-      companyId: input.companyId,
-      action: "payroll.create",
-      entityType: "PayrollRun",
-      entityId: run.id,
-    });
+        action: "payroll.create",
+        entityType: "PayrollRun",
+        entityId: run.id,
+      });
+    }
+
+    // Creating a payroll run must produce an actionable employee list. Statement matching
+    // may enrich lines later; it is not a prerequisite for line creation.
+    const shouldPopulate = input.populateLines !== false;
+    if (shouldPopulate) {
+      const populated = await populatePayrollEmployeeLines({
+        actorUserId: input.actorUserId,
+        payrollRunId: run.id,
+        matchPayments: input.matchPayments !== false,
+      });
+      return { ...run, diagnostics: populated.diagnostics };
+    }
+
     return run;
+  }
+
+  async populateEmployeeLines(input: {
+    actorUserId?: string;
+    payrollRunId: string;
+    matchPayments?: boolean;
+  }) {
+    return populatePayrollEmployeeLines(input);
   }
 
   async upsertEmployeeLine(input: {
@@ -176,6 +206,14 @@ export class PayrollFacade {
     const input = typeof inputOrLineId === "string"
       ? { actorUserId: undefined, lineId: inputOrLineId }
       : inputOrLineId;
+    const existing = await prisma.payrollEmployeeLine.findUniqueOrThrow({
+      where: { id: input.lineId },
+    });
+    if (existing.paymentStatus === "SALARY_STRUCTURE_INCOMPLETE") {
+      throw new Error(
+        "Historical salary review required — confirm the salary structure for this month before approval",
+      );
+    }
     const line = await prisma.payrollEmployeeLine.update({
       where: { id: input.lineId },
       data: { status: "APPROVED", approvedAt: new Date() },
@@ -199,6 +237,17 @@ export class PayrollFacade {
     const input = typeof inputOrRunId === "string"
       ? { actorUserId: undefined, payrollRunId: inputOrRunId }
       : inputOrRunId;
+    const salaryGaps = await prisma.payrollEmployeeLine.count({
+      where: {
+        payrollRunId: input.payrollRunId,
+        paymentStatus: "SALARY_STRUCTURE_INCOMPLETE",
+      },
+    });
+    if (salaryGaps > 0) {
+      throw new Error(
+        `${salaryGaps} employee line(s) need historical salary review before the run can be approved`,
+      );
+    }
     const pending = await prisma.payrollEmployeeLine.count({
       where: { payrollRunId: input.payrollRunId, status: { not: "APPROVED" } },
     });

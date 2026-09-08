@@ -104,7 +104,10 @@ export async function generateStatementMatchSuggestions(input: {
       },
     }),
     prisma.employee.findMany({
-      where: { companyId: input.companyId, status: "ACTIVE" },
+      where: {
+        companyId: input.companyId,
+        status: { in: ["ACTIVE", "CONTACT_DETAILS_REQUIRED", "BLOCKED", "EXITED"] },
+      },
       include: {
         bankAccount: true,
         salaryStructure: true,
@@ -255,6 +258,8 @@ export async function applyAutomaticReconciliation(input: {
       companyId: input.companyId,
       year,
       month,
+      // Lines for all eligible employees; statement pipeline owns debit assignment.
+      matchPayments: false,
     });
     payrollRunByPeriod.set(key, run.id);
     if (!run.statementId) {
@@ -590,6 +595,7 @@ export async function reviewReconciliationTransaction(input: {
       companyId,
       year: salaryYear,
       month: salaryMonth,
+      matchPayments: false,
     });
     const derived = structureToEarningsDeductions(employee.salaryStructure);
     const snapshot = toSalarySnapshot(employee.salaryStructure);

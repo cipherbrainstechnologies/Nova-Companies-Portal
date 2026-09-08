@@ -9,6 +9,11 @@
 - Corrections append an immutable `PayslipVersion`; prior PDF and calculation snapshots remain preserved.
 - Public verification returns document validity and provenance only. Salary and bank data are excluded.
 - `createPayrollRun` returns an existing run for the same company/year/month instead of failing on the unique constraint.
+- Creating a payroll run **populates eligible employee lines** via `populatePayrollEmployeeLines` (`src/server/payroll/populate-run.ts`). Bank matching enriches payment status; it is never required for a line to appear.
+- Eligibility uses employment overlap with the salary month (`period-eligibility.ts`): join-after excludes; EXITED/BLOCKED/CONTACT_DETAILS_REQUIRED remain eligible when they worked in-period. Missing email/phone is tracked separately and does not omit the line.
+- Effective salary is the structure version covering the payroll month. Structures that start after the month are never applied retrospectively; gaps become `SALARY_STRUCTURE_INCOMPLETE` with “Historical salary review required” and block approval/issue.
+- Draft runs expose **Populate / Refresh Employee Lines** (`POST /api/payroll/runs/[runId]/populate`). Refresh is idempotent on `(payrollRunId, employeeId)`, preserves reviewed/issued lines, and never auto-issues or emails.
+- Empty runs show diagnostic reasons (no employees, none eligible, salary review, locked run) plus counts: found / eligible / lines / salary review / matched / unmatched.
 - Live HTML preview (`POST /api/payroll/preview`) builds `PayslipRenderData` from employee + form input without inventing a payslip row.
 - PDF generation uses `renderPayslipHtmlFromTemplate` when the payslip version’s `CompanyTemplate` has `htmlBody`; otherwise the default Form IV-B layout.
 

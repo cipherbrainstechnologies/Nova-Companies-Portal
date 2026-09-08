@@ -14,6 +14,7 @@ export function CreatePayrollForm({ companyId }: { companyId: string }) {
   const [year, setYear] = useState(String(now.getFullYear()));
   const [month, setMonth] = useState(String(now.getMonth() + 1));
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   async function createRun() {
@@ -27,6 +28,12 @@ export function CreatePayrollForm({ companyId }: { companyId: string }) {
       setError(data.error ?? t("en", "common.failed"));
       setConfirmOpen(false);
       return;
+    }
+    const d = data.diagnostics;
+    if (d) {
+      setInfo(
+        `${d.nextAction} (found ${d.employeesFound}, eligible ${d.eligibleEmployees}, lines ${d.linesCreated}, salary review ${d.salaryReviewRequired})`,
+      );
     }
     setConfirmOpen(false);
     router.refresh();
@@ -56,11 +63,16 @@ export function CreatePayrollForm({ companyId }: { companyId: string }) {
           <AlertBanner tone="danger">{error}</AlertBanner>
         </div>
       ) : null}
+      {info ? (
+        <div className="mt-3">
+          <AlertBanner tone="success">{info}</AlertBanner>
+        </div>
+      ) : null}
       <Modal
         open={confirmOpen}
         onClose={() => setConfirmOpen(false)}
         title="Create payroll run?"
-        description={`This creates a run for ${String(month).padStart(2, "0")}/${year}. Issuing payslips later still requires explicit confirmation.`}
+        description={`This creates a run for ${String(month).padStart(2, "0")}/${year} and populates eligible employee lines. Bank matching enriches payments afterward; issuing still requires explicit confirmation.`}
       >
         <div className="flex flex-wrap justify-end gap-2">
           <Button type="button" variant="ghost" onClick={() => setConfirmOpen(false)}>

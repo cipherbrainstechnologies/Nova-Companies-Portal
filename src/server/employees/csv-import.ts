@@ -457,7 +457,7 @@ export async function confirmEmployeeCsvImport(input: {
       });
       const duplicates = existing.filter(
         (candidate) =>
-          normalizeCompanyName(candidate.displayName) ===
+          normalizeCompanyName(candidate.displayName ?? "") ===
           normalizeCompanyName(parsed.data!.displayName),
       );
       if (duplicates.length) {
