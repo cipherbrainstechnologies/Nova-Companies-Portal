@@ -29,8 +29,9 @@
 - Audit action names are centralised in `src/server/payroll/audit-actions.ts` and grouped by stage (match → approve → issue → email).
 - Statement uploads parse **inline in the web process by default** so rows appear without a BullMQ worker. Set `STATEMENT_PARSE_VIA_QUEUE=1` only when a worker is confirmed. Stuck `UPLOADED` / `FAILED` rows can be reparsed via `POST /api/statements/[id]/reparse`.
 - Axis PDF parser accepts official **Account Statement Report** text layout (`S.NO + Tran Date + Value Date + Particulars + Debit/Credit + Balance`), classifies single-amount rows via opening-balance deltas, and ignores `TRANSACTION TOTAL` / closing-balance footers.
-- Profit rules are **direction-aware** (credit vs debit). Sana/Skydotec count as revenue only on credits. NW bank salaries match `NEFT/EB/`; approved `MOB/TPFT/LOVE N CHAUHAN` is Hardik cash salary; bare `HARDIK` is not used (false-positive on HARDIKKUMAR). Unclassified never alters earned profit. See `FINANCE_RECONCILIATION_BUG_REPORT.md`.
-- Profit snapshots invalidate on statement parse and manual classify; Finance page offers **Recompute all profit snapshots**. MoM growth is suppressed when reconciliation is incomplete or the prior month earned profit is zero.
+- Profit rules are **direction-aware** (credit vs debit). Sana/Skydotec count as revenue only on credits. NW bank salaries match `NEFT/EB/`. Love transfers are owner outflows by default (April 2025 ₹1L confirmed owner; Hardik cash must be manually classified when confirmed). Municipal AMC is a company expense. Unclassified never alters earned profit.
+- Finance admin: clear snapshots / reprocess statements / recompute ledger (`POST /api/finance/admin`). Statement parse validates opening+credits−debits=closing.
+- Employee CSV import: template → preview → confirm; status `CONTACT_DETAILS_REQUIRED` until real phone/email; no automatic login or payslip email.
 
 ## Templates
 
@@ -81,3 +82,10 @@
 - Nav label `admin.tds` = Salary calculator (bifurcation UI; no raw JSON dump). Finance overview aggregates profit snapshots with MoM growth %. Operations dashboard shows recent salary changes instead of audit logs.
 - Soft borders, 8px spacing scale, sentence-case typography (Plus Jakarta Sans). Industrial/Desert Rose styling is retired.
 - Audit of preserved routes: `UI_REDESIGN_AUDIT.md`.
+
+## Employee CSV import
+
+- Employee imports use a persisted preview/confirm workflow through `EmployeeImportBatch` and `EmployeeImportRow`; unknown company names are rejected and never auto-created.
+- CSV salary values are parsed with the shared decimal money helpers. Blank TDS is explicitly stored as zero, while net-pay mismatches are surfaced for review without changing submitted deductions.
+- Imported employees start as `CONTACT_DETAILS_REQUIRED`, receive no portal user or fabricated contact data, and preserve the original full name in `Employee.displayName`.
+- Explicit updates retain existing contacts and append a salary-structure version through `EmployeeFacade.createFromImport`.

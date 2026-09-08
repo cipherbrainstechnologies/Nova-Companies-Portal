@@ -181,11 +181,33 @@ function readOpeningBalance(text: string): number | undefined {
   }
 }
 
+export const AXIS_PARSER_VERSION = "axis-account-statement-report-v2";
+
+function readClosingBalance(text: string): number | undefined {
+  const match = text.match(/Closing Balance:\s*(?:INR\s*)?([₹\d,]+\.\d{2})/i);
+  if (!match) return undefined;
+  try {
+    return parseMoney(match[1]);
+  } catch {
+    return undefined;
+  }
+}
+
+function readAccountNumber(text: string): string | undefined {
+  const match = text.match(
+    /Account\s+No\s*[:\-]?\s*([0-9]{9,18})|Statement of Axis Bank Account No\s*:\s*([0-9]{9,18})/i,
+  );
+  return match?.[1] ?? match?.[2];
+}
+
 export function parseAxisStatementText(text: string): ParsedStatement {
   const normalized = text.replace(/\u00a0/g, " ").replace(/\r\n?/g, "\n");
+  const accountNumber = readAccountNumber(normalized);
   const accountMatch = normalized.match(
     /(?:account(?:\s+(?:no|number))?|a\/c)\s*(?:no\.?)?\s*[:\-]?\s*[xX*]*(\d{4,})/i,
   );
+  const openingBalance = readOpeningBalance(normalized);
+  const statementClosingBalance = readClosingBalance(normalized);
   const blocks: string[] = [];
   let current: string[] = [];
 
@@ -206,7 +228,7 @@ export function parseAxisStatementText(text: string): ParsedStatement {
   }
   if (current.length) blocks.push(current.join("\n"));
 
-  let previousBalance = readOpeningBalance(normalized);
+  let previousBalance = openingBalance;
   const transactions: ParsedTxn[] = [];
   for (let index = 0; index < blocks.length; index += 1) {
     const row = parseRow(blocks[index], index + 1, previousBalance);
@@ -222,9 +244,13 @@ export function parseAxisStatementText(text: string): ParsedStatement {
   const dates = transactions.map((transaction) => transaction.txnDate.getTime());
   return {
     bankCode: "AXIS",
-    accountHint: accountMatch?.[1].slice(-4),
+    accountHint: accountNumber?.slice(-4) ?? accountMatch?.[1].slice(-4),
+    accountNumber,
     periodStart: new Date(Math.min(...dates)),
     periodEnd: new Date(Math.max(...dates)),
+    openingBalance,
+    statementClosingBalance,
+    parserVersion: AXIS_PARSER_VERSION,
     transactions,
   };
 }

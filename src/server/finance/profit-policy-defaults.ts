@@ -42,21 +42,21 @@ export const SHARED_PROFIT_RULES: DefaultProfitRule[] = [
     direction: "debit",
   },
   {
-    // Approved Hardik cash salary routed via Love Chauhan transfer (NW).
-    matchPattern: "MOB/TPFT/LOVE\\s+N\\s+CHAUHAN|TPFT/LOVE\\s+N\\s+CHAUHAN",
-    treatment: "BUSINESS_EXPENSE",
-    categoryKey: "CASH_SALARY",
-    priority: 6,
-    label: "Hardik cash salary (approved Love transfer)",
-    direction: "debit",
-  },
-  {
-    matchPattern: "\\bLOVE\\b|SHIVANI",
+    // Love Chauhan transfers are owner outflows unless manually reclassified.
+    matchPattern: "\\bLOVE\\b|SHIVANI|MOB/TPFT/LOVE|TPFT/LOVE",
     classification: "OWNER_TRANSFER",
     treatment: "OWNER_EXCLUDED",
     categoryKey: "OWNER_TRANSFER",
-    priority: 25,
+    priority: 6,
     label: "Love / owner transfer",
+    direction: "debit",
+  },
+  {
+    matchPattern: "AHMEDABAD\\s*MUNICIPAL|MUNICIPAL\\s*CORPORATION|\\bAMC\\b|NBSM/.*MUNICIPAL",
+    treatment: "BUSINESS_EXPENSE",
+    categoryKey: "BUSINESS_EXPENSE",
+    priority: 16,
+    label: "Municipal / local body company expense",
     direction: "debit",
   },
   {

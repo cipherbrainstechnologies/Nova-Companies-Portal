@@ -8,6 +8,7 @@ import Link from "next/link";
 import { CreateEmployeeForm } from "./create-form";
 import { EmployeeRosterTable } from "./employee-roster-table";
 import { ModalTriggerCreateEmployee } from "./create-employee-modal";
+import { ImportCsvModal } from "./import-csv-modal";
 
 export default async function EmployeesPage({
   searchParams,
@@ -28,6 +29,7 @@ export default async function EmployeesPage({
     employeeCode: e.employeeCode,
     firstName: e.firstName,
     lastName: e.lastName,
+    displayName: e.displayName,
     status: e.status,
     email: e.contact?.officialEmail ?? e.contact?.personalEmail ?? "",
     phone: e.contact?.primaryPhone ?? "",
@@ -40,7 +42,19 @@ export default async function EmployeesPage({
       userName={user.email ?? user.phone}
       userRole={user.globalRole}
       actions={
-        companyId ? <ModalTriggerCreateEmployee companyId={companyId} /> : undefined
+        companyId ? (
+          <>
+            <ImportCsvModal
+              companyId={companyId}
+              employees={employees.map((employee) => ({
+                id: employee.id,
+                employeeCode: employee.employeeCode,
+                name: employee.displayName ?? `${employee.firstName} ${employee.lastName}`,
+              }))}
+            />
+            <ModalTriggerCreateEmployee companyId={companyId} />
+          </>
+        ) : undefined
       }
     >
       <CompanyTabs

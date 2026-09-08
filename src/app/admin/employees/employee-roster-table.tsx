@@ -15,6 +15,7 @@ export type EmployeeListRow = {
   employeeCode: string;
   firstName: string;
   lastName: string;
+  displayName?: string | null;
   status: string;
   email: string;
   phone: string;
@@ -83,7 +84,7 @@ export function EmployeeRosterTable({ rows }: { rows: EmployeeListRow[] }) {
                 <tr key={e.id} className="hover:bg-[var(--nova-surface-muted)]/70">
                   <td className="px-4 py-3">
                     <div className="font-semibold text-[var(--nova-ink)]">
-                      {e.firstName} {e.lastName}
+                      {e.displayName ?? `${e.firstName} ${e.lastName}`}
                     </div>
                     <div className="text-xs text-[var(--nova-muted)]">{e.employeeCode}</div>
                   </td>
@@ -95,6 +96,11 @@ export function EmployeeRosterTable({ rows }: { rows: EmployeeListRow[] }) {
                       status={e.status}
                       tone={blocked ? "neutral" : e.status === "ACTIVE" ? "success" : "warning"}
                     />
+                    {e.status === "CONTACT_DETAILS_REQUIRED" ? (
+                      <Link href={href} className="mt-1 block text-xs font-semibold text-[var(--nova-teal)] hover:underline">
+                        Complete contact details
+                      </Link>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <HoverTip label={`Open profile for ${e.firstName} ${e.lastName}`}>

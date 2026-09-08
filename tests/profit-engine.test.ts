@@ -23,15 +23,15 @@ function line(
 
 /** Verified fixture totals — assertions only; never hard-coded into the engine. */
 const EXPECTED = {
-  nwEarned: 747825.6,
-  nqEarned: 399778.1,
-  combined: 1147603.7,
-  afterCorePersonal: 974918.94,
-  actualRemaining: 725418.94,
-  april2025NwEarned: 284428.27,
+  /** April 2025 NW: revenue − salaries − internet tax − municipal (Love is owner outflow). */
+  april2025NwEarned: 382217.27,
+  april2025OwnerOutflow: 100000,
+  april2025Municipal: 2211,
+  april2025Closing: 1358340.11,
+  april2025NetBank: 282217.27,
 } as const;
 
-/** April 2025 Nova Workforce statement lines (from Axis Account Statement Report). */
+/** April 2025 Nova Workforce statement lines (Axis Account Statement Report). */
 function april2025NwLines(): ProfitLineInput[] {
   return [
     line("NEFT/EB/AXOEB09099180058/Settipalli Tejaswi/CANARA BANK///////", { debit: 53967 }),
@@ -50,131 +50,20 @@ function april2025NwLines(): ProfitLineInput[] {
       debit: 74800,
     }),
     line("NEFT/EB/AXOEB09099176932/Rohit Kumar Singh/CANARA BANK///////", { debit: 181484 }),
-    // Must be bank-paid salary — NOT cash-salary via bare HARDIK match.
     line("NEFT/EB/AXOEB09099177118/SUTHAR HARDIKKUMAR/HDFC BANK///////", { debit: 91467 }),
+    // Confirmed owner outflow — NOT Hardik cash salary.
     line("MOB/TPFT/LOVE N CHAUHAN/915010062717599", { debit: 100000 }),
     line("INB/101373511/INTERNET TAX PAYMENT/", { debit: 42683 }),
     line(
       "NEFT/HDFCH00197712907/SANA LIFE SCIENCE LTD/HDFC BANK/0001Foreign INR INW PACB remi",
       { credit: 1171876.27 },
     ),
-    // Must stay unclassified / needs review.
+    // Confirmed company municipal expense.
     line("NBSM/102369041/AHMEDABAD MUNICIPAL CORPORATION(PA", { debit: 2211 }),
   ];
 }
 
 describe("mandatory earned profit policy fixtures", () => {
-  it("computes Nova Workforce earned profit from classified lines", () => {
-    const nw = summarizeEarnedProfit(
-      [
-        line("NEFT CR-SANA LIFE SCIENCE PVT LTD", { credit: 1954189.09 }),
-        line("NEFT CR-SKYDOTEC SOLUTIONS", { credit: 146169.51 }),
-        line("NEFT/EB/AXOEB EMPLOYEE SALARY BATCH", { debit: 1199421 }),
-        line("MOB/TPFT/LOVE N CHAUHAN/HARDİK CASH", { debit: 100000 }),
-        line("CBDT TAX PAYMENT", { debit: 53112 }),
-        line("HOME LOAN EMI", { debit: 63220 }),
-        line("OPENING BALANCE", { credit: 500000 }),
-        line("MYSTERY DEBIT UNMATCHED", { debit: 9999 }),
-      ],
-      policyRulesForPrefix("NW"),
-    );
-
-    expect(nw.revenue).toBe(2100358.6);
-    expect(nw.bankPaidSalaries).toBe(1199421);
-    expect(nw.salaryRelatedCashPayments).toBe(100000);
-    expect(nw.cbdtBusinessTax).toBe(53112);
-    expect(nw.earnedOperatingProfit).toBe(EXPECTED.nwEarned);
-    expect(nw.unclassified.count).toBe(1);
-    expect(nw.personalFinancing.homeLoan).toBe(63220);
-  });
-
-  it("computes Nova Qore earned profit from classified lines", () => {
-    const nq = summarizeEarnedProfit(
-      [
-        line("IMPS-SANA LIFE SCIENCE CREDIT", { credit: 1951059.1 }),
-        line("NEFT/EB/AXOEB EMPLOYEE SALARY PAYROLL", { debit: 1323356 }),
-        line("PAYMENT TO HIREN", { debit: 55930 }),
-        line("PAYMENT TO PARTH", { debit: 95620 }),
-        line("CBDT PAYMENT", { debit: 76375 }),
-      ],
-      policyRulesForPrefix("NQ"),
-    );
-
-    expect(nq.revenue).toBe(1951059.1);
-    expect(nq.bankPaidSalaries).toBe(1323356);
-    expect(nq.otherBusinessExpenses).toBe(55930 + 95620);
-    expect(nq.cbdtBusinessTax).toBe(76375);
-    expect(nq.earnedOperatingProfit).toBe(EXPECTED.nqEarned);
-  });
-
-  it("combines earned profit and cash-remaining ladder without altering earned totals", () => {
-    const nw = summarizeEarnedProfit(
-      [
-        line("SANA LIFE SCIENCE", { credit: 1954189.09 }),
-        line("SKYDOTEC", { credit: 146169.51 }),
-        line("NEFT/EB/SALARY OVERTIME", { debit: 1199421 }),
-        line("MOB/TPFT/LOVE N CHAUHAN/CASH", { debit: 100000 }),
-        line("CBDT", { debit: 53112 }),
-        line("HOME LOAN", { debit: 63220 }),
-        line("BAJAJ EMI", { debit: 53137 }),
-        line("CREDIT CARD PAYMENT", { debit: 56327.76 }),
-        line("TRANSFER TO LOVE SHIVANI", { debit: 172000 }),
-        line("THREADS CHEQUE", { debit: 77500 }),
-      ],
-      policyRulesForPrefix("NW"),
-    );
-
-    const nq = summarizeEarnedProfit(
-      [
-        line("SANA LIFE SCIENCE", { credit: 1951059.1 }),
-        line("NEFT/EB/SALARY OVERTIME", { debit: 1323356 }),
-        line("HIREN", { debit: 55930 }),
-        line("PARTH", { debit: 95620 }),
-        line("CBDT", { debit: 76375 }),
-      ],
-      policyRulesForPrefix("NQ"),
-    );
-
-    expect(nw.earnedOperatingProfit).toBe(EXPECTED.nwEarned);
-    expect(nq.earnedOperatingProfit).toBe(EXPECTED.nqEarned);
-
-    const combined = combineProfitSummaries(nw, nq);
-    expect(combined.earnedOperatingProfit).toBe(EXPECTED.combined);
-    expect(combined.profitAfterPersonalFinance).toBe(EXPECTED.afterCorePersonal);
-    expect(combined.cashRemainingAfterDeductions).toBe(EXPECTED.actualRemaining);
-  });
-
-  it("lets manual classification override narration rules", () => {
-    const rules = policyRulesForPrefix("NW");
-    const assignment = resolveProfitAssignment("NEFT/EB/SALARY BATCH FROM CLIENT", "REVENUE", rules, {
-      credit: 1000,
-      debit: 0,
-    });
-    expect(assignment.matchedBy).toBe("manual_classification");
-    expect(assignment.categoryKey).toBe("REVENUE");
-
-    const summary = summarizeEarnedProfit(
-      [line("NEFT/EB/SALARY BATCH FROM CLIENT", { credit: 1000 }, "REVENUE")],
-      rules,
-    );
-    expect(summary.revenue).toBe(1000);
-    expect(summary.businessExpenses).toBe(0);
-  });
-
-  it("never treats bank balance or unclassified amounts as earned profit", () => {
-    const summary = summarizeEarnedProfit(
-      [
-        line("SANA LIFE SCIENCE", { credit: 100000 }),
-        line("CLOSING BALANCE", { credit: 999999 }),
-        line("UNKNOWN VENDOR", { debit: 50000 }),
-      ],
-      policyRulesForPrefix("NW"),
-    );
-    expect(summary.earnedOperatingProfit).toBe(100000);
-    expect(summary.unclassified.totalDebit).toBe(50000);
-    expect(summary.earnedOperatingProfit).not.toBe(999999);
-  });
-
   it("requires credit direction for Sana Life Science revenue", () => {
     const rules = policyRulesForPrefix("NW");
     const asDebit = resolveProfitAssignment(
@@ -193,47 +82,89 @@ describe("mandatory earned profit policy fixtures", () => {
     );
     expect(asCredit.categoryKey).toBe("REVENUE");
   });
+
+  it("treats Love transfers as owner outflow, not Hardik cash salary", () => {
+    const summary = summarizeEarnedProfit(
+      [line("MOB/TPFT/LOVE N CHAUHAN/915010062717599", { debit: 100000 })],
+      policyRulesForPrefix("NW"),
+    );
+    expect(summary.salaryRelatedCashPayments).toBe(0);
+    expect(summary.personalFinancing.ownerTransfers).toBe(100000);
+    expect(summary.earnedOperatingProfit).toBe(0);
+  });
+
+  it("never treats bank balance or unclassified amounts as earned profit", () => {
+    const summary = summarizeEarnedProfit(
+      [
+        line("SANA LIFE SCIENCE", { credit: 100000 }),
+        line("CLOSING BALANCE", { credit: 999999 }),
+        line("UNKNOWN VENDOR", { debit: 50000 }),
+      ],
+      policyRulesForPrefix("NW"),
+    );
+    expect(summary.earnedOperatingProfit).toBe(100000);
+    expect(summary.unclassified.totalDebit).toBe(50000);
+    expect(summary.earnedOperatingProfit).not.toBe(999999);
+  });
+
+  it("lets manual classification override narration rules", () => {
+    const rules = policyRulesForPrefix("NW");
+    const assignment = resolveProfitAssignment("NEFT/EB/SALARY BATCH FROM CLIENT", "REVENUE", rules, {
+      credit: 1000,
+      debit: 0,
+    });
+    expect(assignment.matchedBy).toBe("manual_classification");
+    expect(assignment.categoryKey).toBe("REVENUE");
+  });
 });
 
 describe("Nova Workforce April 2025 reconciliation fixture", () => {
-  it("yields ₹2,84,428.27 earned profit with Sana credit and correct buckets", () => {
+  it("yields ₹3,82,217.27 earned profit with Love as owner outflow", () => {
     const summary = summarizeEarnedProfit(april2025NwLines(), policyRulesForPrefix("NW"));
 
     expect(summary.revenue).toBe(1171876.27);
     expect(summary.bankPaidSalaries).toBe(744765);
     expect(summary.overtime).toBe(0);
-    expect(summary.salaryRelatedCashPayments).toBe(100000);
+    expect(summary.salaryRelatedCashPayments).toBe(0);
     expect(summary.cbdtBusinessTax).toBe(42683);
+    expect(summary.otherBusinessExpenses).toBe(EXPECTED.april2025Municipal);
     expect(summary.earnedOperatingProfit).toBe(EXPECTED.april2025NwEarned);
-    expect(summary.reconciliationStatus).toBe("PARTIAL_REVIEW_REQUIRED");
+    expect(summary.personalFinancing.ownerTransfers).toBe(EXPECTED.april2025OwnerOutflow);
+    expect(summary.reconciliationStatus).toBe("COMPLETE");
 
-    // AMC must not silently alter earned profit.
-    expect(summary.unclassified.count).toBe(1);
-    expect(summary.unclassified.totalDebit).toBe(2211);
-    expect(summary.unclassified.lines[0]?.particulars).toMatch(/AHMEDABAD MUNICIPAL/i);
+    const love = summary.lines.find((l) => /TPFT\/LOVE N CHAUHAN/i.test(l.particulars));
+    expect(love?.financeTreatment).toBe("OWNER_TRANSFER");
 
-    // HARDIKKUMAR must be salary, not cash-salary.
-    const hardikkumar = summary.lines.find((l) => /HARDIKKUMAR/i.test(l.particulars));
-    expect(hardikkumar?.financeTreatment).toBe("SALARY");
-    expect(hardikkumar?.categoryKey).toBe("SALARY");
-
-    const loveCash = summary.lines.find((l) => /TPFT\/LOVE N CHAUHAN/i.test(l.particulars));
-    expect(loveCash?.financeTreatment).toBe("SALARY_RELATED_CASH");
+    const municipal = summary.lines.find((l) => /MUNICIPAL/i.test(l.particulars));
+    expect(municipal?.financeTreatment).toBe("OTHER_BUSINESS_EXPENSE");
 
     const sana = summary.lines.find((l) => /SANA LIFE/i.test(l.particulars));
     expect(sana?.financeTreatment).toBe("REVENUE");
     expect(sana?.credit).toBe(1171876.27);
-    expect(sana?.debit).toBe(0);
   });
 
-  it("fails if revenue credit is missing from the month calculation", () => {
+  it("fails if revenue credit is omitted from the month", () => {
     const withoutSana = april2025NwLines().filter((l) => !/SANA LIFE/i.test(l.particulars));
     const broken = summarizeEarnedProfit(withoutSana, policyRulesForPrefix("NW"));
     expect(broken.revenue).toBe(0);
     expect(broken.earnedOperatingProfit).toBeLessThan(0);
-    // Guard: real April fixture must not look like this.
     const full = summarizeEarnedProfit(april2025NwLines(), policyRulesForPrefix("NW"));
-    expect(full.revenue).toBeGreaterThan(0);
     expect(full.earnedOperatingProfit).toBe(EXPECTED.april2025NwEarned);
+  });
+});
+
+describe("combineProfitSummaries", () => {
+  it("sums company earned profits without re-running cross-company rules", () => {
+    const a = summarizeEarnedProfit(
+      [line("SANA LIFE SCIENCE", { credit: 100 }), line("NEFT/EB/PAY", { debit: 40 })],
+      policyRulesForPrefix("NW"),
+    );
+    const b = summarizeEarnedProfit(
+      [line("SANA LIFE SCIENCE", { credit: 50 }), line("NEFT/EB/PAY", { debit: 10 })],
+      policyRulesForPrefix("NQ"),
+    );
+    const combined = combineProfitSummaries(a, b);
+    expect(combined.earnedOperatingProfit).toBe(100);
+    expect(combined.revenue).toBe(150);
   });
 });

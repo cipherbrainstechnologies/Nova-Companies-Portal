@@ -64,6 +64,23 @@ export type CreateEmployeeInput = {
   effectiveFrom?: Date;
 };
 
+export type CreateEmployeeFromImportInput = {
+  actorUserId: string;
+  companyId: string;
+  employeeId?: string;
+  displayName: string;
+  firstName: string;
+  lastName: string;
+  designation?: string;
+  dateOfJoining?: Date;
+  annualCtc: number;
+  monthlyGross: number;
+  monthlyTds: number;
+  monthlyPt: number;
+  expectedMonthlyNet: number;
+  effectiveFrom?: Date;
+};
+
 export class EmployeeFacade {
   async listByCompany(companyId: string) {
     return prisma.employee.findMany({
@@ -220,6 +237,98 @@ export class EmployeeFacade {
       },
     });
 
+    return this.getById(employee.id);
+  }
+
+  async createFromImport(input: CreateEmployeeFromImportInput) {
+    const effectiveFrom = input.effectiveFrom ?? input.dateOfJoining ?? new Date();
+
+    if (input.employeeId) {
+      const existing = await this.getById(input.employeeId, input.companyId);
+      await prisma.employee.update({
+        where: { id: existing.id },
+        data: {
+          displayName: input.displayName,
+          firstName: input.firstName,
+          lastName: input.lastName,
+          designation: input.designation,
+          dateOfJoining: input.dateOfJoining,
+        },
+      });
+      await this.upsertSalaryStructure({
+        actorUserId: input.actorUserId,
+        employeeId: existing.id,
+        annualCtc: input.annualCtc,
+        monthlyGross: input.monthlyGross,
+        monthlyTds: input.monthlyTds,
+        monthlyPt: input.monthlyPt,
+        expectedMonthlyNet: input.expectedMonthlyNet,
+        effectiveFrom,
+        notes: "Employee CSV import",
+      });
+      return this.getById(existing.id);
+    }
+
+    const employeeCode = await companyFacade.allocateEmployeeCode(input.companyId);
+    const employee = await prisma.$transaction(async (tx) => {
+      const created = await tx.employee.create({
+        data: {
+          companyId: input.companyId,
+          employeeCode,
+          displayName: input.displayName,
+          firstName: input.firstName,
+          lastName: input.lastName,
+          designation: input.designation,
+          dateOfJoining: input.dateOfJoining,
+          status: "CONTACT_DETAILS_REQUIRED",
+          contact: {
+            create: {
+              primaryPhone: null,
+              personalEmail: null,
+              officialEmail: null,
+            },
+          },
+          salaryStructure: {
+            create: {
+              version: 1,
+              annualCtc: input.annualCtc,
+              monthlyGross: input.monthlyGross,
+              monthlyTds: input.monthlyTds,
+              monthlyPt: input.monthlyPt,
+              expectedMonthlyNet: input.expectedMonthlyNet,
+              effectiveFrom,
+              componentsJson: {},
+              notes: "Employee CSV import",
+            },
+          },
+        },
+      });
+      await tx.employeeSalaryStructureVersion.create({
+        data: {
+          employeeId: created.id,
+          version: 1,
+          annualCtc: input.annualCtc,
+          monthlyGross: input.monthlyGross,
+          monthlyTds: input.monthlyTds,
+          monthlyPt: input.monthlyPt,
+          expectedMonthlyNet: input.expectedMonthlyNet,
+          effectiveFrom,
+          componentsJson: {},
+          notes: "Employee CSV import",
+          createdById: input.actorUserId,
+        },
+      });
+      return created;
+    });
+
+    await writeAudit({
+      actorUserId: input.actorUserId,
+      companyId: input.companyId,
+      action: "employee.import_create",
+      entityType: "Employee",
+      entityId: employee.id,
+      metadata: { employeeCode, displayName: input.displayName },
+    });
     return this.getById(employee.id);
   }
 

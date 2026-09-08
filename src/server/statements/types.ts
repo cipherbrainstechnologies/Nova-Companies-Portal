@@ -14,13 +14,19 @@ export interface ParsedTxn {
   chequeNumber?: string;
   branch?: string;
   rowIndex: number;
+  /** 1-based PDF page when known. */
+  sourcePage?: number;
 }
 
 export interface ParsedStatement {
   bankCode: string;
   accountHint?: string;
+  accountNumber?: string;
   periodStart?: Date;
   periodEnd?: Date;
+  openingBalance?: number;
+  statementClosingBalance?: number;
+  parserVersion: string;
   transactions: ParsedTxn[];
 }
 

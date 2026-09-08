@@ -100,6 +100,7 @@ export function parseCsvXlsxStatement(input: StoredFile, bankCode: string): Pars
     bankCode: bankCode.trim().toUpperCase(),
     periodStart: new Date(Math.min(...dates)),
     periodEnd: new Date(Math.max(...dates)),
+    parserVersion: "csv-xlsx-v1",
     transactions,
   };
 }

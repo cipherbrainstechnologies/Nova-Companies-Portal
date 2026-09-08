@@ -9,17 +9,25 @@
 | 3. Salary structures, templates, PDF | Complete | Form IV B HTML template, payroll facade, PDF generator + verify-document |
 | 4. Statement upload + Axis parser | Complete | S3 upload, BullMQ parse, Axis PDF/text + CSV/XLSX parsers |
 | 5. Reconciliation, matching, issue | Complete | Classification, scoring, confirmation-gated issue, download audit |
-| 6. TDS + finance/profit | Complete | FY-config TDS; direction-aware profit; NW Apr-2025 fixture ₹2,84,428.27; never bank-balance-as-profit |
+| 6. TDS + finance/profit | Complete | Statement ledger; Apr-2025 NW earned ₹3,82,217.27; clear/reprocess; employee CSV import |
 | 7. Marketing, tests, Railway guide | Complete | Public `/`, Vitest, Playwright smoke, `docs/RAILWAY_DEPLOYMENT.md` |
 | 8. Premium UI/UX redesign | Complete | Tokens, AppShell, all admin/employee/auth surfaces restyled; logic preserved |
 | 9. Company hub + template/slip form | Complete | Nested company tabs; template upload/preview; employee salary-slip form with preview → draft/approve/issue |
 | 10. Payroll automation | Complete | Salary structures with versions, statement→payroll reconciliation decisions, review workflow, approved-only issue, payslip email delivery tracking |
 
+## Finance ledger + employee CSV (2026-09-08)
+
+See `FINANCE_EMPLOYEE_CSV_HANDOFF.md` and `FINANCE_RECONCILIATION_BUG_REPORT.md`.
+
+- Clear/reprocess Super Admin flow; statement opening/closing validation; monthly ledger API/UI
+- Confirmed Apr-2025 policy: Love = owner outflow; municipal = company expense; earned ₹3,82,217.27
+- Employee CSV import with `CONTACT_DETAILS_REQUIRED` (no fake phone/email/login)
+
 ## Finance reconciliation fix (2026-09-08)
 
 Root cause of April 2025 **Revenue ₹0 / negative profit**: default policies lacked Sana Life
 **credit** revenue rules, so credits were skipped while some debits (including false-positive
-`HARDIK`→`HARDIKKUMAR`, totaling ₹1,14,487 with another salary line) still reduced profit.
+`HARDIK`→`HARDIKKUMAR`) still reduced profit.
 Full trace: `FINANCE_RECONCILIATION_BUG_REPORT.md`.
 
 - Earned profit = business credits − salaries − OT − Hardik cash − CBDT (unclassified excluded)

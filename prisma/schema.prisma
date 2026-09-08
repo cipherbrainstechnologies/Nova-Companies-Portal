@@ -17,8 +17,24 @@ enum GlobalRole {
 
 enum EmployeeStatus {
   ACTIVE
+  CONTACT_DETAILS_REQUIRED
   BLOCKED
   EXITED
+}
+
+enum EmployeeImportBatchStatus {
+  PENDING
+  PREVIEWED
+  COMMITTED
+  FAILED
+}
+
+enum EmployeeImportRowStatus {
+  PENDING
+  CREATED
+  UPDATED
+  SKIPPED
+  ERROR
 }
 
 enum AppModule {
@@ -262,6 +278,7 @@ model Company {
   taxConfigs          TaxFinancialYearConfig[]
   profitPolicies      ProfitPolicyRule[]
   salaryComponents    SalaryComponent[]
+  employeeImportBatches EmployeeImportBatch[]
 }
 
 model CompanySequence {
@@ -294,6 +311,7 @@ model Employee {
   employeeCode    String
   firstName       String
   lastName        String
+  displayName     String?
   designation     String?
   department      String?
   location        String?
@@ -320,6 +338,7 @@ model Employee {
   matchSuggestions StatementMatchSuggestion[]
   priorMappings   EmployeeNarrationMapping[]
   reconciledTxns  StatementTransaction[] @relation("MatchedEmployee")
+  importRows      EmployeeImportRow[]
 
   @@unique([companyId, employeeCode])
   @@index([companyId, status])
@@ -330,10 +349,51 @@ model EmployeeContact {
   employeeId     String  @unique
   personalEmail  String?
   officialEmail  String?
-  primaryPhone   String
+  primaryPhone   String?
   alternatePhone String?
 
   employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+model EmployeeImportBatch {
+  id           String                    @id @default(cuid())
+  companyId    String?
+  actorUserId  String
+  fileName     String
+  status       EmployeeImportBatchStatus @default(PENDING)
+  rowCount     Int                       @default(0)
+  createdCount Int                       @default(0)
+  updatedCount Int                       @default(0)
+  skippedCount Int                       @default(0)
+  errorCount   Int                       @default(0)
+  effectiveFrom DateTime?
+  summaryJson  Json?
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+
+  company      Company?                  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  rows         EmployeeImportRow[]
+
+  @@index([companyId, createdAt])
+  @@index([actorUserId, createdAt])
+}
+
+model EmployeeImportRow {
+  id           String                  @id @default(cuid())
+  batchId      String
+  rowNumber    Int
+  rawJson      Json
+  status       EmployeeImportRowStatus @default(PENDING)
+  employeeId   String?
+  errorsJson   Json?
+  warningsJson Json?
+  createdAt    DateTime                @default(now())
+
+  batch        EmployeeImportBatch     @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  employee     Employee?               @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  @@unique([batchId, rowNumber])
+  @@index([employeeId])
 }
 
 model EmployeeBankAccount {
@@ -434,10 +494,20 @@ model BankStatement {
   companyId    String
   bankCode     String
   accountHint  String?
+  accountNumber String?
   salaryYear   Int?
   salaryMonth  Int?
   periodStart  DateTime?
   periodEnd    DateTime?
+  openingBalance Decimal? @db.Decimal(18, 2)
+  statementClosingBalance Decimal? @db.Decimal(18, 2)
+  calculatedClosingBalance Decimal? @db.Decimal(18, 2)
+  reconciliationDifference Decimal? @db.Decimal(18, 2)
+  totalCredits Decimal? @db.Decimal(18, 2)
+  totalDebits Decimal? @db.Decimal(18, 2)
+  transactionCount Int?
+  parserVersion String?
+  statementReconciled Boolean @default(false)
   status       StatementStatus @default(UPLOADED)
   fileId       String
   checksumSha256 String

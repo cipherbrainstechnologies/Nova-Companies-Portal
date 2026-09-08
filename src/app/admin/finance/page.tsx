@@ -7,6 +7,8 @@ import { t } from "@/i18n";
 import { FinanceOverviewCards, ProfitForm } from "./profit-form";
 import { ProfitPolicyEditor } from "./profit-policy-editor";
 import { RecomputeProfitButton } from "./recompute-button";
+import { FinanceClearReprocessPanel } from "./clear-reprocess-panel";
+import { FinanceLedgerPanel } from "./ledger-panel";
 
 function n(v: { toString(): string } | number) {
   return Number(v);
@@ -108,6 +110,12 @@ export default async function FinancePage() {
       <AlertBanner tone="info">{t("en", "admin.financeFormula")}</AlertBanner>
 
       <div className="mt-4">
+        <FinanceClearReprocessPanel
+          companies={companies.map((c) => ({ id: c.id, name: c.name }))}
+        />
+      </div>
+
+      <div className="mt-4">
         <RecomputeProfitButton />
       </div>
 
@@ -117,10 +125,14 @@ export default async function FinancePage() {
           mom={mom}
           snapshotNote={
             latestComputed
-              ? `Snapshot figures from live statement months only. Latest snapshot row ${latestComputed.toLocaleString()}. After importing statements or editing rules, click Recompute.`
-              : "No profit snapshots yet — compute a company/month or click Recompute."
+              ? `Snapshot figures from live statement months only. Latest snapshot row ${latestComputed.toLocaleString()}. After importing statements or editing rules, clear/reprocess or recompute.`
+              : "No profit snapshots yet — compute a company/month or reprocess statements."
           }
         />
+      </div>
+
+      <div className="mt-8">
+        <FinanceLedgerPanel companies={companies.map((c) => ({ id: c.id, name: c.name }))} />
       </div>
 
       <div className="mt-8">

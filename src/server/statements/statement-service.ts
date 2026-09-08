@@ -5,6 +5,7 @@ import { generateStatementMatchSuggestions } from "@/server/payroll/matcher-inte
 import { applyAutomaticReconciliation } from "@/server/payroll/reconciliation-automation";
 import { statementParseQueue } from "@/server/queue/queues";
 import { getObjectBuffer, storePrivateFile } from "@/server/storage/s3";
+import { validateStatementBalances } from "@/server/finance/finance-ledger";
 import { AxisBankPdfParser } from "@/server/statements/axis-bank-pdf-parser";
 import { parseCsvXlsxStatement } from "@/server/statements/csv-xlsx-parser";
 import type { StoredFile } from "@/server/statements/types";
@@ -157,6 +158,24 @@ export async function parseStatementJob(statementId: string) {
       ? await new AxisBankPdfParser().parse(stored)
       : parseCsvXlsxStatement(stored, statement.bankCode);
 
+    const balanceCheck = validateStatementBalances(parsed);
+
+    // Preserve manual classifications across versioned reparses (by fingerprint).
+    const priorManual = await prisma.statementTransaction.findMany({
+      where: {
+        statementId,
+        classification: { not: "UNCLASSIFIED" },
+        isDuplicate: false,
+        fingerprint: { not: null },
+      },
+      select: { fingerprint: true, classification: true },
+    });
+    const manualByFingerprint = new Map(
+      priorManual
+        .filter((row) => row.fingerprint)
+        .map((row) => [row.fingerprint!, row.classification]),
+    );
+
     const priorFingerprints = new Set(
       (
         await prisma.statementTransaction.findMany({
@@ -197,6 +216,10 @@ export async function parseStatementJob(statementId: string) {
             priorFingerprints.has(fingerprint) || seenInFile.has(fingerprint);
           if (isDuplicate) duplicateCount += 1;
           else seenInFile.add(fingerprint);
+          const restored = manualByFingerprint.get(fingerprint);
+          const classification: TransactionClassification = isDuplicate
+            ? "IGNORE"
+            : (restored ?? "UNCLASSIFIED");
           return {
             statementId,
             txnDate: transaction.txnDate,
@@ -212,7 +235,7 @@ export async function parseStatementJob(statementId: string) {
             salaryMonth: period?.month ?? null,
             fingerprint,
             isDuplicate,
-            classification: isDuplicate ? ("IGNORE" as const) : ("UNCLASSIFIED" as const),
+            classification,
             reconciliationStatus: isDuplicate ? ("IGNORED" as const) : ("UNMATCHED" as const),
             ignoreReason: isDuplicate
               ? "Duplicate debit already present for this company (same date, amount, and narration)"
@@ -220,17 +243,35 @@ export async function parseStatementJob(statementId: string) {
           };
         }),
       });
+
+      const parseNotes: string[] = [];
+      if (duplicateCount > 0) {
+        parseNotes.push(`Parsed with ${duplicateCount} duplicate row(s) ignored`);
+      }
+      if (!balanceCheck.statementReconciled && balanceCheck.reconciliationDifference != null) {
+        parseNotes.push(
+          `Statement reconciliation failed (difference ${balanceCheck.reconciliationDifference})`,
+        );
+      }
+
       await tx.bankStatement.update({
         where: { id: statementId },
         data: {
           status: "PARSED",
           accountHint: parsed.accountHint,
+          accountNumber: parsed.accountNumber ?? null,
           periodStart: parsed.periodStart,
           periodEnd: parsed.periodEnd,
-          parseError:
-            duplicateCount > 0
-              ? `Parsed with ${duplicateCount} duplicate row(s) ignored`
-              : null,
+          openingBalance: balanceCheck.openingBalance,
+          statementClosingBalance: balanceCheck.statementClosingBalance,
+          calculatedClosingBalance: balanceCheck.calculatedClosingBalance,
+          reconciliationDifference: balanceCheck.reconciliationDifference,
+          totalCredits: balanceCheck.totalCredits,
+          totalDebits: balanceCheck.totalDebits,
+          transactionCount: balanceCheck.transactionCount,
+          parserVersion: parsed.parserVersion,
+          statementReconciled: balanceCheck.statementReconciled,
+          parseError: parseNotes.length ? parseNotes.join(" · ").slice(0, 1_000) : null,
         },
       });
     });

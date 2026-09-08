@@ -5,6 +5,7 @@ import { t } from "@/i18n";
 import { CreateEmployeeForm } from "@/app/admin/employees/create-form";
 import { EmployeeRosterTable } from "@/app/admin/employees/employee-roster-table";
 import { ModalTriggerCreateEmployee } from "@/app/admin/employees/create-employee-modal";
+import { ImportCsvModal } from "@/app/admin/employees/import-csv-modal";
 
 export default async function CompanyEmployeesPage({
   params,
@@ -24,6 +25,7 @@ export default async function CompanyEmployeesPage({
     employeeCode: e.employeeCode,
     firstName: e.firstName,
     lastName: e.lastName,
+    displayName: e.displayName,
     status: e.status,
     email: e.contact?.officialEmail ?? e.contact?.personalEmail ?? "",
     phone: e.contact?.primaryPhone ?? "",
@@ -31,7 +33,15 @@ export default async function CompanyEmployeesPage({
 
   return (
     <div>
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex justify-end gap-2">
+        <ImportCsvModal
+          companyId={companyId}
+          employees={employees.map((employee) => ({
+            id: employee.id,
+            employeeCode: employee.employeeCode,
+            name: employee.displayName ?? `${employee.firstName} ${employee.lastName}`,
+          }))}
+        />
         <ModalTriggerCreateEmployee companyId={companyId} />
       </div>
       <EmployeeRosterTable rows={rows} />
