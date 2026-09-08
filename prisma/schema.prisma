@@ -260,6 +260,8 @@ model Company {
   logoKey     String?
   isActive    Boolean  @default(true)
   autoIssueExactMatches Boolean @default(false)
+  /** Company default professional tax (₹/month). Employee salary structures may override. */
+  defaultMonthlyProfessionalTax Decimal @default(200) @db.Decimal(18, 2)
   emailDeliveryPreference EmailDeliveryPreference @default(OFFICIAL_PREFERRED)
   matchScoreThreshold Int @default(50)
   createdAt   DateTime @default(now())

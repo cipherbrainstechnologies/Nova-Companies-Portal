@@ -29,7 +29,7 @@ export default async function CompanyEmployeeDetailPage({
   const { companyId, employeeId } = await params;
   const employee = await employeeFacade.getById(employeeId, companyId);
   const defaultBasic = basicFromStructure(employee.salaryStructure?.componentsJson);
-  const [versions, aliases, slips] = await Promise.all([
+  const [versions, aliases, slips, companySettings] = await Promise.all([
     employeeFacade.listSalaryStructureVersions(employeeId),
     prisma.employeePaymentAlias.findMany({
       where: { employeeId },
@@ -39,6 +39,10 @@ export default async function CompanyEmployeeDetailPage({
       where: { employeeId, companyId, status: "ISSUED" },
       include: { payrollRun: true, company: true, employee: true },
       orderBy: { issuedAt: "desc" },
+    }),
+    prisma.company.findUnique({
+      where: { id: companyId },
+      select: { defaultMonthlyProfessionalTax: true },
     }),
   ]);
   const payslipTree = groupPayslipsAsFolders(
@@ -130,6 +134,11 @@ export default async function CompanyEmployeeDetailPage({
         <SalaryStructureForm
           companyId={companyId}
           employeeId={employeeId}
+          defaultMonthlyProfessionalTax={
+            companySettings?.defaultMonthlyProfessionalTax != null
+              ? Number(companySettings.defaultMonthlyProfessionalTax)
+              : 200
+          }
           initial={{
             annualCtc: toAmount(structure?.annualCtc),
             monthlyGross: toAmount(structure?.monthlyGross),

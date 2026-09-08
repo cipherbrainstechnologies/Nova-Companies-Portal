@@ -48,8 +48,12 @@
 
 ## Tax projection
 
-- TDS projections consume financial-year slab configuration. Statutory slabs are not fixed in application code.
-- Old and new regimes are selected explicitly and projections carry an estimate disclaimer.
+- Versioned FY configs live in `src/server/tds/tax-year-config.ts` (enabled FY 2025–26 NEW/OLD; FY 2026–27 disabled pending official verification). Missing years throw — no silent fallback.
+- Authoritative annual tax: `calculateAnnualIncomeTax` in `tds-engine.ts` (slabs, §87A rebate, marginal relief, surcharge/cess). Indicative monthly TDS = annual tax ÷ 12.
+- Salary structure auto-calc: `salaryStructureCalculate` (`salary-structure-calculator.ts`) + `POST /api/salary-structure/calculate`. Save path recalculates server-side; client net is never authoritative.
+- Simplified mode: Annual CTC = annual gross cash unless non-cash employer components (EMPLOYER_PF/GRATUITY/…) are present.
+- Company default professional tax: `Company.defaultMonthlyProfessionalTax` (₹200); employee structure may override. PT reduces take-home only — not taxable income under new regime.
+- Form: FY/regime/residential status/effective-from; “Expected monthly net — calculated”; imported values preserved until “Apply automatic calculation”; “View tax calculation” breakdown; draft payroll lines flagged on salary change.
 
 ## Profit reporting
 
