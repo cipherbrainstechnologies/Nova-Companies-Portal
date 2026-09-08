@@ -457,14 +457,9 @@ export async function confirmEmployeeCsvImport(input: {
       });
       const duplicates = existing.filter(
         (candidate) =>
-<<<<<<< HEAD
-          normalizeCompanyName(candidate.displayName ?? "") ===
-          normalizeCompanyName(parsed.data!.displayName),
-=======
-          candidate.displayName !== null &&
+          candidate.displayName != null &&
           normalizeCompanyName(candidate.displayName) ===
             normalizeCompanyName(parsed.data!.displayName),
->>>>>>> 05cd41011cb500120b3bdf653da5671c7d3fb7ce
       );
       if (duplicates.length) {
         await prisma.employeeImportRow.update({
