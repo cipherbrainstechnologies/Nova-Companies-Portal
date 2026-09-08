@@ -1,6 +1,7 @@
 import { prisma } from "@/server/db";
 import { DataRow, StatusBadge, EmptyState, AlertBanner } from "@/components/industrial";
 import { t } from "@/i18n";
+import Link from "next/link";
 import { CreatePayrollForm } from "@/app/admin/payroll/create-form";
 import { ApprovalSummary } from "@/app/admin/payroll/approval-summary";
 import { PopulatePayrollLinesButton } from "@/app/admin/payroll/populate-button";
@@ -44,7 +45,17 @@ export default async function CompanyPayrollPage({
             <DataRow
               title={`${String(run.month).padStart(2, "0")}/${run.year}`}
               subtitle={payrollRunSubtitle(diagnostics, run._count.lines)}
-              action={<StatusBadge status={run.status} tone="info" />}
+              action={
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge status={run.status} tone="info" />
+                  <Link
+                    href={`/admin/payroll/reconciliation?companyId=${companyId}&runId=${run.id}&filter=unresolved`}
+                    className="text-sm font-semibold text-[var(--nova-teal)] hover:underline"
+                  >
+                    Reconciliation
+                  </Link>
+                </div>
+              }
             />
             <div className="mt-2 space-y-2">
               {run._count.lines === 0 ? (

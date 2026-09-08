@@ -117,6 +117,12 @@ export default async function StatementsPage({
                 >
                   {t("en", "admin.reconciliation")}
                 </a>
+                <a
+                  className="text-sm font-semibold text-[var(--nova-teal)] hover:underline"
+                  href={`/admin/payroll/reconciliation?companyId=${companyId}&filter=unresolved`}
+                >
+                  Review Payments
+                </a>
               </div>
             }
           />

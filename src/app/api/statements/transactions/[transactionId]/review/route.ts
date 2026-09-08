@@ -24,6 +24,8 @@ const schema = z.object({
     .optional(),
   reason: z.string().trim().max(500).optional(),
   companyId: z.string().min(1).optional(),
+  salaryYear: z.coerce.number().int().min(2000).max(2200).optional(),
+  salaryMonth: z.coerce.number().int().min(1).max(12).optional(),
 });
 
 export async function POST(
@@ -53,6 +55,8 @@ export async function POST(
       employeeId: body.employeeId,
       varianceClassification: body.varianceClassification,
       reason: body.reason,
+      salaryYear: body.salaryYear,
+      salaryMonth: body.salaryMonth,
     });
 
     return NextResponse.json({ transaction: updated });

@@ -79,7 +79,17 @@ export default async function PayrollPage({
             <DataRow
               title={`${String(run.month).padStart(2, "0")}/${run.year}`}
               subtitle={payrollRunSubtitle(diagnostics, run._count.lines)}
-              action={<StatusBadge status={run.status} tone="info" />}
+              action={
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge status={run.status} tone="info" />
+                  <Link
+                    href={`/admin/payroll/reconciliation?companyId=${companyId}&runId=${run.id}&filter=unresolved`}
+                    className="text-sm font-semibold text-[var(--nova-teal)] hover:underline"
+                  >
+                    Reconciliation
+                  </Link>
+                </div>
+              }
             />
             {run._count.lines === 0 || diagnostics.reason !== "ok" ? (
               <div className="mt-2 space-y-2">

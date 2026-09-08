@@ -85,12 +85,18 @@ export async function ReconciliationPanel({
         </Meta>
       </div>
 
-      <div className="mt-3">
+      <div className="mt-3 flex flex-wrap items-center gap-3">
         <AlertBanner tone={needsReview ? "warning" : "info"}>
           {needsReview
             ? `${needsReview} transaction(s) need a decision. Partial payments and amount mismatches are never issued automatically.`
             : "Every transaction has a decision. Only exact matches and approved rows can be issued."}
         </AlertBanner>
+        <a
+          className="inline-flex min-h-11 items-center justify-center rounded-[var(--nova-radius-sm)] border border-[var(--nova-border-strong)] px-4 text-sm font-semibold text-[var(--nova-teal)] hover:border-[var(--nova-teal)]"
+          href={`/admin/payroll/reconciliation?companyId=${companyId}&filter=unresolved`}
+        >
+          Review Payments
+        </a>
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

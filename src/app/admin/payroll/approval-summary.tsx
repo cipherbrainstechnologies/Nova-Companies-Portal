@@ -1,8 +1,10 @@
 import { prisma } from "@/server/db";
 import { Card } from "@/components/ui";
 import { AlertBanner, BracketLabel, Meta, StatCell } from "@/components/industrial";
-import { isIssuablePaymentStatus, isUnresolvedPaymentStatus } from "@/server/payroll/payment-decision";
+import { isIssuablePaymentStatus } from "@/server/payroll/payment-decision";
+import { countUnresolvedPayrollPayments } from "@/server/payroll/unresolved-payments";
 import { IssueApprovedButton } from "./issue-approved-button";
+import Link from "next/link";
 
 /**
  * Pre-issue snapshot for a payroll run: what matched cleanly, what a human still owes a
@@ -34,7 +36,7 @@ export async function ApprovalSummary({
     );
   }
 
-  const [lines, emailCounts] = await Promise.all([
+  const [lines, emailCounts, requiringReview] = await Promise.all([
     prisma.payrollEmployeeLine.findMany({
       where: { payrollRunId: run.id },
       select: { id: true, status: true, paymentStatus: true },
@@ -44,12 +46,10 @@ export async function ApprovalSummary({
       where: { payslip: { payrollRunId: run.id } },
       _count: { _all: true },
     }),
+    countUnresolvedPayrollPayments(run.id),
   ]);
 
   const exactMatches = lines.filter((line) => line.paymentStatus === "MATCHED_EXACT").length;
-  const requiringReview = lines.filter((line) =>
-    isUnresolvedPaymentStatus(line.paymentStatus),
-  ).length;
   const approved = lines.filter((line) => line.status === "APPROVED").length;
   const approvedLines = lines.filter((line) => line.status === "APPROVED");
   const toIssue = approvedLines.filter((line) => isIssuablePaymentStatus(line.paymentStatus)).length;
@@ -62,6 +62,8 @@ export async function ApprovalSummary({
   const emailsFailed = (emailsByStatus.FAILED ?? 0) + (emailsByStatus.BOUNCED ?? 0);
   const emailsQueued = emailsByStatus.QUEUED ?? 0;
 
+  const reconciliationHref = `/admin/payroll/reconciliation?companyId=${companyId}&runId=${run.id}&filter=unresolved`;
+
   return (
     <Card className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -71,6 +73,12 @@ export async function ApprovalSummary({
             {String(run.month).padStart(2, "0")}/{run.year} · run status {run.status}
           </Meta>
         </div>
+        <Link
+          href={reconciliationHref}
+          className="inline-flex min-h-11 items-center justify-center rounded-[var(--nova-radius-sm)] border border-[var(--nova-border-strong)] px-4 text-sm font-semibold text-[var(--nova-teal)] hover:border-[var(--nova-teal)]"
+        >
+          Reconciliation
+        </Link>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -93,8 +101,18 @@ export async function ApprovalSummary({
 
       {requiringReview ? (
         <AlertBanner tone="warning">
-          {requiringReview} payment(s) differ from the expected net or have no confident match.
-          Resolve them in reconciliation; issuing approved payslips will skip them.
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              {requiringReview} payment(s) differ from the expected net or have no confident match.
+              Resolve them in reconciliation; issuing approved payslips will skip them.
+            </p>
+            <Link
+              href={reconciliationHref}
+              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-[var(--nova-radius-sm)] bg-[var(--nova-teal)] px-4 text-sm font-semibold text-white hover:bg-[#0d5f58]"
+            >
+              Review {requiringReview} Payments
+            </Link>
+          </div>
         </AlertBanner>
       ) : null}
 

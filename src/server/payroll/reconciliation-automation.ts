@@ -505,6 +505,9 @@ export async function reviewReconciliationTransaction(input: {
   employeeId?: string;
   varianceClassification?: VarianceClassification;
   reason?: string;
+  /** Explicit payroll period — overrides date-derived month when set. */
+  salaryYear?: number;
+  salaryMonth?: number;
 }) {
   const transaction = await prisma.statementTransaction.findUniqueOrThrow({
     where: { id: input.transactionId },
@@ -582,11 +585,22 @@ export async function reviewReconciliationTransaction(input: {
       statementSalaryYear: transaction.statement.salaryYear,
       statementSalaryMonth: transaction.statement.salaryMonth,
     });
-    const salaryYear = salaryPeriod?.year ?? null;
-    const salaryMonth = salaryPeriod?.month ?? null;
+    const salaryYear = input.salaryYear ?? salaryPeriod?.year ?? null;
+    const salaryMonth = input.salaryMonth ?? salaryPeriod?.month ?? null;
     if (!salaryYear || !salaryMonth) {
       throw new Error(
-        "Could not determine salary month for this debit. Check the transaction date or set an optional statement period on upload.",
+        "Could not determine salary month for this debit. Choose a salary period or fix the transaction date.",
+      );
+    }
+
+    // A payment already allocated to another payroll line cannot be reused.
+    const existingLink = await prisma.payrollEmployeeLine.findFirst({
+      where: { primaryTxnId: transaction.id },
+      select: { id: true, employeeId: true, payrollRun: { select: { year: true, month: true } } },
+    });
+    if (existingLink && existingLink.employeeId !== employee.id) {
+      throw new Error(
+        `This payment is already allocated to another employee for ${String(existingLink.payrollRun.month).padStart(2, "0")}/${existingLink.payrollRun.year}`,
       );
     }
 
@@ -599,14 +613,30 @@ export async function reviewReconciliationTransaction(input: {
     });
     const derived = structureToEarningsDeductions(employee.salaryStructure);
     const snapshot = toSalarySnapshot(employee.salaryStructure);
-    const line = await payrollFacade.upsertEmployeeLine({
-      actorUserId: input.actorUserId,
-      payrollRunId: run.id,
-      employeeId: employee.id,
-      earnings: derived.earnings,
-      deductions: derived.deductions,
-      primaryTxnId: transaction.id,
+    let line;
+    try {
+      line = await payrollFacade.upsertEmployeeLine({
+        actorUserId: input.actorUserId,
+        payrollRunId: run.id,
+        employeeId: employee.id,
+        earnings: derived.earnings,
+        deductions: derived.deductions,
+        primaryTxnId: transaction.id,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (message.includes("Unique constraint") || message.includes("primaryTxnId")) {
+        throw new Error("This payment is already allocated to another payroll line");
+      }
+      throw error;
+    }
+
+    // Persist the chosen salary period on the transaction for later audits.
+    await prisma.statementTransaction.update({
+      where: { id: transaction.id },
+      data: { salaryYear, salaryMonth },
     });
+
     await prisma.payrollEmployeeLine.update({
       where: { id: line.id },
       data: {
