@@ -15,7 +15,9 @@ RUN apt-get update \
 FROM base AS deps
 COPY package.json package-lock.json ./
 COPY prisma ./prisma/
-RUN npm ci
+# Use npm install (not ci): lockfile is generated with a newer local npm than
+# node:22-bookworm-slim ships; install still respects the lockfile when present.
+RUN npm install --no-audit --no-fund
 
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
