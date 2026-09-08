@@ -12,6 +12,7 @@ import {
   deriveExpectedMonthlyNet,
   isDuplicatePayrollPeriod,
   isSalaryStructureComplete,
+  normalizePaymentAlias,
   resolveExpectedMonthlyNet,
   structureToEarningsDeductions,
   toAmount,
@@ -25,6 +26,8 @@ import {
   type MatchCandidateInput,
 } from "@/server/statements/matching";
 import { resolveTransactionSalaryPeriod } from "@/server/statements/transaction-identity";
+import { extractBeneficiaryName } from "@/server/payroll/identity-matching";
+import { runPayrollPaymentMatch } from "@/server/payroll/payment-auto-match";
 
 /** Reviewed or issued rows are never re-decided by the automation pass. */
 const TERMINAL_STATUSES: ReconciliationStatus[] = [
@@ -508,6 +511,10 @@ export async function reviewReconciliationTransaction(input: {
   /** Explicit payroll period — overrides date-derived month when set. */
   salaryYear?: number;
   salaryMonth?: number;
+  /** Persist beneficiary as an approved payment alias after authorised map/approve. */
+  rememberBeneficiaryAlias?: boolean;
+  /** When set, re-run auto-match for unresolved lines after an alias is saved. */
+  payrollRunId?: string;
 }) {
   const transaction = await prisma.statementTransaction.findUniqueOrThrow({
     where: { id: input.transactionId },
@@ -719,6 +726,59 @@ export async function reviewReconciliationTransaction(input: {
     },
   });
 
+  let rememberedAlias: string | null = null;
+  if (
+    input.rememberBeneficiaryAlias &&
+    (input.action === "map" || input.action === "approve") &&
+    updated.matchedEmployeeId
+  ) {
+    const beneficiary =
+      extractBeneficiaryName(transaction.particulars) ||
+      normalizeName(extractBeneficiaryFromParticulars(transaction.particulars));
+    const normalizedAlias = normalizePaymentAlias(beneficiary);
+    if (normalizedAlias) {
+      const conflict = await prisma.employeePaymentAlias.findFirst({
+        where: {
+          normalizedAlias,
+          employee: { companyId, id: { not: updated.matchedEmployeeId } },
+        },
+        select: { employeeId: true, alias: true },
+      });
+      if (conflict) {
+        throw new Error(
+          `Beneficiary alias "${beneficiary}" is already linked to another employee — resolve the ambiguity before remembering it`,
+        );
+      }
+      await prisma.employeePaymentAlias.upsert({
+        where: {
+          employeeId_normalizedAlias: {
+            employeeId: updated.matchedEmployeeId,
+            normalizedAlias,
+          },
+        },
+        create: {
+          employeeId: updated.matchedEmployeeId,
+          alias: beneficiary,
+          normalizedAlias,
+        },
+        update: { alias: beneficiary },
+      });
+      rememberedAlias = beneficiary;
+      await writeAudit({
+        actorUserId: input.actorUserId,
+        companyId,
+        action: "payroll.beneficiary_alias_remembered",
+        entityType: "Employee",
+        entityId: updated.matchedEmployeeId,
+        metadata: {
+          alias: beneficiary,
+          normalizedAlias,
+          transactionId: transaction.id,
+        },
+      });
+    }
+  }
+
   await writeAudit({
     actorUserId: input.actorUserId,
     companyId,
@@ -733,8 +793,17 @@ export async function reviewReconciliationTransaction(input: {
       varianceClassification: updated.varianceClassification,
       reason: reason ?? null,
       lineId: approvedLineId ?? null,
+      rememberedAlias,
     },
   });
+
+  if (rememberedAlias && input.payrollRunId) {
+    await runPayrollPaymentMatch({
+      actorUserId: input.actorUserId,
+      payrollRunId: input.payrollRunId,
+      preserveManual: true,
+    });
+  }
 
   return updated;
 }

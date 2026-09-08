@@ -37,6 +37,7 @@ export type PayrollReconciliationItem = {
   matchCandidates: Array<{
     transactionId: string;
     identityScore: number;
+    identityExplanation: string;
     debit: number;
     particulars: string;
     txnDate: string;
@@ -178,6 +179,7 @@ export async function listPayrollReconciliationItems(input: {
       ? (matchRun!.candidates as Array<Record<string, unknown>>).slice(0, 5).map((candidate) => ({
           transactionId: String(candidate.transactionId ?? ""),
           identityScore: Number(candidate.identityScore ?? 0),
+          identityExplanation: String(candidate.identityExplanation ?? ""),
           debit: Number(candidate.debit ?? 0),
           particulars: String(candidate.particulars ?? ""),
           txnDate: String(candidate.txnDate ?? ""),

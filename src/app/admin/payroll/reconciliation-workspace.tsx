@@ -7,6 +7,10 @@ import { Button, Card, Input, Select, Label } from "@/components/ui";
 import { AlertBanner, Meta, MoneyValue } from "@/components/industrial";
 import { Modal } from "@/components/modal";
 import { ReconciliationStatusBadge } from "@/components/reconciliation-status";
+import {
+  PaymentSearchCombobox,
+  type PaymentComboboxOption,
+} from "@/components/payment-search-combobox";
 import type {
   PayrollReconciliationItem,
   ReconciliationFilter,
@@ -370,8 +374,11 @@ export function PayrollReconciliationWorkspace({
       {selected ? (
         <ReviewDrawer
           item={selected}
+          runId={runId}
           employees={employees}
           allocatableTransactions={allocatableTransactions}
+          daysBefore={Number(daysBefore) || defaultDaysBefore}
+          daysAfter={Number(daysAfter) || defaultDaysAfter}
           canEdit={canEdit}
           canApprove={canApprove}
           approvalBlockedReason={approvalBlockedReason}
@@ -388,8 +395,11 @@ export function PayrollReconciliationWorkspace({
 
 function ReviewDrawer({
   item,
+  runId,
   employees,
   allocatableTransactions,
+  daysBefore,
+  daysAfter,
   canEdit,
   canApprove,
   approvalBlockedReason,
@@ -397,8 +407,11 @@ function ReviewDrawer({
   onSaved,
 }: {
   item: PayrollReconciliationItem;
+  runId: string;
   employees: EmployeeOption[];
   allocatableTransactions: AllocatableTxn[];
+  daysBefore: number;
+  daysAfter: number;
   canEdit: boolean;
   canApprove: boolean;
   approvalBlockedReason?: string;
@@ -407,30 +420,77 @@ function ReviewDrawer({
 }) {
   const [employeeId, setEmployeeId] = useState(item.employeeId);
   const [transactionId, setTransactionId] = useState(item.primaryTxnId ?? "");
+  const [selectedPayment, setSelectedPayment] = useState<PaymentComboboxOption | null>(null);
   const [salaryYear, setSalaryYear] = useState(String(item.year));
   const [salaryMonth, setSalaryMonth] = useState(String(item.month));
   const [varianceClassification, setVarianceClassification] = useState("");
   const [reason, setReason] = useState("");
+  const [rememberAlias, setRememberAlias] = useState(false);
   const [busy, setBusy] = useState<ReviewAction | null>(null);
   const [error, setError] = useState("");
 
+  const employeeLabel =
+    employees.find((employee) => employee.id === employeeId)?.label ?? item.employeeName;
+
+  const initialOptions: PaymentComboboxOption[] = useMemo(() => {
+    const fromList: PaymentComboboxOption[] = allocatableTransactions.map((txn) => ({
+      id: txn.id,
+      displayDate: txn.displayDate ?? formatDate(txn.txnDate),
+      particulars: txn.particulars,
+      beneficiary: txn.beneficiary ?? "",
+      debit: txn.debit,
+      utrReference: txn.utrReference,
+      matchExplanation: txn.excludedReason
+        ? `Excluded: ${txn.excludedReason}`
+        : txn.preferred
+          ? "Preferred in payment window"
+          : "Eligible debit",
+      allocationStatus: txn.reconciliationStatus,
+      recommended: Boolean(txn.preferred),
+      preferred: Boolean(txn.preferred),
+      excludedReason: txn.excludedReason,
+    }));
+    if (item.transaction && !fromList.some((row) => row.id === item.transaction!.id)) {
+      fromList.unshift({
+        id: item.transaction.id,
+        displayDate: formatDate(item.transaction.valueDate ?? item.transaction.txnDate),
+        particulars: item.transaction.particulars,
+        beneficiary: "",
+        debit: item.transaction.debit,
+        utrReference: item.transaction.utrReference,
+        matchExplanation: item.transaction.matchExplanation ?? "Currently linked",
+        allocationStatus: item.transaction.reconciliationStatus,
+        recommended: true,
+        preferred: true,
+      });
+    }
+    for (const candidate of item.matchCandidates) {
+      if (fromList.some((row) => row.id === candidate.transactionId)) continue;
+      fromList.unshift({
+        id: candidate.transactionId,
+        displayDate: formatDate(candidate.txnDate),
+        particulars: candidate.particulars,
+        beneficiary: "",
+        debit: candidate.debit,
+        utrReference: null,
+        matchExplanation: candidate.identityExplanation,
+        allocationStatus: "Suggested",
+        recommended: true,
+        preferred: true,
+      });
+    }
+    return fromList;
+  }, [allocatableTransactions, item]);
+
   const selectedTxn =
-    allocatableTransactions.find((txn) => txn.id === transactionId) ??
-    (item.transaction
-      ? {
-          id: item.transaction.id,
-          txnDate: item.transaction.txnDate,
-          particulars: item.transaction.particulars,
-          debit: item.transaction.debit,
-          utrReference: item.transaction.utrReference,
-          reconciliationStatus: item.transaction.reconciliationStatus,
-        }
-      : null);
+    selectedPayment ??
+    initialOptions.find((txn) => txn.id === transactionId) ??
+    null;
 
   const expected = item.expectedAmount;
   const actual = selectedTxn?.debit ?? item.actualAmount;
-  const remaining =
-    expected != null && actual != null ? Math.round((expected - actual) * 100) / 100 : null;
+  const difference =
+    expected != null && actual != null ? Math.round((actual - expected) * 100) / 100 : null;
 
   async function review(action: ReviewAction) {
     setError("");
@@ -464,6 +524,8 @@ function ReviewDrawer({
           reason: reason.trim() || undefined,
           salaryYear: Number(salaryYear),
           salaryMonth: Number(salaryMonth),
+          rememberBeneficiaryAlias: rememberAlias && (action === "map" || action === "approve"),
+          payrollRunId: runId,
         }),
       });
       const data = await res.json();
@@ -486,19 +548,47 @@ function ReviewDrawer({
     >
       <div className="space-y-4">
         <div className="rounded-[var(--nova-radius-sm)] bg-[var(--nova-surface-muted)] p-3 text-sm">
-          <div className="font-semibold">Source payment</div>
-          {selectedTxn ? (
-            <>
-              <p className="mt-1 text-[var(--nova-text-secondary)]">{selectedTxn.particulars}</p>
-              <Meta className="mt-2">
-                {formatDate(selectedTxn.txnDate)}
-                {selectedTxn.utrReference ? ` · UTR ${selectedTxn.utrReference}` : ""}
-                {selectedTxn.debit != null ? ` · ₹${selectedTxn.debit.toLocaleString("en-IN")}` : ""}
-              </Meta>
-            </>
-          ) : (
-            <p className="mt-1 text-[var(--nova-muted)]">No payment linked yet.</p>
-          )}
+          <div className="font-semibold">Confirm before save</div>
+          <dl className="mt-2 grid gap-2 sm:grid-cols-2">
+            <div>
+              <dt className="text-xs uppercase text-[var(--nova-muted)]">Employee</dt>
+              <dd>{employeeLabel}</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase text-[var(--nova-muted)]">Beneficiary</dt>
+              <dd>{selectedTxn?.beneficiary || selectedTxn?.particulars?.slice(0, 80) || "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase text-[var(--nova-muted)]">Payroll month</dt>
+              <dd>
+                {String(salaryMonth).padStart(2, "0")}/{salaryYear}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase text-[var(--nova-muted)]">Payment date</dt>
+              <dd>{selectedTxn?.displayDate ?? "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase text-[var(--nova-muted)]">Expected net</dt>
+              <dd>{expected != null ? <MoneyValue value={expected} /> : "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase text-[var(--nova-muted)]">Actual payment</dt>
+              <dd>{actual != null ? <MoneyValue value={actual} /> : "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase text-[var(--nova-muted)]">Difference</dt>
+              <dd>{difference != null ? <MoneyValue value={difference} /> : "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase text-[var(--nova-muted)]">Match reason</dt>
+              <dd className="text-[var(--nova-text-secondary)]">
+                {selectedTxn?.matchExplanation ||
+                  item.matchExplanation ||
+                  outcomeLabel(item.matchOutcome)}
+              </dd>
+            </div>
+          </dl>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
@@ -506,7 +596,11 @@ function ReviewDrawer({
             <Label>Employee (company-scoped)</Label>
             <Select
               value={employeeId}
-              onChange={(e) => setEmployeeId(e.target.value)}
+              onChange={(e) => {
+                setEmployeeId(e.target.value);
+                setTransactionId("");
+                setSelectedPayment(null);
+              }}
               disabled={!canEdit}
             >
               {employees.map((employee) => (
@@ -516,45 +610,22 @@ function ReviewDrawer({
               ))}
             </Select>
           </div>
-          <div>
-            <Label>Bank payment to allocate</Label>
-            <Select
+          <div className="sm:col-span-2">
+            <PaymentSearchCombobox
+              companyId={item.companyId}
+              year={Number(salaryYear)}
+              month={Number(salaryMonth)}
+              employeeId={employeeId}
               value={transactionId}
-              onChange={(e) => setTransactionId(e.target.value)}
+              daysBefore={daysBefore}
+              daysAfter={daysAfter}
+              initialOptions={initialOptions}
               disabled={!canEdit}
-            >
-              <option value="">Select payment…</option>
-              {item.primaryTxnId && item.transaction ? (
-                <option value={item.primaryTxnId}>
-                  Linked · {formatDate(item.transaction.txnDate)} · ₹
-                  {item.transaction.debit?.toLocaleString("en-IN") ?? "—"} ·{" "}
-                  {item.transaction.particulars.slice(0, 48)}
-                </option>
-              ) : null}
-              <optgroup label="Preferred (in window)">
-                {allocatableTransactions
-                  .filter((txn) => txn.preferred)
-                  .map((txn) => (
-                    <option key={txn.id} value={txn.id}>
-                      {txn.displayDate ?? formatDate(txn.txnDate)} · ₹
-                      {txn.debit?.toLocaleString("en-IN") ?? "—"} ·{" "}
-                      {txn.beneficiary || txn.particulars.slice(0, 40)}
-                    </option>
-                  ))}
-              </optgroup>
-              <optgroup label="Search other transactions">
-                {allocatableTransactions
-                  .filter((txn) => !txn.preferred)
-                  .map((txn) => (
-                    <option key={txn.id} value={txn.id}>
-                      {txn.excludedReason ? `[${txn.excludedReason}] ` : ""}
-                      {txn.displayDate ?? formatDate(txn.txnDate)} · ₹
-                      {txn.debit?.toLocaleString("en-IN") ?? "—"} ·{" "}
-                      {txn.particulars.slice(0, 40)}
-                    </option>
-                  ))}
-              </optgroup>
-            </Select>
+              onChange={(id, option) => {
+                setTransactionId(id);
+                setSelectedPayment(option);
+              }}
+            />
           </div>
           <div>
             <Label>Salary year</Label>
@@ -605,32 +676,19 @@ function ReviewDrawer({
           </div>
         </div>
 
-        <dl className="grid gap-2 text-sm sm:grid-cols-3">
-          <div>
-            <dt className="text-xs uppercase text-[var(--nova-muted)]">Expected net</dt>
-            <dd>{expected != null ? <MoneyValue value={expected} /> : "— (not treated as ₹0)"}</dd>
-          </div>
-          <div>
-            <dt className="text-xs uppercase text-[var(--nova-muted)]">Actual transferred</dt>
-            <dd>{actual != null ? <MoneyValue value={actual} /> : "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-xs uppercase text-[var(--nova-muted)]">Unallocated / shortfall</dt>
-            <dd>
-              {remaining == null ? (
-                "—"
-              ) : (
-                <>
-                  <MoneyValue value={remaining} />
-                  <span className="mt-1 block text-xs text-[var(--nova-muted)]">
-                    A smaller payment does not reduce gross salary. Record unpaid balance vs approved
-                    deduction explicitly.
-                  </span>
-                </>
-              )}
-            </dd>
-          </div>
-        </dl>
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={rememberAlias}
+            disabled={!canEdit}
+            onChange={(e) => setRememberAlias(e.target.checked)}
+          />
+          <span>
+            Remember this beneficiary for future payroll (stores an approved alias; never learned
+            from unconfirmed suggestions)
+          </span>
+        </label>
 
         {item.paymentStatus === "SALARY_STRUCTURE_INCOMPLETE" ? (
           <AlertBanner tone="warning">
@@ -646,8 +704,8 @@ function ReviewDrawer({
         ) : null}
 
         <AlertBanner tone="info">
-          Approving marks the payment ready for payroll issue later. It does not issue or email a
-          payslip.
+          Approving marks the payment ready for payroll issue later. Matching and mapping do not
+          issue or email a payslip.
         </AlertBanner>
 
         <div className="flex flex-wrap gap-2">

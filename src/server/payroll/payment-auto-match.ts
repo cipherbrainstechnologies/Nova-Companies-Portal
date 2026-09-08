@@ -86,7 +86,9 @@ function isLikelyNonSalaryNarration(particulars: string): string | null {
   const upper = particulars.toUpperCase();
   if (/\bCBDT\b/.test(upper) || /\bINCOME\s*TAX\b/.test(upper)) return "tax payment";
   if (/\bGST\b/.test(upper) && !/\bSALARY\b/.test(upper)) return "tax / GST payment";
-  if (/\bBAJAJ\b/.test(upper) && /\bEMI\b/.test(upper)) return "loan / EMI";
+  if (/\bBAJAJ\b/.test(upper) && /\b(EMI|FINANCE|FINSERV|FIN)\b/.test(upper)) {
+    return "loan / financing";
+  }
   if (/\bHOME\s*LOAN\b/.test(upper)) return "loan / EMI";
   if (
     /NOVA\s*QORE/.test(upper) &&
@@ -241,6 +243,7 @@ export async function runPayrollPaymentMatch(input: {
       employeeId: string;
       identityScore: number;
       identityExplanation: string;
+      autoLinkEligible: boolean;
       amount: number;
       expected: number | null;
       historicalSalaryMissing: boolean;
@@ -299,13 +302,14 @@ export async function runPayrollPaymentMatch(input: {
           variance,
         });
 
-        if (identity.score >= IDENTITY_AUTO_LINK_THRESHOLD) {
+        if (identity.autoLinkEligible) {
           const list = claimsByTxn.get(txn.id) ?? [];
           list.push({
             lineId: line.id,
             employeeId: employee.id,
             identityScore: identity.score,
             identityExplanation: identity.explanation,
+            autoLinkEligible: true,
             amount,
             expected,
             historicalSalaryMissing,
@@ -405,6 +409,7 @@ export async function runPayrollPaymentMatch(input: {
           amountRelation: relation,
           historicalSalaryMissing,
           alreadyAllocated: false,
+          autoLinkEligible: win.claim.autoLinkEligible,
         });
         explanation = win.claim.identityExplanation;
         autoLink = true;
@@ -420,11 +425,11 @@ export async function runPayrollPaymentMatch(input: {
       } else {
         const top = candidates[0];
         outcome =
-          top.identityScore > 0
-            ? top.identityScore >= IDENTITY_AUTO_LINK_THRESHOLD
-              ? "MULTIPLE_CANDIDATES"
-              : "IDENTITY_UNCERTAIN"
-            : "NO_CANDIDATE";
+          top.identityScore >= IDENTITY_AUTO_LINK_THRESHOLD
+            ? "MULTIPLE_CANDIDATES"
+            : top.identityScore >= 40
+              ? "IDENTITY_UNCERTAIN"
+              : "NO_CANDIDATE";
         explanation = top.identityExplanation;
         if (outcome === "NO_CANDIDATE") summary.noCandidates += 1;
         else if (outcome === "IDENTITY_UNCERTAIN") summary.identityUncertain += 1;
@@ -605,7 +610,7 @@ export async function listPreferredAllocatableTransactions(input: {
       isDuplicate: false,
     },
     orderBy: [{ valueDate: "desc" }, { txnDate: "desc" }],
-    take: 400,
+    take: 2000,
   });
 
   return rows
@@ -635,4 +640,165 @@ export async function listPreferredAllocatableTransactions(input: {
       };
     })
     .sort((a, b) => Number(b.preferred) - Number(a.preferred) || b.txnDate.localeCompare(a.txnDate));
+}
+
+export type PaymentSearchResult = {
+  id: string;
+  txnDate: string;
+  displayDate: string;
+  particulars: string;
+  beneficiary: string;
+  debit: number | null;
+  utrReference: string | null;
+  reconciliationStatus: string;
+  preferred: boolean;
+  inWindow: boolean;
+  excludedReason?: string;
+  matchExplanation: string;
+  allocationStatus: string;
+  recommended: boolean;
+};
+
+function amountQueryVariants(query: string): number[] {
+  const compact = query.replace(/[₹,\s]/g, "");
+  if (!/^\d+(\.\d+)?$/.test(compact)) return [];
+  const value = Number(compact);
+  return Number.isFinite(value) ? [value] : [];
+}
+
+/**
+ * Server-side searchable payment list for the reconciliation combobox.
+ * Searches all company debit rows (not a truncated first page only).
+ */
+export async function searchAllocatablePayments(input: {
+  companyId: string;
+  year: number;
+  month: number;
+  query?: string;
+  employeeId?: string;
+  employeeName?: string;
+  daysBefore?: number;
+  daysAfter?: number;
+  includeAllocated?: boolean;
+  limit?: number;
+  offset?: number;
+}): Promise<{ results: PaymentSearchResult[]; total: number; hasMore: boolean }> {
+  const period = payrollPeriodBounds(input.year, input.month);
+  const window = paymentSearchWindow(period, {
+    daysBefore: input.daysBefore,
+    daysAfter: input.daysAfter,
+  });
+  const linked = await prisma.payrollEmployeeLine.findMany({
+    where: { primaryTxnId: { not: null }, payrollRun: { companyId: input.companyId } },
+    select: { primaryTxnId: true, employeeId: true },
+  });
+  const usedByTxn = new Map(
+    linked
+      .filter((row) => row.primaryTxnId)
+      .map((row) => [row.primaryTxnId!, row.employeeId]),
+  );
+
+  const rows = await prisma.statementTransaction.findMany({
+    where: {
+      statement: { companyId: input.companyId },
+      debit: { gt: 0 },
+      isDuplicate: false,
+    },
+    orderBy: [{ valueDate: "desc" }, { txnDate: "desc" }],
+  });
+
+  const q = (input.query ?? "").trim().toLowerCase();
+  const amountHits = amountQueryVariants(input.query ?? "");
+  const employeeName = input.employeeName ?? "";
+
+  const mapped: PaymentSearchResult[] = [];
+  for (const row of rows) {
+    const allocatedTo = usedByTxn.get(row.id);
+    if (allocatedTo && !input.includeAllocated && allocatedTo !== input.employeeId) {
+      continue;
+    }
+    const when = row.valueDate ?? row.txnDate;
+    const inWindow = when >= window.searchStart && when <= window.searchEnd;
+    const classExcluded = EXCLUDED_CLASSIFICATIONS.has(row.classification);
+    const narrationReason = isLikelyNonSalaryNarration(row.particulars);
+    let excludedReason: string | undefined;
+    if (classExcluded) excludedReason = `classified as ${row.classification}`;
+    else if (narrationReason) excludedReason = narrationReason;
+    else if (!inWindow) excludedReason = "outside payment search window";
+
+    const beneficiary = extractBeneficiaryName(row.particulars);
+    const debit = row.debit != null ? Number(row.debit) : null;
+    const identity = employeeName
+      ? scoreEmployeeIdentity(row.particulars, {
+          employeeId: input.employeeId ?? "",
+          displayName: employeeName,
+        })
+      : null;
+
+    let matchExplanation = excludedReason
+      ? `Excluded: ${excludedReason}`
+      : identity && identity.score > 0
+        ? identity.explanation
+        : inWindow
+          ? "In payment search window"
+          : "Eligible debit";
+
+    const haystack = [
+      beneficiary,
+      row.particulars,
+      row.utrReference ?? "",
+      debit != null ? String(debit) : "",
+      debit != null ? debit.toLocaleString("en-IN") : "",
+      formatDisplayDate(when),
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    if (q) {
+      const textHit = haystack.includes(q) || beneficiary.toLowerCase().includes(q);
+      const amountHit =
+        amountHits.length > 0 && debit != null && amountHits.some((v) => Math.abs(debit - v) < 0.01);
+      if (!textHit && !amountHit) continue;
+    }
+
+    const recommended =
+      !excludedReason &&
+      inWindow &&
+      ((identity?.autoLinkEligible ?? false) || (identity?.score ?? 0) >= 40);
+
+    mapped.push({
+      id: row.id,
+      txnDate: row.txnDate.toISOString(),
+      displayDate: formatDisplayDate(when),
+      particulars: row.particulars,
+      beneficiary,
+      debit,
+      utrReference: row.utrReference,
+      reconciliationStatus: row.reconciliationStatus,
+      preferred: inWindow && !excludedReason,
+      inWindow,
+      excludedReason,
+      matchExplanation,
+      allocationStatus: allocatedTo
+        ? allocatedTo === input.employeeId
+          ? "Allocated to this employee"
+          : "Allocated to another employee"
+        : row.reconciliationStatus === "UNMATCHED"
+          ? "Unallocated"
+          : row.reconciliationStatus,
+      recommended,
+    });
+  }
+
+  mapped.sort(
+    (a, b) =>
+      Number(b.recommended) - Number(a.recommended) ||
+      Number(b.preferred) - Number(a.preferred) ||
+      b.txnDate.localeCompare(a.txnDate),
+  );
+
+  const limit = Math.min(100, Math.max(10, input.limit ?? 40));
+  const offset = Math.max(0, input.offset ?? 0);
+  const slice = mapped.slice(offset, offset + limit);
+  return { results: slice, total: mapped.length, hasMore: offset + limit < mapped.length };
 }

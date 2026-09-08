@@ -26,6 +26,8 @@ const schema = z.object({
   companyId: z.string().min(1).optional(),
   salaryYear: z.coerce.number().int().min(2000).max(2200).optional(),
   salaryMonth: z.coerce.number().int().min(1).max(12).optional(),
+  rememberBeneficiaryAlias: z.boolean().optional(),
+  payrollRunId: z.string().min(1).optional(),
 });
 
 export async function POST(
@@ -57,6 +59,8 @@ export async function POST(
       reason: body.reason,
       salaryYear: body.salaryYear,
       salaryMonth: body.salaryMonth,
+      rememberBeneficiaryAlias: body.rememberBeneficiaryAlias,
+      payrollRunId: body.payrollRunId,
     });
 
     return NextResponse.json({ transaction: updated });
