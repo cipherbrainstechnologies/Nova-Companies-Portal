@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { GlobalRole } from "@prisma/client";
 import { money, roundInr } from "@/server/finance/money";
 import { prisma } from "@/server/db";
 import { employeeFacade } from "@/server/facades/employee-facade";
@@ -17,12 +18,16 @@ export const EMPLOYEE_IMPORT_HEADERS = [
 
 export const EMPLOYEE_IMPORT_TEMPLATE = `${EMPLOYEE_IMPORT_HEADERS.join(",")}\r\n`;
 
-type CompanyOption = { id: string; name: string };
+export type CompanyOption = { id: string; name: string };
 type CsvRecord = Record<string, string>;
 
 export type ParsedEmployeeImportRow = {
   rowNumber: number;
   raw: CsvRecord;
+  /** Always populated from CSV text for preview, even when the row is invalid. */
+  displayName: string;
+  companyNameText: string;
+  designationText: string;
   data: {
     companyId: string;
     companyName: string;
@@ -53,8 +58,61 @@ const rowSchema = z.object({
   "Company Name": z.string(),
 });
 
-function normalizeCompanyName(value: string) {
-  return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("en-IN");
+/** Unicode NFKC → trim → collapse whitespace → lowercase. */
+export function normalizeCompanyName(value: string) {
+  return value
+    .normalize("NFKC")
+    .replace(/[\u00a0\u2007\u202f]/g, " ")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+export type CompanyMatchResult =
+  | { status: "matched"; company: CompanyOption }
+  | { status: "none" }
+  | { status: "ambiguous"; companies: CompanyOption[] };
+
+export function resolveCompanyMatch(
+  companyNameText: string,
+  companies: CompanyOption[],
+): CompanyMatchResult {
+  const needle = normalizeCompanyName(companyNameText);
+  if (!needle) return { status: "none" };
+  const matches = companies.filter(
+    (candidate) => normalizeCompanyName(candidate.name) === needle,
+  );
+  if (matches.length === 1) return { status: "matched", company: matches[0] };
+  if (matches.length > 1) return { status: "ambiguous", companies: matches };
+  return { status: "none" };
+}
+
+/** Companies the actor may import employees into. */
+export async function listImportableCompanies(input: {
+  userId: string;
+  globalRole: GlobalRole;
+}): Promise<CompanyOption[]> {
+  if (input.globalRole === "SUPER_ADMIN") {
+    return prisma.company.findMany({
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    });
+  }
+  const grants = await prisma.permissionGrant.findMany({
+    where: {
+      userId: input.userId,
+      module: "employees",
+      action: "create",
+    },
+    select: { companyId: true },
+  });
+  const ids = [...new Set(grants.map((g) => g.companyId))];
+  if (!ids.length) return [];
+  return prisma.company.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
 }
 
 function parseCsvMatrix(csv: string): string[][] {
@@ -140,8 +198,21 @@ function parseRow(raw: CsvRecord, rowNumber: number, companies: CompanyOption[])
   const parsed = rowSchema.safeParse(raw);
   const errors: string[] = [];
   const warnings: string[] = [];
+  const companyNameText = String(raw["Company Name"] ?? "").trim();
+  const nameHint = splitEmployeeName(String(raw.Name ?? ""));
+  const designationText = String(raw.Position ?? "").trim();
+
   if (!parsed.success) {
-    return { rowNumber, raw, data: null, errors: ["Row is missing required columns"], warnings };
+    return {
+      rowNumber,
+      raw,
+      displayName: nameHint.displayName || "—",
+      companyNameText: companyNameText || "—",
+      designationText: designationText || "—",
+      data: null,
+      errors: ["Row is missing required columns"],
+      warnings,
+    };
   }
 
   const name = splitEmployeeName(parsed.data.Name);
@@ -162,10 +233,19 @@ function parseRow(raw: CsvRecord, rowNumber: number, companies: CompanyOption[])
   if (monthlyPt == null) errors.push("Professional Tax is invalid");
   if (expectedMonthlyNet == null) errors.push("Net Salary is invalid");
 
-  const company = companies.find(
-    (candidate) => normalizeCompanyName(candidate.name) === normalizeCompanyName(parsed.data["Company Name"]),
-  );
-  if (!company) errors.push("Company Name does not match an existing company");
+  const companyMatch = resolveCompanyMatch(parsed.data["Company Name"], companies);
+  let company: CompanyOption | null = null;
+  if (companyMatch.status === "matched") {
+    company = companyMatch.company;
+  } else if (companyMatch.status === "ambiguous") {
+    errors.push(
+      `Company Name matches multiple companies (${companyMatch.companies
+        .map((c) => c.name)
+        .join(", ")}). Choose explicitly before import.`,
+    );
+  } else {
+    errors.push("Company Name does not match an existing company");
+  }
 
   if (
     monthlyGross != null &&
@@ -184,6 +264,9 @@ function parseRow(raw: CsvRecord, rowNumber: number, companies: CompanyOption[])
   return {
     rowNumber,
     raw,
+    displayName: name.displayName || nameHint.displayName || "—",
+    companyNameText: parsed.data["Company Name"].trim() || companyNameText || "—",
+    designationText: parsed.data.Position.trim() || designationText || "—",
     data:
       errors.length || !company || !dateOfJoining ||
       annualCtc == null || monthlyGross == null || monthlyTds == null ||
@@ -221,25 +304,35 @@ export function parseEmployeeCsv(csv: string, companies: CompanyOption[]): Parse
 
 export async function previewEmployeeCsv(input: {
   actorUserId: string;
-  companyId: string;
+  globalRole: GlobalRole;
+  /** UI context only — never used as a silent fallback employer. */
+  contextCompanyId?: string;
   fileName: string;
   csv: string;
 }) {
-  const company = await prisma.company.findUniqueOrThrow({
-    where: { id: input.companyId },
-    select: { id: true, name: true },
+  const companies = await listImportableCompanies({
+    userId: input.actorUserId,
+    globalRole: input.globalRole,
   });
-  const rows = parseEmployeeCsv(input.csv, [company]);
+  if (!companies.length) {
+    throw new Error("No companies are available for employee import");
+  }
+
+  const rows = parseEmployeeCsv(input.csv, companies);
   const errorCount = rows.filter((row) => row.errors.length > 0).length;
   const batch = await prisma.employeeImportBatch.create({
     data: {
       actorUserId: input.actorUserId,
-      companyId: input.companyId,
+      // Context company is optional metadata; rows carry resolved company IDs.
+      companyId: input.contextCompanyId ?? null,
       fileName: input.fileName,
       status: "PREVIEWED",
       rowCount: rows.length,
       errorCount,
-      summaryJson: { warningCount: rows.filter((row) => row.warnings.length).length },
+      summaryJson: {
+        warningCount: rows.filter((row) => row.warnings.length).length,
+        importableCompanyIds: companies.map((c) => c.id),
+      },
       rows: {
         create: rows.map((row) => ({
           rowNumber: row.rowNumber,
@@ -247,6 +340,17 @@ export async function previewEmployeeCsv(input: {
           status: row.errors.length ? "ERROR" : "PENDING",
           errorsJson: row.errors,
           warningsJson: row.warnings,
+          resolvedCompanyId: row.data?.companyId ?? null,
+          parsedJson: row.data
+            ? {
+                ...row.data,
+                dateOfJoining: row.data.dateOfJoining.toISOString(),
+              }
+            : {
+                displayName: row.displayName,
+                companyNameText: row.companyNameText,
+                designationText: row.designationText,
+              },
         })),
       },
     },
@@ -256,6 +360,7 @@ export async function previewEmployeeCsv(input: {
 
 export async function confirmEmployeeCsvImport(input: {
   actorUserId: string;
+  globalRole: GlobalRole;
   batchId: string;
   decisions: Array<{
     rowNumber: number;
@@ -266,10 +371,15 @@ export async function confirmEmployeeCsvImport(input: {
 }) {
   const batch = await prisma.employeeImportBatch.findUniqueOrThrow({
     where: { id: input.batchId },
-    include: { rows: { orderBy: { rowNumber: "asc" } }, company: true },
+    include: { rows: { orderBy: { rowNumber: "asc" } } },
   });
   if (batch.status !== "PREVIEWED") throw new Error("Import batch is not awaiting confirmation");
-  if (!batch.company) throw new Error("Import batch company no longer exists");
+
+  const companies = await listImportableCompanies({
+    userId: input.actorUserId,
+    globalRole: input.globalRole,
+  });
+  const authorizedIds = new Set(companies.map((c) => c.id));
 
   const decisions = new Map(input.decisions.map((decision) => [decision.rowNumber, decision]));
   if (decisions.size !== input.decisions.length) throw new Error("Duplicate row decisions are not allowed");
@@ -298,13 +408,15 @@ export async function confirmEmployeeCsvImport(input: {
       continue;
     }
 
+    // Re-run the same resolver used in preview against authorised companies.
     const [parsed] = parseEmployeeCsv(
       `${EMPLOYEE_IMPORT_HEADERS.join(",")}\n${EMPLOYEE_IMPORT_HEADERS.map((header) => {
         const value = String((row.rawJson as CsvRecord)[header] ?? "");
         return `"${value.replace(/"/g, '""')}"`;
       }).join(",")}`,
-      [{ id: batch.company.id, name: batch.company.name }],
+      companies,
     );
+
     if (!parsed.data) {
       await prisma.employeeImportRow.update({
         where: { id: row.id },
@@ -312,6 +424,55 @@ export async function confirmEmployeeCsvImport(input: {
       });
       errorCount += 1;
       continue;
+    }
+
+    // Preview and confirm must agree on the resolved company ID.
+    if (row.resolvedCompanyId && row.resolvedCompanyId !== parsed.data.companyId) {
+      await prisma.employeeImportRow.update({
+        where: { id: row.id },
+        data: {
+          status: "ERROR",
+          errorsJson: [
+            `Resolved company changed between preview (${row.resolvedCompanyId}) and confirm (${parsed.data.companyId})`,
+          ],
+        },
+      });
+      errorCount += 1;
+      continue;
+    }
+
+    if (!authorizedIds.has(parsed.data.companyId)) {
+      await prisma.employeeImportRow.update({
+        where: { id: row.id },
+        data: { status: "ERROR", errorsJson: ["Not authorised to import into this company"] },
+      });
+      errorCount += 1;
+      continue;
+    }
+
+    if (decision.action === "create") {
+      const existing = await prisma.employee.findMany({
+        where: { companyId: parsed.data.companyId },
+        select: { id: true, displayName: true },
+      });
+      const duplicates = existing.filter(
+        (candidate) =>
+          normalizeCompanyName(candidate.displayName) ===
+          normalizeCompanyName(parsed.data!.displayName),
+      );
+      if (duplicates.length) {
+        await prisma.employeeImportRow.update({
+          where: { id: row.id },
+          data: {
+            status: "ERROR",
+            errorsJson: [
+              "An employee with this name already exists in this company. Choose Update existing or Skip — create will not invent a duplicate.",
+            ],
+          },
+        });
+        errorCount += 1;
+        continue;
+      }
     }
 
     try {
@@ -324,7 +485,15 @@ export async function confirmEmployeeCsvImport(input: {
       const status = decision.action === "update" ? "UPDATED" : "CREATED";
       await prisma.employeeImportRow.update({
         where: { id: row.id },
-        data: { status, employeeId: employee.id },
+        data: {
+          status,
+          employeeId: employee.id,
+          resolvedCompanyId: parsed.data.companyId,
+          parsedJson: {
+            ...parsed.data,
+            dateOfJoining: parsed.data.dateOfJoining.toISOString(),
+          },
+        },
       });
       if (status === "UPDATED") updatedCount += 1;
       else createdCount += 1;

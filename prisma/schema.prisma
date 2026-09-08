@@ -279,6 +279,7 @@ model Company {
   profitPolicies      ProfitPolicyRule[]
   salaryComponents    SalaryComponent[]
   employeeImportBatches EmployeeImportBatch[]
+  employeeImportRows  EmployeeImportRow[] @relation("EmployeeImportRowCompany")
 }
 
 model CompanySequence {
@@ -379,21 +380,26 @@ model EmployeeImportBatch {
 }
 
 model EmployeeImportRow {
-  id           String                  @id @default(cuid())
-  batchId      String
-  rowNumber    Int
-  rawJson      Json
-  status       EmployeeImportRowStatus @default(PENDING)
-  employeeId   String?
-  errorsJson   Json?
-  warningsJson Json?
-  createdAt    DateTime                @default(now())
+  id                 String                  @id @default(cuid())
+  batchId            String
+  rowNumber          Int
+  rawJson            Json
+  status             EmployeeImportRowStatus @default(PENDING)
+  employeeId         String?
+  /** Company resolved at preview; confirm must reuse the same ID. */
+  resolvedCompanyId  String?
+  parsedJson         Json?
+  errorsJson         Json?
+  warningsJson       Json?
+  createdAt          DateTime                @default(now())
 
-  batch        EmployeeImportBatch     @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  employee     Employee?               @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  batch              EmployeeImportBatch     @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  employee           Employee?               @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  resolvedCompany    Company?                @relation("EmployeeImportRowCompany", fields: [resolvedCompanyId], references: [id], onDelete: SetNull)
 
   @@unique([batchId, rowNumber])
   @@index([employeeId])
+  @@index([resolvedCompanyId])
 }
 
 model EmployeeBankAccount {

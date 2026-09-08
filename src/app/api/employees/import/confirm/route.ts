@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/server/db";
 import { requireSessionUser } from "@/server/auth/session";
-import { authorize, apiError } from "@/server/api-helpers";
+import { apiError } from "@/server/api-helpers";
 import { AuthzError } from "@/server/rbac/permissions";
-import { confirmEmployeeCsvImport } from "@/server/employees/csv-import";
+import {
+  confirmEmployeeCsvImport,
+  listImportableCompanies,
+} from "@/server/employees/csv-import";
 
 const confirmSchema = z.object({
   batchId: z.string().min(1),
@@ -25,14 +27,17 @@ export async function POST(request: Request) {
       throw new AuthzError();
     }
     const body = confirmSchema.parse(await request.json());
-    const batch = await prisma.employeeImportBatch.findUniqueOrThrow({
-      where: { id: body.batchId },
-      select: { companyId: true },
+    const importable = await listImportableCompanies({
+      userId: user.id,
+      globalRole: user.globalRole,
     });
-    if (!batch.companyId) throw new Error("Import batch has no company scope");
-    await authorize(user, batch.companyId, "employees", "create");
+    if (!importable.length) throw new AuthzError("No companies available for import");
     return NextResponse.json(
-      await confirmEmployeeCsvImport({ actorUserId: user.id, ...body }),
+      await confirmEmployeeCsvImport({
+        actorUserId: user.id,
+        globalRole: user.globalRole,
+        ...body,
+      }),
     );
   } catch (error) {
     return apiError(error);

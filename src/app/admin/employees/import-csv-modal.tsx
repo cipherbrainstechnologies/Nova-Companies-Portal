@@ -9,10 +9,14 @@ import { AlertBanner, StatusBadge } from "@/components/industrial";
 
 type PreviewRow = {
   rowNumber: number;
+  displayName: string;
+  companyNameText: string;
+  designationText: string;
   data: {
     displayName: string;
     designation?: string;
     companyName: string;
+    companyId: string;
     monthlyGross: number;
     expectedMonthlyNet: number;
   } | null;
@@ -179,9 +183,12 @@ export function ImportCsvModal({
                       <tr key={row.rowNumber}>
                         <td className="px-3 py-3">{row.rowNumber}</td>
                         <td className="px-3 py-3">
-                          <div className="font-semibold">{row.data?.displayName ?? "Invalid row"}</div>
+                          <div className="font-semibold">
+                            {row.data?.displayName ?? row.displayName ?? "—"}
+                          </div>
                           <div className="text-xs text-[var(--nova-muted)]">
-                            {row.data?.designation ?? "—"} · {row.data?.companyName ?? "—"}
+                            {row.data?.designation ?? row.designationText ?? "—"} ·{" "}
+                            {row.data?.companyName ?? row.companyNameText ?? "—"}
                           </div>
                         </td>
                         <td className="px-3 py-3 tabular-nums">

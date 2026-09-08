@@ -86,6 +86,10 @@
 ## Employee CSV import
 
 - Employee imports use a persisted preview/confirm workflow through `EmployeeImportBatch` and `EmployeeImportRow`; unknown company names are rejected and never auto-created.
+- Company matching resolves against **all companies the actor may import into** (Super Admin: every company; managers: `employees`/`create` grants). The UI-selected company is context only — never a silent fallback employer.
+- Names are matched with Unicode NFKC → trim → collapse whitespace → lowercase on both CSV `Company Name` and `Company.name`. Ambiguous normalized matches require explicit selection; failed matches never fall back to Nova Qore or the selected tab.
+- Preview persists `EmployeeImportRow.resolvedCompanyId` (+ `parsedJson`); confirm reuses the same resolver and rejects if the resolved ID changes.
 - CSV salary values are parsed with the shared decimal money helpers. Blank TDS is explicitly stored as zero, while net-pay mismatches are surfaced for review without changing submitted deductions.
-- Imported employees start as `CONTACT_DETAILS_REQUIRED`, receive no portal user or fabricated contact data, and preserve the original full name in `Employee.displayName`.
+- Imported employees start as `CONTACT_DETAILS_REQUIRED`, receive no portal user or fabricated contact data, and preserve the original full name in `Employee.displayName`. Invalid preview rows keep CSV name and company text visible.
+- Create will not silently duplicate an existing same-name employee in the resolved company; use Update existing or Skip.
 - Explicit updates retain existing contacts and append a salary-structure version through `EmployeeFacade.createFromImport`.
