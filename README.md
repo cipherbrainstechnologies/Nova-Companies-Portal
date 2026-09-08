@@ -41,7 +41,8 @@ Use `/login/admin` and `/login/employee` (chooser at `/login`).
 
 ## Docs
 
-- [Railway deployment](docs/RAILWAY_DEPLOYMENT.md)
+- [Railway deployment](docs/RAILWAY_DEPLOYMENT.md) — connect repo + `railway config apply`
+- [Railway IaC](.railway/README.md) — postgres, redis, bucket, web, worker
 - [Configuration checklist](docs/CONFIGURATION_CHECKLIST.md)
 - [Implementation status](IMPLEMENTATION_STATUS.md)
 - [Execution plan](cursor-salary-portal-execution-plan.md)

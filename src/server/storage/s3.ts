@@ -45,7 +45,6 @@ export async function storePrivateFile(input: {
       Key: key,
       Body: input.buffer,
       ContentType: input.mimeType,
-      ServerSideEncryption: "AES256",
     }),
   );
 

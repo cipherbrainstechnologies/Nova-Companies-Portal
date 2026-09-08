@@ -1,84 +1,77 @@
 # Railway Deployment Guide — Nova Salary Portal
 
-## Services
+The repo is self-contained for Railway. Infrastructure is declared in [`.railway/railway.ts`](../.railway/railway.ts). The root [`Dockerfile`](../Dockerfile) builds one image used by both **web** and **worker** (Playwright Chromium included for payslip PDFs).
 
-Create four Railway resources:
+## One-time setup
 
-| Service | Start command | Notes |
+```bash
+npm install
+npm i -g @railway/cli   # v5.49+ recommended
+railway login
+railway init            # create or link a project
+railway config apply    # creates postgres, redis, bucket, web, worker
+```
+
+Then in Railway → Variables (shared, or on both **web** and **worker**):
+
+| Variable | Required | Notes |
 |---|---|---|
-| **web** | `npm run start` | After `npm run build`. Expose public HTTPS. |
-| **worker** | `npm run worker` | Same image/repo; no public port required. |
-| **PostgreSQL** | Railway plugin | Set `DATABASE_URL` and `DIRECT_URL`. |
-| **Redis** | Railway plugin | Set `REDIS_URL`. |
+| `AUTH_SECRET` | yes | 32+ random characters |
+| `OTP_PEPPER` | yes | random string |
+| `APP_URL` | recommended | `https://<web-domain>`; falls back to `RAILWAY_PUBLIC_DOMAIN` if unset |
+| `EMAIL_API_KEY` | for real email | Keep `EMAIL_PROVIDER=console` until Resend (or other) is ready |
+| `EMAIL_PROVIDER` | optional | Default in IaC is `console`; set `resend` when ready |
+| `EMAIL_FROM` | optional | Default set in IaC |
 
-Private object storage (Cloudflare R2 or AWS S3) is external. Never store file blobs in Postgres. Never use local disk as durable storage on Railway.
+Generate a public domain on the **web** service. Do **not** set `SEED_DEV=1` in production.
 
-## Build & migrate
+## What Railway provisions
 
-```bash
-npm ci
-npx prisma migrate deploy
-npm run build
-```
+| Resource | Purpose |
+|---|---|
+| **postgres** | Prisma / app data (`DATABASE_URL`, also used as `DIRECT_URL`) |
+| **redis** | BullMQ (`REDIS_URL`) |
+| **payslip-files** | Private object storage → `S3_ENDPOINT`, `S3_BUCKET`, keys, region |
+| **web** | `npm run start` · health `/api/health` · `preDeploy`: `npx prisma migrate deploy` |
+| **worker** | `npm run worker` · statement parse, payslip PDF, email queues |
 
-Release phase / deploy hook recommendation:
+Object storage stays on Railway Buckets (S3-compatible). Do not store blobs in Postgres or on local disk.
 
-```bash
-npx prisma migrate deploy
-```
+## Build image
 
-## Environment variables
+The Dockerfile:
 
-Copy from `.env.example`. Required in production:
-
-- `DATABASE_URL`, `DIRECT_URL`
-- `REDIS_URL`
-- `AUTH_SECRET` (32+ chars)
-- `APP_URL` (public Railway URL)
-- `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`
-- `EMAIL_PROVIDER`, `EMAIL_API_KEY`, `EMAIL_FROM`
-- `OTP_PEPPER`
-- Optional: `PDF_SIGNING_PRIVATE_KEY`, `PDF_SIGNING_CERTIFICATE`, `MATCH_AUTO_SELECT_THRESHOLD`
-
-`SEED_DEV` must remain unset/`0` in production.
+1. `npm ci`
+2. `prisma generate` + `next build`
+3. `playwright install --with-deps chromium`
+4. Ships app + browsers; default CMD is web; worker overrides start command
 
 ## Health check
 
-`GET /api/health` — returns `{ status: "ok" }` when the database is reachable.
+`GET /api/health` → `{ status: "ok" }` when the database is reachable.
 
-Configure Railway health check path: `/api/health`.
+## Email / PDF signing
 
-## Worker
-
-The worker consumes BullMQ queues:
-
-- `statement-parse`
-- `payslip-generate`
-- `email-notify`
-
-Run Playwright Chromium dependencies on the worker image if using Playwright PDF rendering:
-
-```bash
-npx playwright install chromium
-```
-
-## Object storage CORS
-
-Allow the web origin (`APP_URL`) only if browser-side uploads are enabled. Preferred path is server-side upload via API (no public bucket ACL). Keep the bucket private; downloads use short-lived signed URLs.
+- Email defaults to console logging until `EMAIL_PROVIDER` + `EMAIL_API_KEY` are set.
+- Optional: `PDF_SIGNING_PRIVATE_KEY`, `PDF_SIGNING_CERTIFICATE`.
+- Optional: `MATCH_AUTO_SELECT_THRESHOLD` (default `85`).
 
 ## Backups
 
 - Enable Railway PostgreSQL automated backups / snapshots.
-- Enable object-storage versioning on the payslip bucket.
+- Payslip files live in the Railway bucket — treat bucket retention as part of backup policy.
 - Audit logs are append-only in Postgres — include them in DB backups.
 
-## Local development
+## Local development (unchanged)
 
 ```bash
 docker compose up -d
 cp .env.example .env
+npm install
 npx prisma migrate dev
 SEED_DEV=1 npx prisma db seed
 npm run dev
 npm run worker
 ```
+
+See also [`.railway/README.md`](../.railway/README.md) and [CONFIGURATION_CHECKLIST.md](./CONFIGURATION_CHECKLIST.md).

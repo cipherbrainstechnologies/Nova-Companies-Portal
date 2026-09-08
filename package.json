@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "worker": "tsx src/worker/index.ts",
+    "postinstall": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
@@ -19,6 +20,9 @@
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1127.0",
@@ -39,6 +43,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "decimal.js": "^10.6.0",
+    "dotenv": "^17.4.2",
     "ioredis": "^6.0.0",
     "iron-session": "^9.0.1",
     "jose": "^6.2.12",
@@ -47,11 +52,14 @@
     "next": "15.5.25",
     "next-intl": "^4.14.2",
     "pdf-parse": "^2.4.5",
+    "playwright": "^1.63.0",
+    "prisma": "^6.19.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-hook-form": "^7.87.0",
     "resend": "^6.26.0",
     "tailwind-merge": "^3.6.0",
+    "tsx": "^4.23.13",
     "xlsx": "^0.18.5",
     "zod": "^4.5.4"
   },
@@ -65,12 +73,10 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.1.1",
-    "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "15.5.25",
-    "prisma": "^6.19.0",
+    "railway": "^3.11.0",
     "tailwindcss": "^4",
-    "tsx": "^4.23.13",
     "typescript": "^5",
     "vitest": "^3.2.7"
   }

@@ -53,6 +53,15 @@
 - Public document verification exposes validity and provenance only; salary and bank details are never returned.
 - Password reset, forced password change, admin operations, employee self-service, statement reconciliation, payroll, TDS, and profit reporting are exposed through dedicated App Router pages.
 
+## Railway deployment
+
+- Infrastructure as Code lives in `.railway/railway.ts` (postgres, redis, payslip-files bucket, web, worker).
+- Root `Dockerfile` builds one image for web (`npm start`) and worker (`npm run worker`), including Playwright Chromium for payslip PDFs.
+- Web service runs `npx prisma migrate deploy` as `preDeploy` and health-checks `/api/health`.
+- Production secrets (`AUTH_SECRET`, `OTP_PEPPER`, optional email/PDF signing) are set in Railway variables and marked `preserve()` in IaC.
+- `APP_URL` falls back to `https://$RAILWAY_PUBLIC_DOMAIN` when unset.
+- Object storage uses Railway Buckets via `S3_*` env mapping; local MinIO remains for docker-compose development.
+
 ## Admin interface system
 
 - Visual system: premium SaaS payroll UI (Nova ink + teal tokens in `globals.css`).

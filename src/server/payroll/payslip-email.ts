@@ -56,7 +56,12 @@ export function assertNoSalaryAmounts(text: string): void {
 
 export function buildPayslipAvailableEmail(input: PayslipEmailInput): PayslipEmailMessage {
   const period = formatSalaryPeriod(input.month, input.year);
-  const portalUrl = input.portalUrl ?? process.env.APP_URL ?? "";
+  const portalUrl =
+    input.portalUrl ??
+    process.env.APP_URL ??
+    (process.env.RAILWAY_PUBLIC_DOMAIN
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+      : "");
   const subject = input.resend
     ? `${PAYSLIP_EMAIL_SUBJECT} (resent)`
     : PAYSLIP_EMAIL_SUBJECT;
