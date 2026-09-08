@@ -81,7 +81,7 @@ async function main() {
         },
       });
     }
-    await seedDefaultProfitPolicies(company.id);
+    await seedDefaultProfitPolicies(company.id, company.prefix);
   }
 
   const demoCode = "NW-0020";

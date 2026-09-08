@@ -779,17 +779,20 @@ model FinancialTransaction {
 }
 
 model ProfitPolicyRule {
-  id          String   @id @default(cuid())
-  companyId   String
-  matchPattern String
+  id             String                      @id @default(cuid())
+  companyId      String
+  matchPattern   String
   classification TransactionClassification?
-  treatment   ProfitTreatment
-  priority    Int      @default(100)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  treatment      ProfitTreatment
+  /** Fine-grained reporting bucket (revenue, salary, CBDT, home loan, …). */
+  categoryKey    String?
+  label          String?
+  priority       Int                         @default(100)
+  isActive       Boolean                     @default(true)
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
 
-  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId, priority])
 }

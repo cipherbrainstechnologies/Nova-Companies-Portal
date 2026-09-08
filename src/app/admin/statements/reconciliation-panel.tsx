@@ -8,6 +8,7 @@ import {
 import { isUnresolvedPaymentStatus } from "@/server/payroll/payment-decision";
 import { t } from "@/i18n";
 import { ReconciliationReviewControls } from "./reconciliation-review-controls";
+import { ProfitClassificationControl } from "./profit-classification-control";
 
 const SUMMARY_ORDER = [
   "MATCHED_EXACT",
@@ -218,6 +219,10 @@ export async function ReconciliationPanel({
                   requiresVarianceReason={requiresVarianceReason}
                 />
               )}
+              <ProfitClassificationControl
+                transactionId={txn.id}
+                initialClassification={txn.classification}
+              />
             </Card>
           );
         })}

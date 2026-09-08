@@ -5,6 +5,7 @@ import { AlertBanner, BracketLabel } from "@/components/industrial";
 import { prisma } from "@/server/db";
 import { t } from "@/i18n";
 import { FinanceOverviewCards, ProfitForm } from "./profit-form";
+import { ProfitPolicyEditor } from "./profit-policy-editor";
 
 function n(v: { toString(): string } | number) {
   return Number(v);
@@ -50,7 +51,7 @@ export default async function FinancePage() {
   return (
     <AdminShell
       title={t("en", "admin.finance")}
-      description="Collective and company-level earned operating profit. Bank balance is never labelled as profit."
+      description="Earned business profit for Nova Workforce and Nova Qore. Bank balance is never labelled as profit."
       userName={user.email ?? user.phone}
       userRole={user.globalRole}
     >
@@ -65,6 +66,10 @@ export default async function FinancePage() {
         <div className="mt-3">
           <ProfitForm companies={companies.map((c) => ({ id: c.id, name: c.name }))} />
         </div>
+      </div>
+
+      <div className="mt-8">
+        <ProfitPolicyEditor companies={companies.map((c) => ({ id: c.id, name: c.name }))} />
       </div>
     </AdminShell>
   );

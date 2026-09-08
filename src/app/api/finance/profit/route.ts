@@ -17,9 +17,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       profit,
       labels: {
-        earnedOperatingProfit: "Revenue − business expenses",
-        cashRemaining: "Earned operating profit − owner/financing/personal outgoings",
-        notProfit: "Bank balance is not profit",
+        earnedOperatingProfit:
+          "Actual business credits − salaries − overtime − cash salary − CBDT/tax − other business expenses",
+        profitAfterPersonalFinance:
+          "Earned operating profit − home loan − Bajaj EMI − credit-card payments",
+        cashRemainingAfterDeductions:
+          "Profit after personal/finance deductions − owner/Love transfers − other identified outflows",
+        notProfit:
+          "Bank balance, opening/closing balances, internal transfers, and unclassified amounts are never earned profit",
       },
     });
   } catch (err) {

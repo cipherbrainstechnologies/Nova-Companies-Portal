@@ -41,10 +41,13 @@
 
 ## Profit reporting
 
-- Earned operating profit is revenue minus business expenses.
-- Owner-excluded and financing/personal outgoings are then deducted to derive cash remaining.
-- Bank balance is not profit and must never be labelled as such.
-- Company policy rules are priority-ordered and can match narration patterns or transaction classification.
+- Earned business profit is actual business credits minus salaries, overtime, salary-related cash payments, CBDT/business tax, and other mapped business expenses. Bank balance growth is never profit.
+- Personal and financing outgoings (home loan, Bajaj EMI, credit-card payments, owner/Love transfers, Threads cheque, other identified withdrawals) are shown separately and deducted only in the cash-remaining ladder.
+- Cash remaining ladder: (1) earned profit − home loan − Bajaj − credit card; (2) that result − owner transfers − other identified outflows.
+- Unclassified / needs-review transactions never silently affect earned profit; they are listed with count and totals.
+- Opening/closing balances and internal transfers are ignored via policy patterns.
+- Company-level `ProfitPolicyRule` maps (seeded per NW/NQ prefix) are editable on Finance; manual statement classification overrides narration rules and is audit-logged (`statement.transaction_classify`).
+- Pure summarizer: `summarizeEarnedProfit` / `combineProfitSummaries` in `profit-engine.ts`. Verified INR fixtures live only in tests.
 
 ## Portal surfaces and API boundaries
 
