@@ -13,6 +13,7 @@ coverage
 e2e
 tests
 .claude-design
+src/app/__design_lab
 .cursor
 .vscode
 *.md
