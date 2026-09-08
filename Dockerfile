@@ -20,16 +20,20 @@ RUN npm ci
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Build-time placeholders only — real secrets/URLs come from Railway at runtime.
-ENV DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build?schema=public"
-ENV DIRECT_URL="postgresql://build:build@127.0.0.1:5432/build?schema=public"
-ENV AUTH_SECRET="build-time-placeholder-secret-min-32-chars"
-ENV OTP_PEPPER="build-time-otp-pepper"
-ENV REDIS_URL="redis://127.0.0.1:6379"
-ENV APP_URL="http://localhost:3000"
-ENV SEED_DEV="0"
-RUN npx prisma generate
-RUN npm run build
+# Placeholders only for Next/Prisma build — Railway injects real values at runtime.
+# Inline on the build command so sensitive names are not baked as image ENV layers.
+RUN DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build?schema=public" \
+    DIRECT_URL="postgresql://build:build@127.0.0.1:5432/build?schema=public" \
+    REDIS_URL="redis://127.0.0.1:6379" \
+    APP_URL="http://localhost:3000" \
+    SEED_DEV="0" \
+    npx prisma generate \
+ && DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build?schema=public" \
+    DIRECT_URL="postgresql://build:build@127.0.0.1:5432/build?schema=public" \
+    REDIS_URL="redis://127.0.0.1:6379" \
+    APP_URL="http://localhost:3000" \
+    SEED_DEV="0" \
+    npm run build
 RUN npx playwright install --with-deps chromium
 
 FROM base AS runner
