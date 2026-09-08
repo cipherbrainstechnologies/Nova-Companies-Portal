@@ -16,8 +16,9 @@
 
 - Expected monthly net is the single reconciliation reference: `monthlyGross − monthlyTds − monthlyPt`, or an explicit `expectedMonthlyNet` override. Derivation lives in `src/server/payroll/salary-structure.ts` and is shared by API, UI and tests.
 - `decidePaymentAutomation` (`payment-decision.ts`) maps a bank debit to `MATCHED_EXACT`, `PARTIAL_PAYMENT_REVIEW_REQUIRED`, `AMOUNT_MISMATCH_REVIEW_REQUIRED`, `UNMATCHED` or `SALARY_STRUCTURE_INCOMPLETE`. Only an exact match may auto-issue, and only when the company sets `autoIssueExactMatches`.
-- Match candidates are always company-scoped, so a same-named employee at another company cannot be suggested. A confident match is downgraded when a payroll line already exists for that employee in the statement's salary month.
-- `applyAutomaticReconciliation` records decisions, auto-creates payroll lines from the saved salary structure for exact/partial/mismatch rows, and batch auto-issues exact matches when `autoIssueExactMatches` is ON. Partial/mismatch drafts stay `DRAFT` and invisible to employees. Reviewed and issued rows are never re-decided.
+- Match candidates are always company-scoped, so a same-named employee at another company cannot be suggested. A confident match is downgraded when a payroll line already exists for that employee in the same salary month.
+- `applyAutomaticReconciliation` assigns each debit to a payroll month from value/txn date (multi-month statements supported). Duplicate rows across overlapping uploads are fingerprint-deduped and ignored. Auto-issue batches by payroll run / month. Partial/mismatch drafts stay `DRAFT` and invisible to employees. Reviewed and issued rows are never re-decided.
+
 - `reviewReconciliationTransaction` approves variances into `APPROVED_FOR_ISSUE` payroll lines (requires classification + reason). Ignore/reject/non-payroll require a reason.
 - Issue is guarded twice: the API rejects a selection containing unresolved lines, and `issueSelectedPayslips` re-checks with `partitionIssuableLines`.
 - Payslip notifications carry no salary figures — `assertNoSalaryAmounts` fails the build of any message containing currency-shaped text. Delivery state on `PayslipEmailDelivery` is independent of issue state: a failed email marks the transaction `EMAIL_FAILED` but never un-issues the payslip.

@@ -2,31 +2,18 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Card, Input, Label, Select } from "@/components/ui";
+import { Button, Card, Label } from "@/components/ui";
 import { AlertBanner } from "@/components/industrial";
+import { MonthYearPicker } from "@/components/month-year-picker";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
-
-const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
 
 export function StatementUploadForm({ companyId }: { companyId: string }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const now = new Date();
   const [file, setFile] = useState<File | null>(null);
+  const [useHintPeriod, setUseHintPeriod] = useState(false);
   const [salaryYear, setSalaryYear] = useState(String(now.getFullYear()));
   const [salaryMonth, setSalaryMonth] = useState(String(now.getMonth() + 1));
   const [error, setError] = useState("");
@@ -35,14 +22,15 @@ export function StatementUploadForm({ companyId }: { companyId: string }) {
 
   const yearValue = Number(salaryYear);
   const monthValue = Number(salaryMonth);
-  const periodValid =
-    Number.isInteger(yearValue) &&
-    yearValue >= 2000 &&
-    yearValue <= 2999 &&
-    Number.isInteger(monthValue) &&
-    monthValue >= 1 &&
-    monthValue <= 12;
-  const canUpload = !!file && periodValid && progress !== "uploading";
+  const hintValid =
+    !useHintPeriod ||
+    (Number.isInteger(yearValue) &&
+      yearValue >= 2000 &&
+      yearValue <= 2999 &&
+      Number.isInteger(monthValue) &&
+      monthValue >= 1 &&
+      monthValue <= 12);
+  const canUpload = !!file && hintValid && progress !== "uploading";
 
   function acceptFile(f: File | null | undefined) {
     if (!f) return;
@@ -59,8 +47,8 @@ export function StatementUploadForm({ companyId }: { companyId: string }) {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!file) return;
-    if (!periodValid) {
-      setError("Select the salary year and month this statement covers before uploading.");
+    if (!hintValid) {
+      setError("Optional fallback period is invalid.");
       return;
     }
     setError("");
@@ -68,13 +56,20 @@ export function StatementUploadForm({ companyId }: { companyId: string }) {
     const body = new FormData();
     body.set("companyId", companyId);
     body.set("file", file);
-    body.set("salaryYear", String(yearValue));
-    body.set("salaryMonth", String(monthValue));
+    if (useHintPeriod) {
+      body.set("salaryYear", String(yearValue));
+      body.set("salaryMonth", String(monthValue));
+    }
     const res = await fetch("/api/statements", { method: "POST", body });
     const data = await res.json();
     if (!res.ok) {
       setProgress("idle");
       setError(data.error ?? t("en", "common.failed"));
+      return;
+    }
+    if (data.duplicate) {
+      setProgress("idle");
+      setError("This exact file was already uploaded for this company (checksum match).");
       return;
     }
     setProgress("done");
@@ -86,45 +81,46 @@ export function StatementUploadForm({ companyId }: { companyId: string }) {
   return (
     <Card>
       <form onSubmit={onSubmit} className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <Label htmlFor="salaryYear">Salary year</Label>
-            <Input
-              id="salaryYear"
-              inputMode="numeric"
-              value={salaryYear}
-              onChange={(e) => setSalaryYear(e.target.value)}
-              required
-            />
-          </div>
-          <div>
-            <Label htmlFor="salaryMonth">Salary month</Label>
-            <Select
-              id="salaryMonth"
-              value={salaryMonth}
-              onChange={(e) => setSalaryMonth(e.target.value)}
-              required
-            >
-              {MONTHS.map((name, index) => (
-                <option key={name} value={index + 1}>
-                  {name}
-                </option>
-              ))}
-            </Select>
-          </div>
+        <div className="rounded-[var(--nova-radius-sm)] border border-[var(--nova-border)] bg-[var(--nova-surface-muted)] p-3 text-sm text-[var(--nova-text-secondary)]">
+          <p className="font-semibold text-[var(--nova-ink)]">Multi-month statements supported</p>
+          <p className="mt-1">
+            Each debit is filed to the salary month of its bank date. Overlapping uploads are
+            deduplicated (same date, amount, and narration) so repeats are ignored and payroll is
+            calculated per month.
+          </p>
         </div>
-        <p className="text-xs text-[var(--nova-muted)]">
-          The salary period is required. Reconciliation matches debits to that payroll month and
-          blocks a second payslip for an employee in the same month.
-        </p>
 
-        <Label>{t("en", "admin.statementFile")}</Label>
+        <label className="flex items-start gap-2 text-sm text-[var(--nova-text-secondary)]">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={useHintPeriod}
+            onChange={(e) => setUseHintPeriod(e.target.checked)}
+          />
+          <span>
+            Set an optional fallback salary period (only used when a row has no usable transaction
+            date)
+          </span>
+        </label>
+
+        {useHintPeriod ? (
+          <MonthYearPicker
+            year={salaryYear}
+            month={salaryMonth}
+            onYearChange={setSalaryYear}
+            onMonthChange={setSalaryMonth}
+            yearLabel="Fallback year"
+            monthLabel="Fallback month"
+            idPrefix="statement-hint"
+          />
+        ) : null}
+
         <div
           className={cn(
-            "flex cursor-pointer flex-col items-center justify-center rounded-[var(--nova-radius)] border-2 border-dashed px-4 py-10 text-center transition",
+            "flex cursor-pointer flex-col items-center justify-center rounded-[var(--nova-radius)] border-2 border-dashed px-4 py-10 text-center transition-colors",
             dragOver
               ? "border-[var(--nova-teal)] bg-[var(--nova-teal-soft)]"
-              : "border-[var(--nova-border-strong)] bg-[var(--nova-surface-muted)] hover:border-[var(--nova-teal)]",
+              : "border-[var(--nova-border-strong)] bg-[var(--nova-canvas)] hover:border-[var(--nova-teal)]",
           )}
           onDragOver={(e) => {
             e.preventDefault();
@@ -137,42 +133,33 @@ export function StatementUploadForm({ companyId }: { companyId: string }) {
             acceptFile(e.dataTransfer.files?.[0]);
           }}
           onClick={() => inputRef.current?.click()}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") inputRef.current?.click();
-          }}
         >
-          <p className="text-sm font-semibold text-[var(--nova-ink)]">
-            Drag and drop your statement here
-          </p>
-          <p className="mt-1 text-xs text-[var(--nova-muted)]">PDF, CSV, XLSX · click to browse</p>
-          {file ? (
-            <p className="mt-3 text-sm font-medium text-[var(--nova-teal)]">{file.name}</p>
-          ) : null}
           <input
             ref={inputRef}
             type="file"
-            accept=".pdf,.csv,.xlsx,.xls"
+            accept=".pdf,.csv,.xlsx,.xls,application/pdf,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             className="hidden"
             onChange={(e) => acceptFile(e.target.files?.[0])}
           />
+          <p className="text-sm font-semibold text-[var(--nova-ink)]">
+            {file ? file.name : "Drag and drop your statement here"}
+          </p>
+          <p className="mt-1 text-xs text-[var(--nova-muted)]">
+            PDF, CSV, or Excel · click to browse · one or many salary months
+          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+
+        {error ? <AlertBanner tone="danger">{error}</AlertBanner> : null}
+
+        <div className="flex justify-end">
           <Button type="submit" disabled={!canUpload}>
             {progress === "uploading"
-              ? "Uploading…"
+              ? t("en", "common.loading")
               : progress === "done"
                 ? "Uploaded"
                 : t("en", "admin.uploadStatement")}
           </Button>
-          {progress === "uploading" ? (
-            <div className="h-2 w-40 overflow-hidden rounded-full bg-[var(--nova-surface-muted)]">
-              <div className="h-full w-2/3 animate-pulse rounded-full bg-[var(--nova-teal)]" />
-            </div>
-          ) : null}
         </div>
-        {error ? <AlertBanner tone="danger">{error}</AlertBanner> : null}
       </form>
     </Card>
   );

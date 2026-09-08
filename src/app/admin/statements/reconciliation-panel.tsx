@@ -79,8 +79,8 @@ export async function ReconciliationPanel({
         <BracketLabel>{t("en", "admin.reconciliation")}</BracketLabel>
         <Meta>
           {statement.salaryMonth && statement.salaryYear
-            ? `Salary period ${String(statement.salaryMonth).padStart(2, "0")}/${statement.salaryYear}`
-            : "No salary period recorded on this statement"}
+            ? `Fallback period ${String(statement.salaryMonth).padStart(2, "0")}/${statement.salaryYear}`
+            : "Periods derived per debit from bank dates (multi-month OK)"}
         </Meta>
       </div>
 
@@ -130,6 +130,12 @@ export async function ReconciliationPanel({
                   <div className="flex flex-wrap items-center gap-2">
                     <ReconciliationStatusBadge status={txn.reconciliationStatus} />
                     <Meta>{txn.txnDate.toLocaleDateString()}</Meta>
+                    {txn.salaryYear && txn.salaryMonth ? (
+                      <Meta>
+                        Payroll {String(txn.salaryMonth).padStart(2, "0")}/{txn.salaryYear}
+                      </Meta>
+                    ) : null}
+                    {txn.isDuplicate ? <Meta>Deduped</Meta> : null}
                     {txn.utrReference ? <Meta>UTR {txn.utrReference}</Meta> : null}
                   </div>
                   <div className="mt-2 text-sm font-medium text-[var(--nova-ink)]">

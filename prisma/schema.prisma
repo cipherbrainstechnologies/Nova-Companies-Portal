@@ -468,6 +468,12 @@ model StatementTransaction {
   branch          String?
   utrReference    String?
   rowIndex        Int
+  /** Calendar salary month derived from value/txn date (supports multi-month statements). */
+  salaryYear      Int?
+  salaryMonth     Int?
+  /** Company-scoped dedup key; duplicates from overlapping statements are marked ignored. */
+  fingerprint     String?
+  isDuplicate     Boolean  @default(false)
   classification  TransactionClassification @default(UNCLASSIFIED)
   reconciliationStatus ReconciliationStatus @default(UNMATCHED)
   matchedEmployeeId String?
@@ -493,6 +499,8 @@ model StatementTransaction {
   @@index([statementId, txnDate])
   @@index([reconciliationStatus])
   @@index([matchedEmployeeId])
+  @@index([fingerprint])
+  @@index([salaryYear, salaryMonth])
 }
 
 model StatementClassification {

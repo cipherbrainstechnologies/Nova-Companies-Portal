@@ -24,6 +24,7 @@ import {
   rankMatchSuggestions,
   type MatchCandidateInput,
 } from "@/server/statements/matching";
+import { resolveTransactionSalaryPeriod } from "@/server/statements/transaction-identity";
 
 /** Reviewed or issued rows are never re-decided by the automation pass. */
 const TERMINAL_STATUSES: ReconciliationStatus[] = [
@@ -97,7 +98,7 @@ export async function generateStatementMatchSuggestions(input: {
       where: { id: input.statementId, companyId: input.companyId },
       include: {
         transactions: {
-          where: { debit: { gt: 0 } },
+          where: { debit: { gt: 0 }, isDuplicate: false },
           orderBy: { rowIndex: "asc" },
         },
       },
@@ -207,15 +208,27 @@ export async function applyAutomaticReconciliation(input: {
   });
   if (!statement) throw new Error("Bank statement not found in company scope");
 
-  const salaryYear = statement.salaryYear ?? statement.periodEnd?.getFullYear() ?? null;
-  const salaryMonth = statement.salaryMonth ?? (statement.periodEnd ? statement.periodEnd.getMonth() + 1 : null);
+  // Multi-month statements: each debit uses its own calendar month (value/txn date).
+  const periodsInStatement = new Set<string>();
+  for (const transaction of statement.transactions) {
+    const period = resolveTransactionSalaryPeriod({
+      txnDate: transaction.txnDate,
+      valueDate: transaction.valueDate,
+      statementSalaryYear: statement.salaryYear,
+      statementSalaryMonth: statement.salaryMonth,
+    });
+    if (period) periodsInStatement.add(`${period.year}-${period.month}`);
+  }
 
   const existingPeriods =
-    salaryYear && salaryMonth
+    periodsInStatement.size > 0
       ? (
           await prisma.payrollEmployeeLine.findMany({
             where: {
-              payrollRun: { companyId: input.companyId, year: salaryYear, month: salaryMonth },
+              OR: [...periodsInStatement].map((key) => {
+                const [year, month] = key.split("-").map(Number);
+                return { payrollRun: { companyId: input.companyId, year, month } };
+              }),
             },
             select: { employeeId: true, payrollRun: { select: { year: true, month: true } } },
           })
@@ -230,27 +243,52 @@ export async function applyAutomaticReconciliation(input: {
   let autoIssueCandidates = 0;
   let autoCreatedLines = 0;
   let evaluated = 0;
-  const autoIssueLineIds: string[] = [];
-  let payrollRunId: string | null = null;
+  const autoIssueByRun = new Map<string, { month: number; lineIds: string[] }>();
+  const payrollRunByPeriod = new Map<string, string>();
 
-  if (salaryYear && salaryMonth) {
+  async function ensurePayrollRun(year: number, month: number): Promise<string> {
+    const key = `${year}-${month}`;
+    const cached = payrollRunByPeriod.get(key);
+    if (cached) return cached;
     const run = await payrollFacade.createPayrollRun({
       actorUserId: input.actorUserId ?? "system",
       companyId: input.companyId,
-      year: salaryYear,
-      month: salaryMonth,
+      year,
+      month,
     });
-    payrollRunId = run.id;
+    payrollRunByPeriod.set(key, run.id);
     if (!run.statementId) {
       await prisma.payrollRun.update({
         where: { id: run.id },
-        data: { statementId: statement.id, status: "RECONCILIATION_REQUIRED" },
+        data: { statementId: statement!.id, status: "RECONCILIATION_REQUIRED" },
       });
     }
+    return run.id;
   }
 
   for (const transaction of statement.transactions) {
     if (TERMINAL_STATUSES.includes(transaction.reconciliationStatus)) continue;
+    if (transaction.isDuplicate) continue;
+
+    const period = resolveTransactionSalaryPeriod({
+      txnDate: transaction.txnDate,
+      valueDate: transaction.valueDate,
+      statementSalaryYear: statement.salaryYear,
+      statementSalaryMonth: statement.salaryMonth,
+    });
+    const salaryYear = period?.year ?? null;
+    const salaryMonth = period?.month ?? null;
+
+    if (
+      (transaction.salaryYear !== salaryYear || transaction.salaryMonth !== salaryMonth) &&
+      salaryYear &&
+      salaryMonth
+    ) {
+      await prisma.statementTransaction.update({
+        where: { id: transaction.id },
+        data: { salaryYear, salaryMonth },
+      });
+    }
 
     const actualAmount = toAmount(transaction.debit) ?? 0;
     const suggestions = transaction.matchSuggestions;
@@ -294,7 +332,9 @@ export async function applyAutomaticReconciliation(input: {
 
     const reviewReason = duplicatePeriod
       ? `A payroll line already exists for this employee in ${String(salaryMonth).padStart(2, "0")}/${salaryYear}`
-      : null;
+      : !period
+        ? "Could not determine salary month for this debit — set statement period or fix transaction date"
+        : null;
 
     await prisma.statementTransaction.update({
       where: { id: transaction.id },
@@ -305,8 +345,10 @@ export async function applyAutomaticReconciliation(input: {
         actualAmount: decision.actualAmount,
         varianceAmount: decision.varianceAmount,
         matchScore: top?.score ?? null,
-        matchExplanation: duplicatePeriod ? `${explanation}; ${reviewReason}` : explanation,
+        matchExplanation: reviewReason ? `${explanation}; ${reviewReason}` : explanation,
         reviewReason,
+        salaryYear,
+        salaryMonth,
         classification: decision.status === "UNMATCHED" ? "UNCLASSIFIED" : "SALARY",
         utrReference:
           transaction.utrReference ?? extractUtrReference(transaction.particulars) ?? null,
@@ -321,7 +363,6 @@ export async function applyAutomaticReconciliation(input: {
       !decision.canAutoCreatePayrollLine ||
       !matchConfident ||
       !top ||
-      !payrollRunId ||
       !salaryYear ||
       !salaryMonth ||
       transaction.payrollLinks.length > 0
@@ -329,6 +370,7 @@ export async function applyAutomaticReconciliation(input: {
       continue;
     }
 
+    const payrollRunId = await ensurePayrollRun(salaryYear, salaryMonth);
     const derived = structureToEarningsDeductions(structure);
     const snapshot = toSalarySnapshot(structure);
     const line = await payrollFacade.upsertEmployeeLine({
@@ -362,7 +404,9 @@ export async function applyAutomaticReconciliation(input: {
     existingPeriods.push({ employeeId: top.employeeId, year: salaryYear, month: salaryMonth });
 
     if (decision.canAutoIssue) {
-      autoIssueLineIds.push(line.id);
+      const bucket = autoIssueByRun.get(payrollRunId) ?? { month: salaryMonth, lineIds: [] };
+      bucket.lineIds.push(line.id);
+      autoIssueByRun.set(payrollRunId, bucket);
       await prisma.statementTransaction.update({
         where: { id: transaction.id },
         data: { reconciliationStatus: "APPROVED_FOR_ISSUE" },
@@ -371,7 +415,7 @@ export async function applyAutomaticReconciliation(input: {
   }
 
   let autoIssued = 0;
-  if (autoIssueLineIds.length && payrollRunId && salaryMonth) {
+  for (const [payrollRunId, bucket] of autoIssueByRun) {
     await prisma.payrollRun.update({
       where: { id: payrollRunId },
       data: { status: "APPROVED", approvedAt: new Date() },
@@ -380,16 +424,16 @@ export async function applyAutomaticReconciliation(input: {
       await payrollFacade.issueSelectedPayslips({
         actorUserId: input.actorUserId ?? "system",
         payrollRunId,
-        lineIds: autoIssueLineIds,
+        lineIds: bucket.lineIds,
         confirmation: {
-          count: autoIssueLineIds.length,
-          month: salaryMonth,
+          count: bucket.lineIds.length,
+          month: bucket.month,
           companyId: input.companyId,
         },
       });
-      autoIssued = autoIssueLineIds.length;
+      autoIssued += bucket.lineIds.length;
       await prisma.statementTransaction.updateMany({
-        where: { payrollLinks: { some: { id: { in: autoIssueLineIds } } } },
+        where: { payrollLinks: { some: { id: { in: bucket.lineIds } } } },
         data: { reconciliationStatus: "ISSUED" },
       });
     } catch (error) {
@@ -401,7 +445,7 @@ export async function applyAutomaticReconciliation(input: {
         entityId: payrollRunId,
         metadata: {
           error: error instanceof Error ? error.message : "auto issue failed",
-          lineIds: autoIssueLineIds,
+          lineIds: bucket.lineIds,
         },
       });
     }
@@ -419,6 +463,7 @@ export async function applyAutomaticReconciliation(input: {
       autoIssueCandidates,
       autoCreatedLines,
       autoIssued,
+      periods: [...periodsInStatement],
       matchScoreThreshold: company.matchScoreThreshold,
       autoIssueExactMatches: company.autoIssueExactMatches,
     },
@@ -526,15 +571,18 @@ export async function reviewReconciliationTransaction(input: {
       }
     }
 
-    const salaryYear =
-      transaction.statement.salaryYear ??
-      transaction.statement.periodEnd?.getFullYear() ??
-      null;
-    const salaryMonth =
-      transaction.statement.salaryMonth ??
-      (transaction.statement.periodEnd ? transaction.statement.periodEnd.getMonth() + 1 : null);
+    const salaryPeriod = resolveTransactionSalaryPeriod({
+      txnDate: transaction.txnDate,
+      valueDate: transaction.valueDate,
+      statementSalaryYear: transaction.statement.salaryYear,
+      statementSalaryMonth: transaction.statement.salaryMonth,
+    });
+    const salaryYear = salaryPeriod?.year ?? null;
+    const salaryMonth = salaryPeriod?.month ?? null;
     if (!salaryYear || !salaryMonth) {
-      throw new Error("Statement salary month is required before approval");
+      throw new Error(
+        "Could not determine salary month for this debit. Check the transaction date or set an optional statement period on upload.",
+      );
     }
 
     const run = await payrollFacade.createPayrollRun({

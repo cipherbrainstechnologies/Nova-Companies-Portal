@@ -8,6 +8,11 @@ import { getObjectBuffer, storePrivateFile } from "@/server/storage/s3";
 import { AxisBankPdfParser } from "@/server/statements/axis-bank-pdf-parser";
 import { parseCsvXlsxStatement } from "@/server/statements/csv-xlsx-parser";
 import type { StoredFile } from "@/server/statements/types";
+import {
+  resolveTransactionSalaryPeriod,
+  statementTransactionFingerprint,
+} from "@/server/statements/transaction-identity";
+import { toAmount } from "@/server/payroll/salary-structure";
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 const SUPPORTED_MIME_TYPES = new Set([
@@ -23,7 +28,7 @@ export interface UploadStatementInput extends StoredFile {
   bankCode?: string;
   uploadedById?: string;
   actorUserId?: string;
-  /** Salary period the statement covers; required to reconcile against a payroll month. */
+  /** Optional fallback salary period when a row has no usable bank date. Multi-month files derive period per debit. */
   salaryYear?: number;
   salaryMonth?: number;
 }
@@ -139,22 +144,68 @@ export async function parseStatementJob(statementId: string) {
       ? await new AxisBankPdfParser().parse(stored)
       : parseCsvXlsxStatement(stored, statement.bankCode);
 
+    const priorFingerprints = new Set(
+      (
+        await prisma.statementTransaction.findMany({
+          where: {
+            statement: { companyId: statement.companyId },
+            statementId: { not: statementId },
+            isDuplicate: false,
+            fingerprint: { not: null },
+          },
+          select: { fingerprint: true },
+        })
+      )
+        .map((row) => row.fingerprint)
+        .filter((fp): fp is string => !!fp),
+    );
+
+    const seenInFile = new Set<string>();
+    let duplicateCount = 0;
+
     await prisma.$transaction(async (tx) => {
       await tx.statementTransaction.deleteMany({ where: { statementId } });
       await tx.statementTransaction.createMany({
-        data: parsed.transactions.map((transaction) => ({
-          statementId,
-          txnDate: transaction.txnDate,
-          valueDate: transaction.valueDate,
-          particulars: transaction.particulars,
-          debit: transaction.debit,
-          credit: transaction.credit,
-          balance: transaction.balance,
-          chequeNumber: transaction.chequeNumber,
-          branch: transaction.branch,
-          rowIndex: transaction.rowIndex,
-          classification: "UNCLASSIFIED",
-        })),
+        data: parsed.transactions.map((transaction) => {
+          const fingerprint = statementTransactionFingerprint({
+            txnDate: transaction.txnDate,
+            particulars: transaction.particulars,
+            debit: toAmount(transaction.debit),
+            credit: toAmount(transaction.credit),
+            chequeNumber: transaction.chequeNumber,
+          });
+          const period = resolveTransactionSalaryPeriod({
+            txnDate: transaction.txnDate,
+            valueDate: transaction.valueDate,
+            statementSalaryYear: statement.salaryYear,
+            statementSalaryMonth: statement.salaryMonth,
+          });
+          const isDuplicate =
+            priorFingerprints.has(fingerprint) || seenInFile.has(fingerprint);
+          if (isDuplicate) duplicateCount += 1;
+          else seenInFile.add(fingerprint);
+          return {
+            statementId,
+            txnDate: transaction.txnDate,
+            valueDate: transaction.valueDate,
+            particulars: transaction.particulars,
+            debit: transaction.debit,
+            credit: transaction.credit,
+            balance: transaction.balance,
+            chequeNumber: transaction.chequeNumber,
+            branch: transaction.branch,
+            rowIndex: transaction.rowIndex,
+            salaryYear: period?.year ?? null,
+            salaryMonth: period?.month ?? null,
+            fingerprint,
+            isDuplicate,
+            classification: isDuplicate ? ("IGNORE" as const) : ("UNCLASSIFIED" as const),
+            reconciliationStatus: isDuplicate ? ("IGNORED" as const) : ("UNMATCHED" as const),
+            ignoreReason: isDuplicate
+              ? "Duplicate debit already present for this company (same date, amount, and narration)"
+              : null,
+          };
+        }),
       });
       await tx.bankStatement.update({
         where: { id: statementId },
@@ -163,7 +214,10 @@ export async function parseStatementJob(statementId: string) {
           accountHint: parsed.accountHint,
           periodStart: parsed.periodStart,
           periodEnd: parsed.periodEnd,
-          parseError: null,
+          parseError:
+            duplicateCount > 0
+              ? `Parsed with ${duplicateCount} duplicate row(s) ignored`
+              : null,
         },
       });
     });
