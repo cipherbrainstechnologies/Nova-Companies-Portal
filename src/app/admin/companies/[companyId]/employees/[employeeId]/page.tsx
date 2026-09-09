@@ -9,6 +9,11 @@ import { PayslipFolderBrowser } from "@/components/payslip-folder-browser";
 import { t } from "@/i18n";
 import { SalarySlipForm } from "@/app/admin/employees/salary-slip-form";
 import { SalaryStructureForm } from "@/app/admin/employees/salary-structure-form";
+import { EmployeeProfileActions } from "@/app/admin/employees/employee-profile-actions";
+import { EmployeeDocumentFolders } from "@/app/admin/employees/employee-document-folders";
+import { listEmployeeDocuments } from "@/server/employees/employee-documents";
+import { requirePageUser } from "@/server/auth/page-guard";
+import { AuthzError, requirePermission } from "@/server/rbac/permissions";
 
 function basicFromStructure(componentsJson: unknown): number | undefined {
   if (!componentsJson || typeof componentsJson !== "object") return undefined;
@@ -26,10 +31,25 @@ export default async function CompanyEmployeeDetailPage({
 }: {
   params: Promise<{ companyId: string; employeeId: string }>;
 }) {
+  const user = await requirePageUser(["SUPER_ADMIN", "OPERATIONS_MANAGER"]);
   const { companyId, employeeId } = await params;
   const employee = await employeeFacade.getById(employeeId, companyId);
   const defaultBasic = basicFromStructure(employee.salaryStructure?.componentsJson);
-  const [versions, aliases, slips, companySettings] = await Promise.all([
+
+  let canEdit = false;
+  try {
+    await requirePermission({
+      user,
+      companyId,
+      module: "employees",
+      action: "edit",
+    });
+    canEdit = true;
+  } catch (error) {
+    if (!(error instanceof AuthzError)) throw error;
+  }
+
+  const [versions, aliases, slips, companySettings, documents] = await Promise.all([
     employeeFacade.listSalaryStructureVersions(employeeId),
     prisma.employeePaymentAlias.findMany({
       where: { employeeId },
@@ -44,6 +64,7 @@ export default async function CompanyEmployeeDetailPage({
       where: { id: companyId },
       select: { defaultMonthlyProfessionalTax: true },
     }),
+    listEmployeeDocuments(employeeId),
   ]);
   const payslipTree = groupPayslipsAsFolders(
     slips.map((s) => ({
@@ -68,6 +89,8 @@ export default async function CompanyEmployeeDetailPage({
       },
     ),
   );
+  const employeeName =
+    employee.displayName?.trim() || `${employee.firstName} ${employee.lastName}`.trim();
 
   return (
     <div>
@@ -85,7 +108,7 @@ export default async function CompanyEmployeeDetailPage({
           <div>
             <BracketLabel>{t("en", "admin.profileSummary")}</BracketLabel>
             <h2 className="mt-2 text-xl font-semibold text-[var(--nova-ink)]">
-              {employee.employeeCode} · {employee.firstName} {employee.lastName}
+              {employee.employeeCode} · {employeeName}
             </h2>
             <p className="mt-1 text-sm text-[var(--nova-muted)]">
               {employee.designation ?? "—"} · {employee.company.name}
@@ -128,7 +151,26 @@ export default async function CompanyEmployeeDetailPage({
             <dd className="mt-1 text-sm">{employee.contact?.officialEmail ?? "—"}</dd>
           </div>
         </dl>
+        <div className="mt-5 border-t border-[var(--nova-border)] pt-4">
+          <EmployeeProfileActions
+            companyId={companyId}
+            employeeId={employeeId}
+            employeeCode={employee.employeeCode}
+            status={employee.status}
+            canEdit={canEdit}
+          />
+        </div>
       </Card>
+
+      <section className="mb-8">
+        <EmployeeDocumentFolders
+          companyId={companyId}
+          employeeId={employeeId}
+          employeeName={employeeName}
+          canEdit={canEdit}
+          initialDocuments={documents}
+        />
+      </section>
 
       <section className="mb-8 space-y-4">
         <SalaryStructureForm
@@ -220,9 +262,10 @@ export default async function CompanyEmployeeDetailPage({
       </section>
 
       <section className="mb-8">
-        <BracketLabel>Salary slips</BracketLabel>
+        <BracketLabel>Issued salary slips</BracketLabel>
         <p className="mb-3 mt-2 text-sm text-[var(--nova-muted)]">
-          Issued payslips filed by assessment year, then month.
+          Payroll-issued payslips filed by assessment year, then month. Manual uploads also go in
+          Documents → Salary Slips.
         </p>
         <PayslipFolderBrowser tree={payslipTree} allowDownload singleEmployee />
       </section>

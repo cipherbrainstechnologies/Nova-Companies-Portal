@@ -513,6 +513,44 @@ export class EmployeeFacade {
       orderBy: { version: "desc" },
     });
   }
+
+  /**
+   * Permanently delete an employee profile.
+   * Refuses when issued payslips exist — deactivate / exit instead to preserve history.
+   */
+  async deleteEmployee(input: { actorUserId: string; employeeId: string; companyId: string }) {
+    const emp = await this.getById(input.employeeId, input.companyId);
+    const issuedCount = await prisma.payslip.count({
+      where: { employeeId: emp.id, status: "ISSUED" },
+    });
+    if (issuedCount > 0) {
+      throw new Error(
+        `Cannot delete ${emp.employeeCode}: ${issuedCount} issued payslip(s) exist. Deactivate or mark as exited to preserve history.`,
+      );
+    }
+
+    const user = await prisma.user.findUnique({ where: { employeeId: emp.id } });
+    if (user) {
+      await revokeAllUserSessions(user.id);
+      await prisma.user.delete({ where: { id: user.id } });
+    }
+
+    await prisma.employee.delete({ where: { id: emp.id } });
+
+    await writeAudit({
+      actorUserId: input.actorUserId,
+      companyId: input.companyId,
+      action: "employee.delete",
+      entityType: "Employee",
+      entityId: emp.id,
+      metadata: {
+        employeeCode: emp.employeeCode,
+        name: `${emp.firstName} ${emp.lastName}`,
+      },
+    });
+
+    return { ok: true as const };
+  }
 }
 
 export const employeeFacade = new EmployeeFacade();

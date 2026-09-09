@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useEffectEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, Input, Label } from "@/components/ui";
 import { AlertBanner, BracketLabel, MoneyValue, StatusBadge } from "@/components/industrial";
@@ -192,7 +192,7 @@ export function SalaryStructureForm({
         }
       : null;
 
-  const runCalculate = useEffectEvent(async () => {
+  const runCalculate = async () => {
     const ctc = toNumber(annualCtc);
     if (ctc == null) {
       setCalculation(null);
@@ -238,13 +238,15 @@ export function SalaryStructureForm({
     } finally {
       if (seq === requestSeq.current) setCalcBusy(false);
     }
-  });
+  };
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
       void runCalculate();
     }, 280);
     return () => window.clearTimeout(handle);
+    // Recalculate when salary / tax inputs change; latest state is read from the closure above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional debounce on these fields
   }, [
     annualCtc,
     monthlyGross,
@@ -259,7 +261,6 @@ export function SalaryStructureForm({
     applyAutomatic,
     defaultMonthlyProfessionalTax,
     companyId,
-    runCalculate,
   ]);
 
   function applyAutomaticCalculation() {

@@ -39,7 +39,9 @@
 - Axis PDF parser accepts official **Account Statement Report** text layout (`S.NO + Tran Date + Value Date + Particulars + Debit/Credit + Balance`), classifies single-amount rows via opening-balance deltas, and ignores `TRANSACTION TOTAL` / closing-balance footers.
 - Profit rules are **direction-aware** (credit vs debit). Sana/Skydotec count as revenue only on credits. NW bank salaries match `NEFT/EB/`. Love transfers are owner outflows by default (April 2025 ₹1L confirmed owner; Hardik cash must be manually classified when confirmed). Municipal AMC is a company expense. Unclassified never alters earned profit.
 - Finance admin: clear snapshots / reprocess statements / recompute ledger (`POST /api/finance/admin`). Statement parse validates opening+credits−debits=closing.
-- Employee CSV import: template → preview → confirm; status `CONTACT_DETAILS_REQUIRED` until real phone/email; no automatic login or payslip email.
+- Employee profile: deactivate (`BLOCKED`), exit (`EXITED`), and permanent delete (blocked when issued payslips exist). Document folders under each employee — Offer Letter and Contract, KYC and Documents, Salary Slips — with direct upload (`EmployeeDocument` + private storage).
+- Salary structure form must not use `useEffectEvent` (not available in React 19.1); debounce recalculation with a plain `useEffect`.
+
 
 ## Templates
 
