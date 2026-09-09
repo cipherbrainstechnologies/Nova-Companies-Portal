@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Card, Label } from "@/components/ui";
+import { Button, Card } from "@/components/ui";
 import { AlertBanner } from "@/components/industrial";
 import { MonthYearPicker } from "@/components/month-year-picker";
 import { t } from "@/i18n";

@@ -735,7 +735,7 @@ export async function searchAllocatablePayments(input: {
         })
       : null;
 
-    let matchExplanation = excludedReason
+    const matchExplanation = excludedReason
       ? `Excluded: ${excludedReason}`
       : identity && identity.score > 0
         ? identity.explanation

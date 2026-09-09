@@ -4,7 +4,6 @@ import { requireSessionUser } from "@/server/auth/session";
 import { apiError, authorizeAny } from "@/server/api-helpers";
 import {
   deleteEmployeeDocument,
-  getEmployeeDocumentDownloadUrl,
   listEmployeeDocuments,
   uploadEmployeeDocument,
 } from "@/server/employees/employee-documents";

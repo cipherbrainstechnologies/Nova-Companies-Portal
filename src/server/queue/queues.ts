@@ -19,7 +19,6 @@ function assertRedisUrl(redisUrl: string | undefined): string {
     );
   }
   try {
-    // eslint-disable-next-line no-new
     new URL(url);
   } catch {
     throw new Error("REDIS_URL is not a valid URL");
