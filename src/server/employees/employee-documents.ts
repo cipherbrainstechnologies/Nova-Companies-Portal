@@ -26,22 +26,28 @@ const ALLOWED_MIME = new Set([
 const MAX_BYTES = 15 * 1024 * 1024;
 
 export async function listEmployeeDocuments(employeeId: string) {
-  const docs = await prisma.employeeDocument.findMany({
-    where: { employeeId },
-    include: { file: true },
-    orderBy: [{ folder: "asc" }, { createdAt: "desc" }],
-  });
-  return docs.map((doc) => ({
-    id: doc.id,
-    folder: doc.folder,
-    folderLabel: folderLabel(doc.folder),
-    title: doc.title || doc.file.originalName,
-    originalName: doc.file.originalName,
-    mimeType: doc.file.mimeType,
-    sizeBytes: doc.file.sizeBytes,
-    createdAt: doc.createdAt.toISOString(),
-    uploadedById: doc.uploadedById,
-  }));
+  try {
+    const docs = await prisma.employeeDocument.findMany({
+      where: { employeeId },
+      include: { file: true },
+      orderBy: [{ folder: "asc" }, { createdAt: "desc" }],
+    });
+    return docs.map((doc) => ({
+      id: doc.id,
+      folder: doc.folder,
+      folderLabel: folderLabel(doc.folder),
+      title: doc.title || doc.file.originalName,
+      originalName: doc.file.originalName,
+      mimeType: doc.file.mimeType,
+      sizeBytes: doc.file.sizeBytes,
+      createdAt: doc.createdAt.toISOString(),
+      uploadedById: doc.uploadedById,
+    }));
+  } catch (error) {
+    // Missing migration (EmployeeDocument table/enum) must not take down the profile page.
+    console.error("listEmployeeDocuments failed", error);
+    return [];
+  }
 }
 
 export async function uploadEmployeeDocument(input: {

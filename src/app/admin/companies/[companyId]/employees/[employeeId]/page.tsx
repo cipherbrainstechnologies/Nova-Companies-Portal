@@ -64,11 +64,26 @@ export default async function CompanyEmployeeDetailPage({
       include: { payrollRun: true, company: true, employee: true },
       orderBy: { issuedAt: "desc" },
     }),
-    prisma.company.findUnique({
-      where: { id: companyId },
-      select: { defaultMonthlyProfessionalTax: true },
+    prisma.company
+      .findUnique({
+        where: { id: companyId },
+        select: { id: true, defaultMonthlyProfessionalTax: true },
+      })
+      .catch(async () => {
+        // Older DBs may lack defaultMonthlyProfessionalTax until migrate deploy.
+        try {
+          return await prisma.company.findUnique({
+            where: { id: companyId },
+            select: { id: true },
+          });
+        } catch {
+          return null;
+        }
+      }),
+    listEmployeeDocuments(employeeId).catch((error) => {
+      console.error("employee documents unavailable", error);
+      return [];
     }),
-    listEmployeeDocuments(employeeId),
   ]);
   const payslipTree = groupPayslipsAsFolders(
     slips.map((s) => ({
@@ -187,7 +202,9 @@ export default async function CompanyEmployeeDetailPage({
           companyId={companyId}
           employeeId={employeeId}
           defaultMonthlyProfessionalTax={
-            companySettings?.defaultMonthlyProfessionalTax != null
+            companySettings &&
+            "defaultMonthlyProfessionalTax" in companySettings &&
+            companySettings.defaultMonthlyProfessionalTax != null
               ? Number(companySettings.defaultMonthlyProfessionalTax)
               : 200
           }
