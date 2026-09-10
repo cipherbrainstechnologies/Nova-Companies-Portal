@@ -73,7 +73,7 @@ export default async function EmployeesPage({
         </div>
       ) : null}
 
-      <EmployeeRosterTable rows={rows} />
+      <EmployeeRosterTable rows={rows} companyId={companyId} canEdit />
 
       {companyId ? (
         <div className="mt-8 lg:hidden">

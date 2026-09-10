@@ -81,6 +81,35 @@ export type CreateEmployeeFromImportInput = {
   effectiveFrom?: Date;
 };
 
+export type UpdateEmployeeInput = {
+  actorUserId: string;
+  companyId: string;
+  employeeId: string;
+  firstName: string;
+  lastName: string;
+  displayName?: string | null;
+  designation?: string | null;
+  department?: string | null;
+  location?: string | null;
+  dateOfJoining?: Date | null;
+  pan?: string | null;
+  pfNumber?: string | null;
+  uan?: string | null;
+  esiNumber?: string | null;
+  contact: {
+    personalEmail?: string | null;
+    officialEmail?: string | null;
+    primaryPhone?: string | null;
+    alternatePhone?: string | null;
+  };
+  bank: {
+    bankName?: string | null;
+    accountNumber?: string | null;
+    ifsc?: string | null;
+    accountHolderName?: string | null;
+  };
+};
+
 export class EmployeeFacade {
   async listByCompany(companyId: string) {
     return prisma.employee.findMany({
@@ -332,6 +361,114 @@ export class EmployeeFacade {
     return this.getById(employee.id);
   }
 
+  async updateEmployee(input: UpdateEmployeeInput) {
+    const existing = await this.getById(input.employeeId, input.companyId);
+
+    const primaryPhone = input.contact.primaryPhone
+      ? normalizeIndianPhone(input.contact.primaryPhone)
+      : null;
+    const alternatePhone = input.contact.alternatePhone
+      ? normalizeIndianPhone(input.contact.alternatePhone)
+      : null;
+
+    const accountNumber = input.bank.accountNumber?.trim() || null;
+    const accountLast4 = accountNumber
+      ? accountNumber.replace(/\D/g, "").slice(-4) || null
+      : null;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.employee.update({
+        where: { id: input.employeeId },
+        data: {
+          firstName: input.firstName,
+          lastName: input.lastName,
+          displayName: input.displayName?.trim() || null,
+          designation: input.designation?.trim() || null,
+          department: input.department?.trim() || null,
+          location: input.location?.trim() || null,
+          dateOfJoining: input.dateOfJoining ?? null,
+          pan: input.pan?.trim() || null,
+          pfNumber: input.pfNumber?.trim() || null,
+          uan: input.uan?.trim() || null,
+          esiNumber: input.esiNumber?.trim() || null,
+        },
+      });
+
+      await tx.employeeContact.upsert({
+        where: { employeeId: input.employeeId },
+        create: {
+          employeeId: input.employeeId,
+          personalEmail: input.contact.personalEmail?.trim() || null,
+          officialEmail: input.contact.officialEmail?.trim() || null,
+          primaryPhone,
+          alternatePhone,
+        },
+        update: {
+          personalEmail: input.contact.personalEmail?.trim() || null,
+          officialEmail: input.contact.officialEmail?.trim() || null,
+          primaryPhone,
+          alternatePhone,
+        },
+      });
+
+      await tx.employeeBankAccount.upsert({
+        where: { employeeId: input.employeeId },
+        create: {
+          employeeId: input.employeeId,
+          bankName: input.bank.bankName?.trim() || null,
+          accountNumber,
+          ifsc: input.bank.ifsc?.trim() || null,
+          accountLast4,
+          accountHolderName: input.bank.accountHolderName?.trim() || null,
+        },
+        update: {
+          bankName: input.bank.bankName?.trim() || null,
+          accountNumber,
+          ifsc: input.bank.ifsc?.trim() || null,
+          accountLast4,
+          accountHolderName: input.bank.accountHolderName?.trim() || null,
+        },
+      });
+
+      // Keep login identity in sync with contact details when a portal user exists.
+      const linkedUser = await tx.user.findUnique({
+        where: { employeeId: input.employeeId },
+        select: { id: true },
+      });
+      if (linkedUser) {
+        const loginEmail =
+          input.contact.officialEmail?.trim() ||
+          input.contact.personalEmail?.trim() ||
+          null;
+        await tx.user.update({
+          where: { id: linkedUser.id },
+          data: {
+            ...(primaryPhone ? { phone: primaryPhone } : {}),
+            email: loginEmail,
+          },
+        });
+      }
+    });
+
+    await writeAudit({
+      actorUserId: input.actorUserId,
+      companyId: input.companyId,
+      action: "employee.update",
+      entityType: "Employee",
+      entityId: input.employeeId,
+      metadata: {
+        employeeCode: existing.employeeCode,
+        fields: [
+          "profile",
+          "contact",
+          "bank",
+        ],
+      },
+    });
+
+    return this.getById(input.employeeId, input.companyId);
+  }
+
   async updateStatus(input: {
     actorUserId: string;
     employeeId: string;
@@ -368,6 +505,52 @@ export class EmployeeFacade {
     });
 
     return emp;
+  }
+
+  /**
+   * Company-scoped bulk status change. Every ID must belong to companyId.
+   * Reuses updateStatus (session revoke + per-row audit).
+   */
+  async bulkUpdateStatus(input: {
+    actorUserId: string;
+    companyId: string;
+    employeeIds: string[];
+    status: Extract<EmployeeStatus, "ACTIVE" | "BLOCKED" | "EXITED">;
+  }) {
+    const uniqueIds = [...new Set(input.employeeIds)];
+    if (!uniqueIds.length) {
+      throw new Error("Select at least one employee");
+    }
+
+    const found = await prisma.employee.findMany({
+      where: { id: { in: uniqueIds }, companyId: input.companyId },
+      select: { id: true },
+    });
+    if (found.length !== uniqueIds.length) {
+      throw new Error("One or more employees are outside this company");
+    }
+
+    const results = [];
+    for (const employeeId of uniqueIds) {
+      results.push(
+        await this.updateStatus({
+          actorUserId: input.actorUserId,
+          employeeId,
+          status: input.status,
+        }),
+      );
+    }
+
+    await writeAudit({
+      actorUserId: input.actorUserId,
+      companyId: input.companyId,
+      action: "employee.bulk_status_change",
+      entityType: "Employee",
+      entityId: input.companyId,
+      metadata: { status: input.status, employeeIds: uniqueIds, count: uniqueIds.length },
+    });
+
+    return { ok: true as const, count: results.length, status: input.status };
   }
 
   async upsertSalaryStructure(input: UpsertSalaryStructureInput) {

@@ -63,6 +63,12 @@ export class CompanyFacade {
     ) {
       throw new Error("Match score threshold must be between 0 and 100");
     }
+    if (input.logoKey != null && input.logoKey !== "") {
+      const expectedPrefix = `companies/${input.companyId}/logo/`;
+      if (!input.logoKey.startsWith(expectedPrefix)) {
+        throw new Error("Invalid company logo storage key");
+      }
+    }
     const company = await prisma.company.update({
       where: { id: input.companyId },
       data: {

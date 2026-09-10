@@ -4,7 +4,7 @@ import { writeAudit } from "@/server/audit";
 import { amountInWordsInr } from "@/server/payroll/amount-in-words";
 import { renderPayslipHtml, renderPayslipHtmlFromTemplate, type PayslipRenderData } from "@/server/payroll/payslip-template";
 import { generatePayslipPdf } from "@/server/payroll/pdf-generator";
-import { storePrivateFile } from "@/server/storage/s3";
+import { storePrivateFile, getObjectBuffer } from "@/server/storage/s3";
 import { payslipGenerateQueue, emailNotifyQueue } from "@/server/queue/queues";
 import { PAYROLL_AUDIT_ACTIONS } from "@/server/payroll/audit-actions";
 import { buildPayslipAvailableEmail } from "@/server/payroll/payslip-email";
@@ -14,6 +14,22 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { templateFacade } from "@/server/facades/template-facade";
 import { employeeFacade } from "@/server/facades/employee-facade";
 import { populatePayrollEmployeeLines } from "@/server/payroll/populate-run";
+
+/** Embed company logo as a data URL so Chromium PDF generation needs no external fetch. */
+async function resolveLogoDataUrl(logoKey: string | null | undefined): Promise<string | null> {
+  if (!logoKey) return null;
+  try {
+    const meta = await prisma.documentFile.findUnique({
+      where: { storageKey: logoKey },
+      select: { mimeType: true },
+    });
+    const buffer = await getObjectBuffer(logoKey);
+    const mime = meta?.mimeType ?? "image/png";
+    return `data:${mime};base64,${buffer.toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
 
 export class PayrollFacade {
   async createPayrollRun(
@@ -684,17 +700,25 @@ export class PayrollFacade {
     const slip = await prisma.payslip.findUniqueOrThrow({
       where: { id: payslipId },
       include: {
-        company: true,
+        company: { select: {
+          name: true,
+          gstin: true,
+          address: true,
+          logoKey: true,
+          prefix: true,
+        } },
         payrollRun: true,
         employee: { include: { bankAccount: true } },
         payrollLine: { include: { earnings: true, deductions: true } },
       },
     });
     const line = slip.payrollLine;
+    const logoUrl = await resolveLogoDataUrl(slip.company.logoKey);
     return {
       companyName: slip.company.name,
       companyGstin: slip.company.gstin,
       companyAddress: slip.company.address,
+      logoUrl,
       month: slip.payrollRun.month,
       year: slip.payrollRun.year,
       employeeCode: slip.employee.employeeCode,
@@ -760,10 +784,12 @@ export class PayrollFacade {
     const grossEarnings = roundInr(moneySum(input.earnings.map((e) => e.payable)));
     const grossDeductions = roundInr(moneySum(input.deductions.map((d) => d.amount)));
     const netAmount = roundInr(money(grossEarnings).minus(grossDeductions).plus(input.cashComponent ?? 0));
+    const logoUrl = await resolveLogoDataUrl(employee.company.logoKey);
     return {
       companyName: employee.company.name,
       companyGstin: employee.company.gstin,
       companyAddress: employee.company.address,
+      logoUrl,
       month: input.month,
       year: input.year,
       employeeCode: employee.employeeCode,

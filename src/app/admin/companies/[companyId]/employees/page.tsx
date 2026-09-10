@@ -44,7 +44,7 @@ export default async function CompanyEmployeesPage({
         />
         <ModalTriggerCreateEmployee companyId={companyId} />
       </div>
-      <EmployeeRosterTable rows={rows} />
+      <EmployeeRosterTable rows={rows} companyId={companyId} canEdit />
       <div className="mt-8 lg:hidden">
         <BracketLabel>{t("en", "admin.addEmployee")}</BracketLabel>
         <div className="mt-3">

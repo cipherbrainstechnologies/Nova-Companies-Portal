@@ -14,6 +14,7 @@ type CompanyFields = {
   address: string | null;
   email: string | null;
   phone: string | null;
+  logoKey?: string | null;
 };
 
 export function EditCompanyButton({ company }: { company: CompanyFields }) {
@@ -24,6 +25,10 @@ export function EditCompanyButton({ company }: { company: CompanyFields }) {
   const [address, setAddress] = useState(company.address ?? "");
   const [email, setEmail] = useState(company.email ?? "");
   const [phone, setPhone] = useState(company.phone ?? "");
+  const [logoPreview, setLogoPreview] = useState<string | null>(
+    company.logoKey ? `/api/companies/${company.id}/logo` : null,
+  );
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -33,14 +38,26 @@ export function EditCompanyButton({ company }: { company: CompanyFields }) {
     setAddress(company.address ?? "");
     setEmail(company.email ?? "");
     setPhone(company.phone ?? "");
+    setLogoPreview(company.logoKey ? `/api/companies/${company.id}/logo?t=${Date.now()}` : null);
+    setLogoFile(null);
     setError("");
     setOpen(true);
+  }
+
+  function onLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    setLogoFile(file);
+    if (file) {
+      const objectUrl = URL.createObjectURL(file);
+      setLogoPreview(objectUrl);
+    }
   }
 
   async function onSave(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError("");
+
     const res = await fetch(`/api/companies/${company.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -53,11 +70,28 @@ export function EditCompanyButton({ company }: { company: CompanyFields }) {
       }),
     });
     const data = await res.json();
-    setBusy(false);
     if (!res.ok) {
+      setBusy(false);
       setError(data.error ?? t("en", "common.failed"));
       return;
     }
+
+    if (logoFile) {
+      const form = new FormData();
+      form.append("file", logoFile);
+      const logoRes = await fetch(`/api/companies/${company.id}/logo`, {
+        method: "POST",
+        body: form,
+      });
+      const logoData = await logoRes.json();
+      if (!logoRes.ok) {
+        setBusy(false);
+        setError(logoData.error ?? t("en", "company.logo.uploadFailed"));
+        return;
+      }
+    }
+
+    setBusy(false);
     setOpen(false);
     router.refresh();
   }
@@ -65,21 +99,43 @@ export function EditCompanyButton({ company }: { company: CompanyFields }) {
   return (
     <>
       <Button type="button" variant="outline" size="sm" onClick={openModal}>
-        Edit details
+        {t("en", "company.editDetails")}
       </Button>
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title="Edit legal entity"
-        description="Update company identity and contact details used across payroll and documents."
+        title={t("en", "company.editTitle")}
+        description={t("en", "company.editDescription")}
       >
         <form onSubmit={onSave} className="space-y-3">
           <div>
-            <Label htmlFor="company-name">Company name</Label>
+            <Label htmlFor="company-logo">{t("en", "company.logo.label")}</Label>
+            <div className="mt-2 flex flex-wrap items-center gap-4">
+              <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-[var(--nova-radius)] border border-[var(--nova-border)] bg-[var(--nova-surface-muted)]">
+                {logoPreview ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={logoPreview} alt="" className="max-h-full max-w-full object-contain" />
+                ) : (
+                  <span className="text-xs text-[var(--nova-muted)]">{t("en", "company.logo.none")}</span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <Input
+                  id="company-logo"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  onChange={onLogoChange}
+                />
+                <p className="mt-1 text-xs text-[var(--nova-muted)]">{t("en", "company.logo.hint")}</p>
+              </div>
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="company-name">{t("en", "admin.name")}</Label>
             <Input id="company-name" value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
           <div>
-            <Label htmlFor="company-email">Company email</Label>
+            <Label htmlFor="company-email">{t("en", "company.email")}</Label>
             <Input
               id="company-email"
               type="email"
@@ -89,7 +145,7 @@ export function EditCompanyButton({ company }: { company: CompanyFields }) {
             />
           </div>
           <div>
-            <Label htmlFor="company-phone">Company phone</Label>
+            <Label htmlFor="company-phone">{t("en", "company.phone")}</Label>
             <Input
               id="company-phone"
               value={phone}
@@ -108,10 +164,10 @@ export function EditCompanyButton({ company }: { company: CompanyFields }) {
           {error ? <AlertBanner tone="danger">{error}</AlertBanner> : null}
           <div className="flex flex-wrap justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={busy}>
-              Cancel
+              {t("en", "common.cancel")}
             </Button>
             <Button type="submit" disabled={busy}>
-              {busy ? "Saving…" : "Save changes"}
+              {busy ? t("en", "common.loading") : t("en", "common.save")}
             </Button>
           </div>
         </form>

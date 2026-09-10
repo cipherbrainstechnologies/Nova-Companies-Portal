@@ -40,6 +40,8 @@
 - Profit rules are **direction-aware** (credit vs debit). Sana/Skydotec count as revenue only on credits. NW bank salaries match `NEFT/EB/`. Love transfers are owner outflows by default (April 2025 ₹1L confirmed owner; Hardik cash must be manually classified when confirmed). Municipal AMC is a company expense. Unclassified never alters earned profit.
 - Finance admin: clear snapshots / reprocess statements / recompute ledger (`POST /api/finance/admin`). Statement parse validates opening+credits−debits=closing.
 - Employee profile: deactivate (`BLOCKED`), exit (`EXITED`), and permanent delete (blocked when issued payslips exist). Document folders under each employee — Offer Letter and Contract, KYC and Documents, Salary Slips — with direct upload (`EmployeeDocument` + private storage).
+- Employee profile edit (`employeeFacade.updateEmployee` + `PATCH /api/employees/[employeeId]`) covers name, contact, statutory IDs, and bank fields; phones normalize via `normalizeIndianPhone`; bank `accountLast4` is derived from account number. Audited as `employee.update`.
+- Employee roster bulk actions (`employeeFacade.bulkUpdateStatus` + `POST /api/employees/bulk`) support ACTIVE/BLOCKED/EXITED with company-scoped IDs, session revoke on deactivate/exit, per-row + bulk audit, plus client CSV export of selected rows.
 - Salary structure form must not use `useEffectEvent` (not available in React 19.1); debounce recalculation with a plain `useEffect`.
 
 
@@ -72,6 +74,8 @@
 
 - App Router admin pages use a shared server-rendered navigation shell and restrict records to companies granted for the relevant module.
 - Admin API routes authenticate sessions, validate input with Zod, require module/action permissions, and resolve resource company ownership before mutation or disclosure.
+- Company logo: `POST/GET /api/companies/[companyId]/logo` (companies/edit to upload via `storePrivateFile` + `companyFacade.updateCompany.logoKey`; companies/view redirects to a signed URL). Payslip render embeds the logo as a data URL via `getObjectBuffer` in `payrollFacade.buildRenderData` / `buildPreviewRenderData`.
+- Company payslips page: “Generate salary slips” panel creates/refreshes a payroll run (payroll/create) and bulk-downloads issued month PDFs via `GET /api/companies/[companyId]/payslips/download-zip` (payslips/download) returning signed URL items (no zip library in deps).
 - Employee payslip downloads validate payslip ownership, issue short-lived private-storage URLs, and append `DocumentDownloadAudit` records.
 - Public document verification exposes validity and provenance only; salary and bank details are never returned.
 - Password reset, forced password change, admin operations, employee self-service, statement reconciliation, payroll, TDS, and profit reporting are exposed through dedicated App Router pages.

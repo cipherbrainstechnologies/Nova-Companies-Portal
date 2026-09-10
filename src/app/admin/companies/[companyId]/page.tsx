@@ -40,8 +40,17 @@ export default async function CompanyOverviewPage({
     <div className="space-y-6">
       <Card>
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          <div className="flex h-14 w-14 items-center justify-center rounded-[var(--nova-radius)] bg-[var(--nova-teal-soft)] text-lg font-bold text-[var(--nova-teal)]">
-            {company.prefix}
+          <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-[var(--nova-radius)] bg-[var(--nova-teal-soft)] text-lg font-bold text-[var(--nova-teal)]">
+            {company.logoKey ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={`/api/companies/${company.id}/logo`}
+                alt=""
+                className="h-full w-full object-contain p-1"
+              />
+            ) : (
+              company.prefix
+            )}
           </div>
           <div className="min-w-0 flex-1">
             <BracketLabel>{t("en", "company.hub.legalEntity")}</BracketLabel>
@@ -60,6 +69,7 @@ export default async function CompanyOverviewPage({
                 address: company.address,
                 email: company.email,
                 phone: company.phone,
+                logoKey: company.logoKey,
               }}
             />
           </div>

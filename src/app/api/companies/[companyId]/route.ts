@@ -12,7 +12,6 @@ const patchSchema = z.object({
   email: z.string().trim().email().max(200).nullable().optional().or(z.literal("")),
   phone: z.string().trim().max(20).nullable().optional().or(z.literal("")),
   isActive: z.boolean().optional(),
-  logoKey: z.string().max(500).nullable().optional(),
   autoIssueExactMatches: z.boolean().optional(),
   emailDeliveryPreference: z.enum(["OFFICIAL_PREFERRED", "PERSONAL_PREFERRED", "BOTH"]).optional(),
   matchScoreThreshold: z.number().int().min(0).max(100).optional(),
@@ -34,6 +33,7 @@ export async function PATCH(request: Request, { params }: Context) {
     const raw = patchSchema.parse(await request.json());
     const { companyId: bodyScope, ...body } = raw;
     if (bodyScope && bodyScope !== companyId) return NextResponse.json({ error: "Company scope mismatch" }, { status: 403 });
+    // logoKey is intentionally omitted — upload only via POST /api/companies/[id]/logo
     return NextResponse.json(
       await companyFacade.updateCompany({
         actorUserId: user.id,

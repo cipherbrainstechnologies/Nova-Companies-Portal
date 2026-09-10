@@ -31,12 +31,16 @@ export async function storePrivateFile(input: {
   mimeType: string;
   originalName: string;
   prefix: string;
+  /** When false, always write a new object under prefix (needed for company-scoped logo keys). */
+  dedupeByChecksum?: boolean;
 }) {
   const checksum = sha256Buffer(input.buffer);
-  const existing = await prisma.documentFile.findFirst({
-    where: { checksumSha256: checksum, bucket: bucket() },
-  });
-  if (existing) return existing;
+  if (input.dedupeByChecksum !== false) {
+    const existing = await prisma.documentFile.findFirst({
+      where: { checksumSha256: checksum, bucket: bucket() },
+    });
+    if (existing) return existing;
+  }
 
   const key = `${input.prefix}/${nanoid()}-${input.originalName.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
   await s3().send(

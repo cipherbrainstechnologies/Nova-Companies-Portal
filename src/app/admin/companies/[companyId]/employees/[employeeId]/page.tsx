@@ -10,6 +10,10 @@ import { t } from "@/i18n";
 import { SalarySlipForm } from "@/app/admin/employees/salary-slip-form";
 import { SalaryStructureForm } from "@/app/admin/employees/salary-structure-form";
 import { EmployeeProfileActions } from "@/app/admin/employees/employee-profile-actions";
+import {
+  EditEmployeeForm,
+  editEmployeeInitialFrom,
+} from "@/app/admin/employees/edit-employee-form";
 import { EmployeeDocumentFolders } from "@/app/admin/employees/employee-document-folders";
 import { listEmployeeDocuments } from "@/server/employees/employee-documents";
 import { requirePageUser } from "@/server/auth/page-guard";
@@ -151,7 +155,13 @@ export default async function CompanyEmployeeDetailPage({
             <dd className="mt-1 text-sm">{employee.contact?.officialEmail ?? "—"}</dd>
           </div>
         </dl>
-        <div className="mt-5 border-t border-[var(--nova-border)] pt-4">
+        <div className="mt-5 space-y-3 border-t border-[var(--nova-border)] pt-4">
+          <EditEmployeeForm
+            companyId={companyId}
+            employeeId={employeeId}
+            canEdit={canEdit}
+            initial={editEmployeeInitialFrom(employee)}
+          />
           <EmployeeProfileActions
             companyId={companyId}
             employeeId={employeeId}
