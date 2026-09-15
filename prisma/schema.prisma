@@ -127,6 +127,12 @@ enum PayrollRunStatus {
   SUPERSEDED
 }
 
+enum AttendanceBasis {
+  CALENDAR_DAY
+  FIXED_30
+  WORKING_DAY
+}
+
 enum PayslipStatus {
   DRAFT
   APPROVED
@@ -268,6 +274,11 @@ model Company {
   autoIssueExactMatches Boolean @default(false)
   /** Company default professional tax (₹/month). Employee salary structures may override. */
   defaultMonthlyProfessionalTax Decimal @default(200) @db.Decimal(18, 2)
+  /** Attendance / proration denominator policy for salary slips. */
+  attendanceBasis AttendanceBasis @default(CALENDAR_DAY)
+  /** Payment match window around expected pay date (1st of month after salary month). */
+  paymentSearchDaysBefore Int @default(10)
+  paymentSearchDaysAfter Int @default(14)
   emailDeliveryPreference EmailDeliveryPreference @default(OFFICIAL_PREFERRED)
   matchScoreThreshold Int @default(50)
   createdAt   DateTime @default(now())
@@ -325,6 +336,8 @@ model Employee {
   department      String?
   location        String?
   dateOfJoining   DateTime?
+  /** Last employed date when known; used for mid-month exit proration. */
+  dateOfExit      DateTime?
   status          EmployeeStatus @default(ACTIVE)
   pan             String?
   pfNumber        String?
@@ -687,6 +700,10 @@ model PayrollEmployeeLine {
   privilegedLeave   Decimal? @db.Decimal(8, 2)
   sickLeave         Decimal? @db.Decimal(8, 2)
   leaveWithoutPay   Decimal? @db.Decimal(8, 2)
+  /** Reviewer confirmed assumed/computed attendance for this line. */
+  attendanceConfirmed Boolean @default(false)
+  attendanceAssumption String?
+  expectedPaymentDate DateTime?
   cashComponent     Decimal? @db.Decimal(18, 2)
   grossEarnings     Decimal  @default(0) @db.Decimal(18, 2)
   grossDeductions   Decimal  @default(0) @db.Decimal(18, 2)

@@ -1,6 +1,7 @@
 import type { ReconciliationStatus } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { isUnresolvedPaymentStatus } from "@/server/payroll/payment-decision";
+import { payrollPeriodBounds, paymentSearchWindow } from "@/server/payroll/period-eligibility";
 
 export type ReconciliationFilter =
   | "unresolved"
@@ -282,13 +283,16 @@ export async function listAllocatableTransactions(input: {
   companyId: string;
   year: number;
   month: number;
+  daysBefore?: number;
+  daysAfter?: number;
 }) {
-  const periodStart = new Date(Date.UTC(input.year, input.month - 1, 1));
-  const periodEnd = new Date(Date.UTC(input.year, input.month, 0, 23, 59, 59, 999));
-  const searchStart = new Date(periodStart);
-  searchStart.setUTCDate(searchStart.getUTCDate() - 10);
-  const searchEnd = new Date(periodEnd);
-  searchEnd.setUTCDate(searchEnd.getUTCDate() + 45);
+  const period = payrollPeriodBounds(input.year, input.month);
+  const window = paymentSearchWindow(period, {
+    daysBefore: input.daysBefore,
+    daysAfter: input.daysAfter,
+  });
+  const searchStart = window.searchStart;
+  const searchEnd = window.searchEnd;
 
   const linked = await prisma.payrollEmployeeLine.findMany({
     where: { primaryTxnId: { not: null }, payrollRun: { companyId: input.companyId } },

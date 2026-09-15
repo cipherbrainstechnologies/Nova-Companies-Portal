@@ -13,10 +13,11 @@ import {
 import {
   isSalaryStructureComplete,
   resolveExpectedMonthlyNet,
-  structureToEarningsDeductions,
   toSalarySnapshot,
   type SalaryStructureRecord,
 } from "@/server/payroll/salary-structure";
+import { calculateSalarySlip, type AttendanceBasis } from "@/server/payroll/slip-calculation";
+import { expectedSalaryPaymentDate } from "@/server/payroll/period-eligibility";
 
 const EDITABLE_RUN_STATUSES = new Set([
   "DRAFT",
@@ -84,7 +85,18 @@ export async function populatePayrollEmployeeLines(input: {
 }): Promise<PopulatePayrollResult> {
   const run = await prisma.payrollRun.findUniqueOrThrow({
     where: { id: input.payrollRunId },
-    include: { company: { select: { id: true, matchScoreThreshold: true, autoIssueExactMatches: true } } },
+    include: {
+      company: {
+        select: {
+          id: true,
+          matchScoreThreshold: true,
+          autoIssueExactMatches: true,
+          attendanceBasis: true,
+          paymentSearchDaysBefore: true,
+          paymentSearchDaysAfter: true,
+        },
+      },
+    },
   });
 
   const period = payrollPeriodBounds(run.year, run.month);
@@ -201,25 +213,71 @@ export async function populatePayrollEmployeeLines(input: {
     let paymentStatus: ReconciliationStatus = "UNMATCHED";
     let snapshot: ReturnType<typeof toSalarySnapshot> | null = null;
     let approvalReason: string | null = null;
+    let workingDays: number | null = null;
+    let weeklyOffs: number | null = null;
+    let paidHolidays: number | null = null;
+    let presentDays: number | null = null;
+    let casualLeave: number | null = null;
+    let privilegedLeave: number | null = null;
+    let sickLeave: number | null = null;
+    let leaveWithoutPay: number | null = null;
+    let attendanceAssumption: string | null = null;
+    let expectedPaymentDate: Date | null = expectedSalaryPaymentDate(run.year, run.month);
 
     if (effective.status === "found") {
       const structure = asStructureRecord(effective.structure);
-      const derived = structureToEarningsDeductions(structure);
-      earnings = derived.earnings;
-      deductions = derived.deductions;
-      grossEarnings = derived.grossEarnings;
-      grossDeductions = derived.grossDeductions;
-      // Prefer expected monthly net from structure for payroll preparation.
+      const slip = calculateSalarySlip({
+        year: run.year,
+        month: run.month,
+        dateOfJoining: employee.dateOfJoining,
+        dateOfExit: employee.dateOfExit,
+        attendanceBasis: run.company.attendanceBasis as AttendanceBasis,
+        assumeFullAttendance: true,
+        structure,
+      });
+      earnings = slip.earnings.map((e) => ({
+        code: e.code,
+        label: e.label,
+        actual: e.actual,
+        payable: e.payable,
+      }));
+      deductions = slip.deductions.map((d) => ({
+        code: d.code,
+        label: d.label,
+        amount: d.amount,
+      }));
+      grossEarnings = slip.payableGross;
+      grossDeductions = slip.grossDeductions;
       expectedAmount = resolveExpectedMonthlyNet(structure);
-      netAmount = expectedAmount ?? derived.netAmount;
-      snapshot = toSalarySnapshot(structure);
+      netAmount = expectedAmount ?? slip.netAmount;
+      workingDays = slip.attendance.workingDays;
+      weeklyOffs = slip.attendance.weeklyOffs;
+      paidHolidays = slip.attendance.paidHolidays;
+      presentDays = slip.attendance.presentDays;
+      casualLeave = slip.attendance.casualLeave;
+      privilegedLeave = slip.attendance.privilegedLeave;
+      sickLeave = slip.attendance.sickLeave;
+      leaveWithoutPay = slip.attendance.leaveWithoutPay;
+      attendanceAssumption = slip.attendance.assumedFullAttendance
+        ? "ASSUMED_FULL_ATTENDANCE"
+        : null;
+      expectedPaymentDate = new Date(`${slip.expectedPaymentDate}T00:00:00.000Z`);
+      snapshot = {
+        ...toSalarySnapshot(structure),
+        earnings,
+        deductions,
+        grossEarnings,
+        grossDeductions,
+        netAmount,
+        notes: [...(slip.warnings ?? []), structure.notes].filter(Boolean).join(" | ") || null,
+      };
       if (!isSalaryStructureComplete(structure)) {
         paymentStatus = "SALARY_STRUCTURE_INCOMPLETE";
         salaryReviewRequired += 1;
         approvalReason = "Historical salary review required";
         snapshot = {
           ...snapshot,
-          notes: "Historical salary review required â€” structure incomplete for this month",
+          notes: "Historical salary review required — structure incomplete for this month",
         };
       }
     } else {
@@ -268,6 +326,17 @@ export async function populatePayrollEmployeeLines(input: {
             varianceAmount: null,
             approvalReason,
             calculationSnapshotJson: snapshot,
+            workingDays,
+            weeklyOffs,
+            paidHolidays,
+            presentDays,
+            casualLeave,
+            privilegedLeave,
+            sickLeave,
+            leaveWithoutPay,
+            attendanceConfirmed: false,
+            attendanceAssumption,
+            expectedPaymentDate,
             grossEarnings,
             grossDeductions,
             netAmount,
@@ -328,6 +397,18 @@ export async function populatePayrollEmployeeLines(input: {
             expectedAmount,
             approvalReason: existing.approvalReason ?? approvalReason,
             calculationSnapshotJson: snapshot,
+            workingDays,
+            weeklyOffs,
+            paidHolidays,
+            presentDays,
+            casualLeave,
+            privilegedLeave,
+            sickLeave,
+            leaveWithoutPay,
+            attendanceAssumption,
+            expectedPaymentDate,
+            attendanceConfirmed: false,
+            approvedAt: null,
             grossEarnings,
             grossDeductions,
             netAmount,
@@ -347,8 +428,8 @@ export async function populatePayrollEmployeeLines(input: {
     matchSummary = await runPayrollPaymentMatch({
       actorUserId: input.actorUserId,
       payrollRunId: run.id,
-      daysBefore: input.daysBefore,
-      daysAfter: input.daysAfter,
+      daysBefore: input.daysBefore ?? run.company.paymentSearchDaysBefore,
+      daysAfter: input.daysAfter ?? run.company.paymentSearchDaysAfter,
       preserveManual: true,
     });
     paymentsMatched = matchSummary.autoLinked;

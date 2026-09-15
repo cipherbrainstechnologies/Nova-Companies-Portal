@@ -36,6 +36,9 @@ const schema = z.object({
     .optional(),
   cashComponent: z.number().optional(),
   primaryTxnId: z.string().optional(),
+  attendanceConfirmed: z.boolean().optional(),
+  attendanceAssumption: z.string().nullable().optional(),
+  expectedPaymentDate: z.string().nullable().optional(),
   approve: z.boolean().optional(),
 });
 

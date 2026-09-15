@@ -129,6 +129,9 @@ export class PayrollFacade {
     }>;
     cashComponent?: number;
     primaryTxnId?: string;
+    attendanceConfirmed?: boolean;
+    attendanceAssumption?: string | null;
+    expectedPaymentDate?: Date | string | null;
   }) {
     const run = await prisma.payrollRun.findUniqueOrThrow({ where: { id: input.payrollRunId } });
     if (run.status === "ISSUED") throw new Error("Cannot edit issued payroll");
@@ -138,6 +141,9 @@ export class PayrollFacade {
     const grossEarnings = roundInr(moneySum(input.earnings.map((e) => e.payable)));
     const grossDeductions = roundInr(moneySum(input.deductions.map((d) => d.amount)));
     const netAmount = roundInr(money(grossEarnings).minus(grossDeductions).plus(input.cashComponent ?? 0));
+    const expectedPaymentDate = input.expectedPaymentDate
+      ? new Date(input.expectedPaymentDate)
+      : undefined;
 
     const line = await prisma.$transaction(async (tx) => {
       const upserted = await tx.payrollEmployeeLine.upsert({
@@ -160,6 +166,9 @@ export class PayrollFacade {
           privilegedLeave: input.working?.privilegedLeave,
           sickLeave: input.working?.sickLeave,
           leaveWithoutPay: input.working?.leaveWithoutPay,
+          attendanceConfirmed: input.attendanceConfirmed ?? false,
+          attendanceAssumption: input.attendanceAssumption,
+          expectedPaymentDate,
           cashComponent: input.cashComponent,
           grossEarnings,
           grossDeductions,
@@ -177,6 +186,9 @@ export class PayrollFacade {
           privilegedLeave: input.working?.privilegedLeave,
           sickLeave: input.working?.sickLeave,
           leaveWithoutPay: input.working?.leaveWithoutPay,
+          attendanceConfirmed: input.attendanceConfirmed ?? false,
+          attendanceAssumption: input.attendanceAssumption,
+          expectedPaymentDate,
           cashComponent: input.cashComponent,
           grossEarnings,
           grossDeductions,
@@ -232,6 +244,11 @@ export class PayrollFacade {
     if (existing.paymentStatus === "SALARY_STRUCTURE_INCOMPLETE") {
       throw new Error(
         "Historical salary review required — confirm the salary structure for this month before approval",
+      );
+    }
+    if (!existing.attendanceConfirmed && existing.attendanceAssumption) {
+      throw new Error(
+        "Attendance is assumed — confirm attendance before approving this line",
       );
     }
     const line = await prisma.payrollEmployeeLine.update({
@@ -313,8 +330,15 @@ export class PayrollFacade {
       include: { company: true },
     });
 
-    if (run.status !== "APPROVED") {
-      throw new Error("Payroll must be approved before issuing");
+    const issueableRunStatuses = new Set([
+      "DRAFT",
+      "READY_FOR_REVIEW",
+      "RECONCILIATION_REQUIRED",
+      "APPROVED",
+      "ISSUING",
+    ]);
+    if (!issueableRunStatuses.has(run.status)) {
+      throw new Error(`Payroll run status ${run.status} cannot issue payslips`);
     }
     if (input.confirmation.count !== input.lineIds.length) {
       throw new Error("Confirmation count mismatch");
@@ -332,6 +356,7 @@ export class PayrollFacade {
         employee: { include: { contact: true, bankAccount: true } },
         earnings: true,
         deductions: true,
+        payslip: { select: { id: true, status: true } },
       },
     });
     if (lines.length !== input.lineIds.length) {
@@ -349,13 +374,19 @@ export class PayrollFacade {
       );
     }
 
+    for (const line of lines) {
+      if (!line.attendanceConfirmed && line.attendanceAssumption) {
+        throw new Error(
+          `Line ${line.id} attendance is assumed — confirm attendance before issuing`,
+        );
+      }
+    }
+
     const template = await templateFacade.getActiveTemplate(run.companyId);
     if (!template) throw new Error("No active company template");
 
-    const approvedRemaining = await prisma.payrollEmployeeLine.count({
-      where: { payrollRunId: run.id, status: "APPROVED" },
-    });
-    if (approvedRemaining === lines.length) {
+    // Move run to ISSUING when any selected lines issue; remaining draft lines keep the run partial.
+    if (run.status !== "ISSUING" && run.status !== "ISSUED") {
       await prisma.payrollRun.update({
         where: { id: run.id },
         data: { status: "ISSUING" },
@@ -364,6 +395,15 @@ export class PayrollFacade {
 
     const issued = [];
     for (const line of lines) {
+      if (line.payslip && ["ISSUING", "ISSUED"].includes(line.payslip.status)) {
+        const existing = await prisma.payslip.findUniqueOrThrow({ where: { id: line.payslip.id } });
+        issued.push(existing);
+        continue;
+      }
+      if (line.payslip) {
+        throw new Error(`Payslip already exists for line ${line.id} in status ${line.payslip.status}`);
+      }
+
       const verificationCode = nanoid(12).toUpperCase();
       const payslip = await prisma.payslip.create({
         data: {
@@ -406,7 +446,7 @@ export class PayrollFacade {
       action: "payroll.issue",
       entityType: "PayrollRun",
       entityId: run.id,
-      metadata: { count: issued.length },
+      metadata: { count: issued.length, partial: true },
     });
 
     return issued;

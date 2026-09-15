@@ -152,29 +152,48 @@ export function selectEffectiveSalaryStructure(input: {
   return { status: "found", structure: candidates[0].structure, source: candidates[0].source };
 }
 
-/** Configurable bank-payment search window around the salary month. */
+/** Configurable bank-payment search window around the expected salary payment date. */
 export type PaymentSearchWindow = {
   daysBefore: number;
   daysAfter: number;
   searchStart: Date;
   searchEnd: Date;
+  /** First day of the month after the salary month (Aug → 1 Sep). */
+  expectedPaymentDate: Date;
 };
 
 export const DEFAULT_PAYMENT_SEARCH_DAYS_BEFORE = 10;
-/** Enough to cover next-month salary credits without sweeping the following month. */
-export const DEFAULT_PAYMENT_SEARCH_DAYS_AFTER = 28;
+/** Covers weekends/holidays/short delays after the expected pay date without sweeping the following cycle. */
+export const DEFAULT_PAYMENT_SEARCH_DAYS_AFTER = 14;
 
+/**
+ * Expected salary payment date = first calendar day of the month after the salary month.
+ * Salary for August is paid on 1 September; December on 1 January next year.
+ */
+export function expectedSalaryPaymentDate(year: number, month: number): Date {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+    throw new Error("Invalid payroll period");
+  }
+  return new Date(Date.UTC(year, month, 1));
+}
+
+/**
+ * Search window anchored on expected payment date (not the salary-month calendar bounds).
+ * Aug 2026 with defaults → ~22 Aug … 15 Sep around 1 Sep.
+ */
 export function paymentSearchWindow(
   period: PayrollPeriodBounds,
   options?: { daysBefore?: number; daysAfter?: number },
 ): PaymentSearchWindow {
   const daysBefore = options?.daysBefore ?? DEFAULT_PAYMENT_SEARCH_DAYS_BEFORE;
   const daysAfter = options?.daysAfter ?? DEFAULT_PAYMENT_SEARCH_DAYS_AFTER;
-  const searchStart = new Date(period.periodStart);
+  const expectedPaymentDate = expectedSalaryPaymentDate(period.year, period.month);
+  const searchStart = new Date(expectedPaymentDate);
   searchStart.setUTCDate(searchStart.getUTCDate() - daysBefore);
-  const searchEnd = new Date(period.periodEnd);
+  const searchEnd = new Date(expectedPaymentDate);
   searchEnd.setUTCDate(searchEnd.getUTCDate() + daysAfter);
-  return { daysBefore, daysAfter, searchStart, searchEnd };
+  searchEnd.setUTCHours(23, 59, 59, 999);
+  return { daysBefore, daysAfter, searchStart, searchEnd, expectedPaymentDate };
 }
 
 export type PopulateDiagnostics = {

@@ -127,11 +127,11 @@ describe("effective salary structure for a payroll month", () => {
 });
 
 describe("payment search window", () => {
-  it("extends past month-end so February payments can settle January salary", () => {
-    const window = paymentSearchWindow(jan2026, { daysBefore: 10, daysAfter: 28 });
-    expect(window.searchStart.toISOString().startsWith("2025-12")).toBe(true);
-    // 31 Jan + 28 days = 28 Feb — still February, not March.
-    expect(window.searchEnd.getUTCMonth()).toBe(1);
+  it("anchors on expected pay date so January salary searches early February", () => {
+    const window = paymentSearchWindow(jan2026, { daysBefore: 10, daysAfter: 14 });
+    expect(window.expectedPaymentDate.toISOString().startsWith("2026-02-01")).toBe(true);
+    expect(window.searchStart.toISOString().startsWith("2026-01-22")).toBe(true);
+    expect(window.searchEnd.getUTCMonth()).toBe(1); // February
   });
 });
 
