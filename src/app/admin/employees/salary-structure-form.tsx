@@ -93,7 +93,7 @@ function toNumber(value: string): number | null {
 function componentRows(components: Record<string, number> | null | undefined): ComponentRow[] {
   const entries = Object.entries(components ?? {});
   if (!entries.length) {
-    return [{ code: "BASIC", label: "Consolidated/Basic", amount: "" }];
+    return [{ code: "BASIC", label: "Consol.Basic", amount: "" }];
   }
   return entries.map(([code, amount]) => ({ code, label: code, amount: String(amount) }));
 }

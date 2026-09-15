@@ -17,7 +17,8 @@
 - Draft runs expose **Populate / Refresh Employee Lines** (`POST /api/payroll/runs/[runId]/populate`). Refresh is idempotent on `(payrollRunId, employeeId)`, preserves reviewed/issued lines, and never auto-issues or emails.
 - Empty runs show diagnostic reasons (no employees, none eligible, salary review, locked run) plus counts: found / eligible / lines / salary review / matched / unmatched.
 - Live HTML preview (`POST /api/payroll/preview`) builds `PayslipRenderData` from employee + form input without inventing a payslip row.
-- PDF generation uses `renderPayslipHtmlFromTemplate` when the payslip version’s `CompanyTemplate` has `htmlBody`; otherwise the default Form IV-B layout.
+- PDF generation uses the canonical Form IV-B HTML layout (`renderPayslipHtml`) for every company and employee, matching the Parth Virani reference slip (GSTIN/address header, “Salary for the month of :- Month-YYYY”, Emp grid, WORKING / EARNING / DEDUCTION tri-column table with standard zero-filled rows, amount in words + Net Amount Rs., disclaimer). Custom `CompanyTemplate` bodies remain for admin template preview only; issue/preview paths do not substitute them.
+- Canonical component labels in `salary-structure.ts` follow Form IV-B short names (`Consol.Basic`, `CONV`, `MEDI. ALL`, `SP. ALL`, `TRAVEL. ALL`, `OTHER ALL`, `P.F`, `P.T.`, `I.T.`, …).
 
 ## Payroll automation and reconciliation
 

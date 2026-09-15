@@ -80,6 +80,16 @@ async function main() {
           isActive: true,
         },
       });
+    } else if (existing.name.startsWith("Form IV B")) {
+      // Keep seeded Form IV-B defaults aligned with the Parth Virani reference layout.
+      await prisma.companyTemplate.update({
+        where: { id: existing.id },
+        data: {
+          htmlBody: createDefaultTemplateBody(),
+          cssBody: DEFAULT_TEMPLATE_CSS,
+          isActive: true,
+        },
+      });
     }
     await seedDefaultProfitPolicies(company.id, company.prefix);
   }

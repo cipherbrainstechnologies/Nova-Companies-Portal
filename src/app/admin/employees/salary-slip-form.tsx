@@ -41,13 +41,13 @@ export function SalarySlipForm({ companyId, employeeId, defaultBasic }: Props) {
   const [earnings, setEarnings] = useState<EarningRow[]>([
     {
       code: "BASIC",
-      label: "Consolidated/Basic",
+      label: "Consol.Basic",
       actual: defaultBasic != null ? String(defaultBasic) : "0",
       payable: defaultBasic != null ? String(defaultBasic) : "0",
     },
   ]);
   const [deductions, setDeductions] = useState<DeductionRow[]>([
-    { code: "PT", label: "Professional tax", amount: "0" },
+    { code: "PT", label: "P.T.", amount: "0" },
   ]);
   const [cashComponent, setCashComponent] = useState("0");
   const [previewHtml, setPreviewHtml] = useState("");

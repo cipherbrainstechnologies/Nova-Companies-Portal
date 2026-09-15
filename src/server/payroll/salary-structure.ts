@@ -148,29 +148,35 @@ export type SalaryComponentDefinition = {
   aliases: string[];
 };
 
-/** Canonical earning components in Form IV-B display order. */
+/** Canonical earning components in Form IV-B display order (Parth Virani reference). */
 export const DEFAULT_EARNING_CODES: readonly SalaryComponentDefinition[] = [
-  { code: "BASIC", label: "Consolidated/Basic", aliases: ["basic", "basicSalary", "consolidated"] },
+  { code: "BASIC", label: "Consol.Basic", aliases: ["basic", "basicSalary", "consolidated", "consolbasic"] },
+  { code: "DA", label: "DA", aliases: ["da", "dearness", "dearnessAllowance"] },
   { code: "HRA", label: "HRA", aliases: ["hra", "houseRentAllowance"] },
-  { code: "CONVEYANCE", label: "Conveyance allowance", aliases: ["conveyance", "transport"] },
-  { code: "MEDICAL", label: "Medical allowance", aliases: ["medical"] },
-  { code: "SPECIAL", label: "Special allowance", aliases: ["special", "specialAllowance"] },
-  { code: "OTHER_ALLOWANCE", label: "Other allowance", aliases: ["otherAllowance", "allowance"] },
-  { code: "OVERTIME", label: "Overtime", aliases: ["overtime", "ot"] },
-  { code: "BONUS", label: "Bonus", aliases: ["bonus", "incentive"] },
+  { code: "CONVEYANCE", label: "CONV", aliases: ["conveyance", "transport", "conv"] },
+  { code: "MEDICAL", label: "MEDI. ALL", aliases: ["medical", "medi", "mediall"] },
+  { code: "SPECIAL", label: "SP. ALL", aliases: ["special", "specialAllowance", "spall"] },
+  { code: "TRAVEL", label: "TRAVEL. ALL", aliases: ["travel", "trav", "travelAllowance", "travelall"] },
+  { code: "OTHER_ALLOWANCE", label: "OTHER ALL", aliases: ["otherAllowance", "allowance", "otherall"] },
+  { code: "BONUS", label: "BONUS", aliases: ["bonus", "incentive"] },
+  { code: "LEAVE_WAGES", label: "LEAVE WAGES", aliases: ["leaveWages", "leave"] },
   { code: "ARREARS", label: "Arrears", aliases: ["arrears"] },
   { code: "REIMBURSEMENT", label: "Reimbursement", aliases: ["reimbursement"] },
 ];
 
 /** Canonical deduction components. `PT` and `TDS` also have dedicated structure columns. */
 export const DEFAULT_DEDUCTION_CODES: readonly SalaryComponentDefinition[] = [
-  { code: "PF", label: "Provident fund", aliases: ["pf", "providentFund", "epf"] },
+  { code: "PF", label: "P.F", aliases: ["pf", "providentFund", "epf"] },
   { code: "ESI", label: "ESI", aliases: ["esi", "esic"] },
-  { code: "PT", label: "Professional tax", aliases: ["pt", "professionalTax"] },
-  { code: "TDS", label: "TDS", aliases: ["tds", "incomeTax"] },
-  { code: "LOAN", label: "Loan / advance recovery", aliases: ["loan", "advance"] },
-  { code: "LWP", label: "Leave without pay", aliases: ["lwp", "leaveWithoutPay", "unpaidLeave"] },
-  { code: "OTHER_DEDUCTION", label: "Other deduction", aliases: ["otherDeduction"] },
+  { code: "PT", label: "P.T.", aliases: ["pt", "professionalTax"] },
+  { code: "TDS", label: "I.T.", aliases: ["tds", "incomeTax", "it"] },
+  { code: "LWF", label: "L.W.F", aliases: ["lwf", "labourWelfare"] },
+  { code: "ADVANCE", label: "Advance", aliases: ["advance"] },
+  { code: "LOAN", label: "Loan", aliases: ["loan"] },
+  { code: "OTHER_DEDUCTION", label: "Oth.Ded / Deposit", aliases: ["otherDeduction", "othded", "deposit"] },
+  { code: "CANTEEN", label: "Canteen/Food", aliases: ["canteen", "food"] },
+  { code: "OVERTIME", label: "Overtime", aliases: ["overtime", "ot"] },
+  { code: "LWP", label: "LWP", aliases: ["lwp", "leaveWithoutPay", "unpaidLeave"] },
 ];
 
 function canonicalKey(value: string): string {
@@ -318,11 +324,11 @@ export function structureToEarningsDeductions(structure: SalaryStructureRecord |
 
   const monthlyPt = toAmount(structure?.monthlyPt);
   if (monthlyPt != null && monthlyPt > 0 && !deductions.some((entry) => entry.code === "PT")) {
-    deductions.push({ code: "PT", label: "Professional tax", amount: roundInr(monthlyPt) });
+    deductions.push({ code: "PT", label: "P.T.", amount: roundInr(monthlyPt) });
   }
   const monthlyTds = toAmount(structure?.monthlyTds);
   if (monthlyTds != null && monthlyTds > 0 && !deductions.some((entry) => entry.code === "TDS")) {
-    deductions.push({ code: "TDS", label: "TDS", amount: roundInr(monthlyTds) });
+    deductions.push({ code: "TDS", label: "I.T.", amount: roundInr(monthlyTds) });
   }
 
   // A structure captured only as gross still needs one earning line to render.
@@ -331,7 +337,7 @@ export function structureToEarningsDeductions(structure: SalaryStructureRecord |
   if (!earnings.length && monthlyGross != null && monthlyGross > 0) {
     earnings.push({
       code: "BASIC",
-      label: "Consolidated/Basic",
+      label: "Consol.Basic",
       actual: roundInr(monthlyGross),
       payable: roundInr(monthlyGross),
     });

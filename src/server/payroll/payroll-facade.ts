@@ -2,7 +2,7 @@ import { nanoid } from "nanoid";
 import { prisma } from "@/server/db";
 import { writeAudit } from "@/server/audit";
 import { amountInWordsInr } from "@/server/payroll/amount-in-words";
-import { renderPayslipHtml, renderPayslipHtmlFromTemplate, type PayslipRenderData } from "@/server/payroll/payslip-template";
+import { renderPayslipHtml, type PayslipRenderData } from "@/server/payroll/payslip-template";
 import { generatePayslipPdf } from "@/server/payroll/pdf-generator";
 import { storePrivateFile, getObjectBuffer } from "@/server/storage/s3";
 import { payslipGenerateQueue, emailNotifyQueue } from "@/server/queue/queues";
@@ -842,11 +842,8 @@ export class PayrollFacade {
     cashComponent?: number;
   }) {
     const data = await this.buildPreviewRenderData(input);
-    const template = await templateFacade.getActiveTemplate(input.companyId);
-    const html =
-      template?.htmlBody?.trim()
-        ? renderPayslipHtmlFromTemplate(template.htmlBody, template.cssBody, data)
-        : renderPayslipHtml(data);
+    // Preview matches issued Form IV-B layout for every company/employee.
+    const html = renderPayslipHtml(data);
     return { html, data };
   }
 
@@ -887,14 +884,7 @@ export class PayrollFacade {
       version,
     });
 
-    const versionTemplateId = slip.versions[0]?.templateId;
-    const template = versionTemplateId
-      ? await prisma.companyTemplate.findUnique({ where: { id: versionTemplateId } })
-      : await templateFacade.getActiveTemplate(slip.companyId);
-    const html =
-      template?.htmlBody?.trim()
-        ? renderPayslipHtmlFromTemplate(template.htmlBody, template.cssBody, data)
-        : renderPayslipHtml(data);
+    const html = renderPayslipHtml(data);
     const { buffer, sha256 } = await generatePayslipPdf(html);
     const pdfFile = await storePrivateFile({
       buffer,

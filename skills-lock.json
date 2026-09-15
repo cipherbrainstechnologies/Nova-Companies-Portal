@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "skills": {
+    "month-end-close": {
+      "source": "openaccountant/skills",
+      "sourceType": "github",
+      "skillPath": "business/month-end-close/SKILL.md",
+      "computedHash": "a0bebca699661d15f7be8065a913ae0fffb5cce25b1e35d4537e6865be2dd8bc"
+    },
+    "multi-entity": {
+      "source": "openaccountant/skills",
+      "sourceType": "github",
+      "skillPath": "business/multi-entity/SKILL.md",
+      "computedHash": "947195259196c52311f242152307c37b07420e591e24852ead189512e1403842"
+    },
+    "profit-loss": {
+      "source": "openaccountant/skills",
+      "sourceType": "github",
+      "skillPath": "business/profit-loss/SKILL.md",
+      "computedHash": "d62b4f3dc31762fa22878acd7e6e8ba135076fe3eab489c70c6c75466d10205a"
+    },
+    "smart-categorize": {
+      "source": "openaccountant/skills",
+      "sourceType": "github",
+      "skillPath": "shared/smart-categorize/SKILL.md",
+      "computedHash": "194767d1d8ed7ca562bed22d472b50cdb4d1e34a42306accc88e773c37fcd123"
+    }
+  }
+}
