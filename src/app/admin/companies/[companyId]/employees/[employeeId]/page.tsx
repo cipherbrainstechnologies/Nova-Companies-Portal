@@ -10,10 +10,8 @@ import { t } from "@/i18n";
 import { SalarySlipForm } from "@/app/admin/employees/salary-slip-form";
 import { SalaryStructureForm } from "@/app/admin/employees/salary-structure-form";
 import { EmployeeProfileActions } from "@/app/admin/employees/employee-profile-actions";
-import {
-  EditEmployeeForm,
-  editEmployeeInitialFrom,
-} from "@/app/admin/employees/edit-employee-form";
+import { EditEmployeeForm } from "@/app/admin/employees/edit-employee-form";
+import { editEmployeeInitialFrom } from "@/lib/edit-employee-initial";
 import { EmployeeDocumentFolders } from "@/app/admin/employees/employee-document-folders";
 import { listEmployeeDocuments } from "@/server/employees/employee-documents";
 import { requirePageUser } from "@/server/auth/page-guard";
