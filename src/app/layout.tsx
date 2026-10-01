@@ -17,8 +17,12 @@ const jakartaDisplay = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Nova Salary Portal",
-  description: "Employee salary slips and secure document storage for multi-company teams",
+  title: {
+    default: "Nova Group of Companies",
+    template: "%s · Nova Group",
+  },
+  description:
+    "Nova Group of Companies employs people in India. Nova Workforce is the employer of record. Employees and admins sign in for salary slips and documents.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

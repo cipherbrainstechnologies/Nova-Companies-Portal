@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /** @deprecated visual — kept as subtle brand accent strip for public pages */
 export function HazardBar({ className }: { className?: string }) {
@@ -179,10 +180,20 @@ export function PublicChrome({
       <div className="mx-auto max-w-6xl px-4 py-5 md:px-6 md:py-8">
         <div className="mb-8 flex items-center justify-between gap-4">
           <div>
-            <div className="h-display text-xl text-[var(--nova-ink)] md:text-2xl">{brand}</div>
-            <p className="meta mt-1">Salary slips &amp; document storage</p>
+            <Link href="/" className="h-display text-xl text-[var(--nova-ink)] md:text-2xl">
+              {brand}
+            </Link>
+            <p className="meta mt-1">{t("en", "portal.chromeNote")}</p>
           </div>
-          {right}
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <Link
+              href="/"
+              className="text-sm font-semibold text-[var(--nova-text-secondary)] hover:text-[var(--nova-teal)]"
+            >
+              {t("en", "portal.groupSite")}
+            </Link>
+            {right}
+          </div>
         </div>
         {children}
       </div>

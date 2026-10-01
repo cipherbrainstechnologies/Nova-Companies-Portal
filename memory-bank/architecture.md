@@ -73,6 +73,15 @@
 - Company-level `ProfitPolicyRule` maps (seeded per NW/NQ prefix) are editable on Finance; manual statement classification overrides narration rules and is audit-logged (`statement.transaction_classify`).
 - Pure summarizer: `summarizeEarnedProfit` / `combineProfitSummaries` in `profit-engine.ts`. Verified INR fixtures live only in tests.
 
+## Public website
+
+- The public group site lives in `src/app/(site)/` and does not replace portal routes.
+- Pages: `/` (home), `/about`, `/companies`, `/services`, `/how-we-work`, `/who-we-serve`, `/pricing`, `/faq`, `/contact`, `/careers`, `/privacy`.
+- Copy is locale-ready in `src/content/public-site/` (`en`, `fr`, `es`) and follows `Accept-Language` via `getRequestLocale`.
+- Nova Workforce is described as the employer of record (Ahmedabad). Nova Qore is described only as a group company whose people use the same portal. No placement statistics or candidate lists are published.
+- Contact form posts to `POST /api/contact`, which emails `CONTACT_INBOX` or `thenovaworkforce@gmail.com`. A filled honeypot field is ignored.
+- Sign-in stays at `/login`, `/login/employee`, and `/login/admin` (employees, super admins, operations managers, and other granted users). Document verification stays at `/verify-document`.
+
 ## Portal surfaces and API boundaries
 
 - App Router admin pages use a shared server-rendered navigation shell and restrict records to companies granted for the relevant module.
