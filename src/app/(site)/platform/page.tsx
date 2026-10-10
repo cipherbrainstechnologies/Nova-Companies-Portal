@@ -1,15 +1,35 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { MarketingLink, PageIntro } from "@/components/marketing/blocks";
+import { PortalTourTabs } from "@/components/marketing/home/portal-tour-tabs";
+import { getSiteCopy } from "@/content/public-site";
+import { getRequestLocale } from "@/content/request-locale";
 
-export const metadata: Metadata = {
-  title: "NOVA platform | NOVA",
-  description: "Unified client portal for hires, payroll inputs, costs, and invoices.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const copy = getSiteCopy(await getRequestLocale());
+  return {
+    title: `${copy.nav.platform} | ${copy.meta.siteName}`,
+    description: copy.home.portal.lede,
+  };
+}
 
-export default function Page() {
+export default async function PlatformPage() {
+  const copy = getSiteCopy(await getRequestLocale());
+  const portal = copy.home.portal;
+
   return (
-    <article className="mx-auto max-w-3xl space-y-4 py-8">
-      <h1 className="text-4xl font-bold">NOVA platform</h1>
-      <p className="text-[var(--nova-text-secondary)]">Unified client portal for hires, payroll inputs, costs, and invoices.</p>
-    </article>
+    <>
+      <PageIntro kicker={copy.nav.platform} title={portal.title} lede={portal.lede} />
+      <p className="mt-4 text-sm text-[var(--nova-text-secondary)]">
+        {copy.home.clientSignIn}{" "}
+        <Link href="/login/client" className="font-semibold text-[var(--nova-teal)]">
+          {copy.home.clientSignInLink}
+        </Link>
+      </p>
+      <div className="mt-6">
+        <MarketingLink href="/pricing">{copy.nav.getQuote}</MarketingLink>
+      </div>
+      <PortalTourTabs copy={portal} />
+    </>
   );
 }

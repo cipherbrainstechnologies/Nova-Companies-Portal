@@ -209,3 +209,18 @@ button {
     transition: none !important;
   }
 }
+
+/* Public marketing site — scoped extension (admin/employee tokens unchanged) */
+[data-marketing="true"] {
+  --mkt-canvas: #f8f7f4;
+  --mkt-surface: #ffffff;
+  --mkt-border: #e2e8f0;
+  --mkt-radius: 12px;
+  --mkt-radius-lg: 20px;
+  --mkt-shadow: 0 8px 30px rgb(15 23 42 / 0.06);
+  background: var(--mkt-canvas);
+}
+
+[data-marketing="true"] .mkt-elevated {
+  box-shadow: var(--mkt-shadow);
+}

@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ClosingBand, MarketingLink } from "@/components/marketing/blocks";
+import { CostDashboardPreview } from "@/components/marketing/home/cost-dashboard-preview";
+import { EstimatorTeaser } from "@/components/marketing/home/estimator-teaser";
+import { OnboardingTimeline } from "@/components/marketing/home/onboarding-timeline";
+import { PortalTourTabs } from "@/components/marketing/home/portal-tour-tabs";
 import { getSiteCopy } from "@/content/public-site";
 import { getRequestLocale } from "@/content/request-locale";
 
@@ -15,22 +19,25 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function HomePage() {
   const copy = getSiteCopy(await getRequestLocale());
   const home = copy.home;
-  const previewServices = copy.services.items.slice(0, 3);
-  const previewFaq = copy.faq.items.slice(0, 4);
+  const faqItems = copy.faq.items.filter((item) => home.faqIds.includes(item.id));
 
   return (
     <>
-      <section className="grid items-start gap-8 lg:grid-cols-[1.35fr_0.75fr]">
+      <section className="grid items-start gap-10 lg:grid-cols-[1.1fr_0.9fr]">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--nova-teal)]">{home.kicker}</p>
-          <h1 className="h-macro mt-4 max-w-3xl text-[clamp(2.4rem,6vw,4.2rem)]">{home.title}</h1>
+          <h1 className="h-macro mt-4 max-w-3xl text-balance text-[clamp(2.2rem,5.5vw,4rem)]">{home.title}</h1>
           <p className="mt-5 max-w-2xl text-lg leading-relaxed text-[var(--nova-text-secondary)]">{home.lede}</p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <MarketingLink href="/contact">{home.primary}</MarketingLink>
-            <MarketingLink href="/login" variant="outline">
-              {home.secondary}
-            </MarketingLink>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <MarketingLink href="/pricing">{home.primary}</MarketingLink>
+            <MarketingLink href="/contact" variant="outline">{home.secondary}</MarketingLink>
           </div>
+          <p className="mt-4 text-sm text-[var(--nova-text-secondary)]">
+            {home.clientSignIn}{" "}
+            <Link href="/login/client" className="font-semibold text-[var(--nova-teal)]">
+              {home.clientSignInLink}
+            </Link>
+          </p>
           <ul className="mt-6 flex flex-col gap-2 text-sm text-[var(--nova-text-secondary)] sm:flex-row sm:flex-wrap sm:gap-x-5">
             {home.assurances.map((item) => (
               <li key={item} className="flex items-center gap-2">
@@ -40,135 +47,78 @@ export default async function HomePage() {
             ))}
           </ul>
         </div>
-        <aside className="rounded-[var(--nova-radius-lg)] bg-[var(--nova-ink)] p-6 text-white md:p-8">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-white/60">{home.splitTitle}</h2>
-          <ol className="mt-6 space-y-5">
-            {home.split.map((item, index) => (
-              <li key={item.title} className="flex gap-3">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--nova-teal)] text-xs font-bold">
-                  {index + 1}
-                </span>
-                <span>
-                  <span className="block text-sm font-semibold">{item.title}</span>
-                  <span className="mt-1 block text-sm leading-relaxed text-white/80">{item.body}</span>
-                </span>
+        <aside
+          id="differentiation"
+          className="rounded-[var(--mkt-radius-lg)] border border-[var(--mkt-border)] bg-[var(--mkt-surface)] p-6 shadow-[var(--mkt-shadow)] md:p-8"
+        >
+          <h2 className="h-display text-xl text-[var(--nova-ink)]">{home.differentiation.title}</h2>
+          <ul className="mt-6 space-y-5">
+            {home.differentiation.items.map((item) => (
+              <li key={item.title}>
+                <h3 className="font-bold text-[var(--nova-ink)]">{item.title}</h3>
+                <p className="mt-1 text-sm leading-relaxed text-[var(--nova-text-secondary)]">{item.body}</p>
               </li>
             ))}
-          </ol>
+          </ul>
         </aside>
       </section>
 
-      <section className="mt-16" aria-labelledby="companies-heading">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h2 id="companies-heading" className="h-display text-[clamp(1.6rem,3vw,2.15rem)]">
-              {home.companiesTitle}
-            </h2>
-            <p className="mt-2 max-w-2xl text-[var(--nova-text-secondary)]">{home.companiesLede}</p>
-          </div>
-          <Link href="/companies" className="text-sm font-semibold text-[var(--nova-teal)]">
-            {copy.nav.companies}
-          </Link>
+      <CostDashboardPreview copy={home.proof} />
+      <EstimatorTeaser copy={home.estimator} />
+
+      <section className="mt-16" aria-labelledby="control-heading">
+        <h2 id="control-heading" className="h-display text-[clamp(1.6rem,3vw,2.15rem)]">
+          {home.control.title}
+        </h2>
+        <p className="mt-2 max-w-2xl text-[var(--nova-text-secondary)]">{home.control.lede}</p>
+        <div className="mt-8 grid gap-4 md:grid-cols-2">
+          <article className="rounded-[var(--mkt-radius)] border border-[var(--mkt-border)] bg-[var(--mkt-surface)] p-6">
+            <h3 className="font-bold text-[var(--nova-ink)]">{home.control.clientHeading}</h3>
+            <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-[var(--nova-text-secondary)]">
+              {home.control.clientPoints.map((point) => (
+                <li key={point}>{point}</li>
+              ))}
+            </ul>
+          </article>
+          <article className="rounded-[var(--mkt-radius)] border border-[var(--mkt-border)] bg-[var(--mkt-surface)] p-6">
+            <h3 className="font-bold text-[var(--nova-ink)]">{home.control.novaHeading}</h3>
+            <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-[var(--nova-text-secondary)]">
+              {home.control.novaPoints.map((point) => (
+                <li key={point}>{point}</li>
+              ))}
+            </ul>
+          </article>
         </div>
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
-          {copy.companies.items.map((company) => (
-            <article
-              key={company.id}
-              className="rounded-[var(--nova-radius-lg)] border border-[var(--nova-border)] bg-[var(--nova-surface)] p-6 shadow-[var(--nova-shadow)]"
-            >
-              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--nova-teal)]">{company.role}</p>
-              <h3 className="mt-2 text-2xl font-bold text-[var(--nova-ink)]">
-                <Link href={`/companies#${company.id}`} className="hover:text-[var(--nova-teal)]">
-                  {company.name}
-                </Link>
-              </h3>
-              <p className="mt-1 text-sm text-[var(--nova-muted)]">{company.place}</p>
-              <p className="mt-3 text-sm leading-relaxed text-[var(--nova-text-secondary)]">{company.body}</p>
-            </article>
-          ))}
-        </div>
+        <p className="mt-4 text-sm text-[var(--nova-muted)]">{home.control.footnote}</p>
       </section>
 
-      <section className="mt-16" aria-labelledby="services-heading">
-        <h2 id="services-heading" className="h-display text-[clamp(1.6rem,3vw,2.15rem)]">
-          {home.servicesTitle}
+      <OnboardingTimeline copy={home.timeline} />
+      <PortalTourTabs copy={home.portal} />
+
+      <section className="mt-16" aria-labelledby="cost-explainer-heading">
+        <h2 id="cost-explainer-heading" className="h-display text-[clamp(1.6rem,3vw,2.15rem)]">
+          {home.costExplainer.title}
         </h2>
-        <p className="mt-2 max-w-2xl text-[var(--nova-text-secondary)]">{home.servicesLede}</p>
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
-          {previewServices.map((item) => (
-            <article key={item.title} className="rounded-[var(--nova-radius)] border border-[var(--nova-border)] bg-[var(--nova-surface)] p-5">
-              <h3 className="font-bold text-[var(--nova-ink)]">{item.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-[var(--nova-text-secondary)]">{item.body}</p>
-            </article>
+        <p className="mt-2 max-w-2xl text-[var(--nova-text-secondary)]">{home.costExplainer.body}</p>
+        <ul className="mt-6 list-disc space-y-2 pl-5 text-sm text-[var(--nova-text-secondary)]">
+          {home.costExplainer.items.map((item) => (
+            <li key={item}>{item}</li>
           ))}
-        </div>
+        </ul>
         <p className="mt-4">
-          <Link href="/services" className="text-sm font-semibold text-[var(--nova-teal)]">
-            {copy.nav.services}
+          <Link href={home.costExplainer.methodologyHref} className="text-sm font-semibold text-[var(--nova-teal)]">
+            {home.costExplainer.methodologyLink}
           </Link>
         </p>
       </section>
 
-      <section className="mt-16" aria-labelledby="process-heading">
-        <h2 id="process-heading" className="h-display text-[clamp(1.6rem,3vw,2.15rem)]">
-          {home.processTitle}
-        </h2>
-        <p className="mt-2 max-w-2xl text-[var(--nova-text-secondary)]">{home.processLede}</p>
-        <ol className="mt-6 grid gap-4 md:grid-cols-2">
-          {copy.how.steps.map((step, index) => (
-            <li key={step.title} className="rounded-[var(--nova-radius)] border border-[var(--nova-border)] bg-[var(--nova-surface)] p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--nova-teal)]">
-                {String(index + 1).padStart(2, "0")}
-              </p>
-              <h3 className="mt-2 font-bold text-[var(--nova-ink)]">{step.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-[var(--nova-text-secondary)]">{step.body}</p>
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      <section className="mt-16" aria-labelledby="compare-heading">
-        <h2 id="compare-heading" className="h-display text-[clamp(1.6rem,3vw,2.15rem)]">
-          {home.compareTitle}
-        </h2>
-        <p className="mt-2 max-w-2xl text-[var(--nova-text-secondary)]">{home.compareLede}</p>
-        <div className="mt-6 overflow-x-auto rounded-[var(--nova-radius-lg)] border border-[var(--nova-border)] bg-[var(--nova-surface)]">
-          <table className="w-full min-w-[40rem] border-collapse text-left text-sm">
-            <caption className="sr-only">{home.compareTitle}</caption>
-            <thead>
-              <tr className="border-b border-[var(--nova-border)] bg-[var(--nova-surface-muted)]">
-                {home.compareColumns.map((column) => (
-                  <th key={column || "aspect"} scope="col" className="px-4 py-3 font-semibold text-[var(--nova-ink)]">
-                    {column}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {home.compareRows.map((row) => (
-                <tr key={row.label} className="border-b border-[var(--nova-border)] last:border-0">
-                  <th scope="row" className="px-4 py-3 font-semibold text-[var(--nova-ink)]">
-                    {row.label}
-                  </th>
-                  {row.cells.map((cell, index) => (
-                    <td key={`${row.label}-${index}`} className="px-4 py-3 text-[var(--nova-text-secondary)]">
-                      {cell}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="mt-16" aria-labelledby="who-heading">
-        <h2 id="who-heading" className="h-display text-[clamp(1.6rem,3vw,2.15rem)]">
-          {home.whoTitle}
+      <section className="mt-16" aria-labelledby="trust-heading">
+        <h2 id="trust-heading" className="h-display text-[clamp(1.6rem,3vw,2.15rem)]">
+          {home.trust.title}
         </h2>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
-          {copy.who.items.map((item) => (
-            <article key={item.title} className="rounded-[var(--nova-radius)] border border-[var(--nova-border)] bg-[var(--nova-surface)] p-5">
+          {home.trust.items.map((item) => (
+            <article key={item.title} className="rounded-[var(--mkt-radius)] border border-[var(--mkt-border)] bg-[var(--mkt-surface)] p-5">
               <h3 className="font-bold text-[var(--nova-ink)]">{item.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-[var(--nova-text-secondary)]">{item.body}</p>
             </article>
@@ -176,22 +126,18 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="mt-16" aria-labelledby="faq-heading">
+      <section className="mt-16 pb-8 md:pb-0" aria-labelledby="faq-heading">
         <h2 id="faq-heading" className="h-display text-[clamp(1.6rem,3vw,2.15rem)]">
           {home.faqTitle}
         </h2>
-        <div className="mt-6 divide-y divide-[var(--nova-border)] rounded-[var(--nova-radius-lg)] border border-[var(--nova-border)] bg-[var(--nova-surface)]">
-          {previewFaq.map((item) => (
-            <details key={item.q} className="group px-5 py-4">
+        <div className="mt-6 divide-y divide-[var(--nova-border)] rounded-[var(--mkt-radius-lg)] border border-[var(--mkt-border)] bg-[var(--mkt-surface)]">
+          {faqItems.map((item) => (
+            <details key={item.id} className="group px-5 py-4">
               <summary className="cursor-pointer list-none font-semibold text-[var(--nova-ink)] [&::-webkit-details-marker]:hidden">
                 <span className="flex items-start justify-between gap-4">
                   {item.q}
-                  <span aria-hidden className="text-[var(--nova-teal)] group-open:hidden">
-                    +
-                  </span>
-                  <span aria-hidden className="hidden text-[var(--nova-teal)] group-open:inline">
-                    –
-                  </span>
+                  <span aria-hidden className="text-[var(--nova-teal)] group-open:hidden">+</span>
+                  <span aria-hidden className="hidden text-[var(--nova-teal)] group-open:inline">−</span>
                 </span>
               </summary>
               <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[var(--nova-text-secondary)]">{item.a}</p>
@@ -205,7 +151,14 @@ export default async function HomePage() {
         </p>
       </section>
 
-      <ClosingBand title={home.ctaTitle} body={home.ctaBody} action={home.ctaAction} />
+      <ClosingBand
+        title={home.ctaTitle}
+        body={home.ctaBody}
+        action={home.ctaAction}
+        href={home.ctaPrimaryHref}
+        secondaryAction={home.ctaSecondary}
+        secondaryHref={home.ctaSecondaryHref}
+      />
     </>
   );
 }

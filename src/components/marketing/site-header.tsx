@@ -6,11 +6,12 @@ import { usePathname } from "next/navigation";
 import type { SiteCopy } from "@/content/public-site";
 
 const links: Array<{ href: string; key: keyof SiteCopy["nav"] }> = [
-  { href: "/companies", key: "companies" },
-  { href: "/services", key: "services" },
-  { href: "/how-we-work", key: "how" },
+  { href: "/employer-of-record-india", key: "whyNova" },
+  { href: "/how-it-works", key: "howItWorks" },
   { href: "/pricing", key: "pricing" },
-  { href: "/faq", key: "faq" },
+  { href: "/platform", key: "platform" },
+  { href: "/compliance", key: "compliance" },
+  { href: "/faq", key: "resources" },
 ];
 
 export function SiteHeader({ copy }: { copy: SiteCopy }) {
@@ -22,20 +23,20 @@ export function SiteHeader({ copy }: { copy: SiteCopy }) {
   }, [path]);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-[var(--nova-border)] bg-[color-mix(in_srgb,var(--nova-canvas)_92%,white)] backdrop-blur">
+    <header className="sticky top-0 z-30 border-b border-[var(--nova-border)] bg-[color-mix(in_srgb,var(--mkt-canvas)_94%,white)] backdrop-blur">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-40 focus:rounded focus:bg-white focus:px-3 focus:py-2"
       >
         {copy.nav.skip}
       </a>
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 md:px-6">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 md:px-6">
         <Link href="/" className="h-display min-w-0 text-xl text-[var(--nova-ink)] hover:text-[var(--nova-ink)]">
           {copy.meta.siteName}
         </Link>
-        <nav className="hidden items-center gap-5 lg:flex" aria-label={copy.nav.label}>
+        <nav className="hidden items-center gap-4 xl:flex" aria-label={copy.nav.label}>
           {links.map((item) => {
-            const active = path === item.href;
+            const active = path === item.href || (item.href === "/employer-of-record-india" && path === "/");
             return (
               <Link
                 key={item.href}
@@ -54,20 +55,20 @@ export function SiteHeader({ copy }: { copy: SiteCopy }) {
         </nav>
         <div className="flex items-center gap-2">
           <Link
-            href="/login"
-            className="hidden min-h-10 items-center rounded-[var(--nova-radius-sm)] border border-[var(--nova-border-strong)] bg-[var(--nova-surface)] px-3 text-sm font-semibold text-[var(--nova-text)] hover:border-[var(--nova-teal)] hover:text-[var(--nova-teal)] sm:inline-flex"
+            href="/login/client"
+            className="hidden min-h-10 items-center rounded-[var(--nova-radius-sm)] border border-[var(--nova-border-strong)] bg-[var(--mkt-surface)] px-3 text-sm font-semibold text-[var(--nova-text)] hover:border-[var(--nova-teal)] hover:text-[var(--nova-teal)] md:inline-flex"
           >
-            {copy.nav.login}
+            {copy.nav.clientLogin}
           </Link>
           <Link
-            href="/contact"
+            href="/pricing"
             className="inline-flex min-h-10 items-center rounded-[var(--nova-radius-sm)] bg-[var(--nova-teal)] px-3 text-sm font-semibold text-white hover:bg-[#0d5f58] hover:text-white"
           >
-            {copy.nav.contact}
+            {copy.nav.getQuote}
           </Link>
           <button
             type="button"
-            className="inline-flex min-h-10 items-center rounded-[var(--nova-radius-sm)] border border-[var(--nova-border)] px-3 text-sm font-semibold lg:hidden"
+            className="inline-flex min-h-10 items-center rounded-[var(--nova-radius-sm)] border border-[var(--nova-border)] px-3 text-sm font-semibold xl:hidden"
             aria-expanded={open}
             aria-controls="site-menu"
             onClick={() => setOpen((value) => !value)}
@@ -77,8 +78,8 @@ export function SiteHeader({ copy }: { copy: SiteCopy }) {
         </div>
       </div>
       {open ? (
-        <nav id="site-menu" aria-label={copy.nav.label} className="border-t border-[var(--nova-border)] lg:hidden">
-          <ul className="mx-auto flex max-w-6xl flex-col px-4 py-2 md:px-6">
+        <nav id="site-menu" aria-label={copy.nav.label} className="border-t border-[var(--nova-border)] xl:hidden">
+          <ul className="mx-auto flex max-w-7xl flex-col px-4 py-2 md:px-6">
             {links.map((item) => (
               <li key={item.href}>
                 <Link
@@ -91,13 +92,13 @@ export function SiteHeader({ copy }: { copy: SiteCopy }) {
               </li>
             ))}
             <li>
-              <Link href="/about" className="block py-3 text-base font-medium">
-                {copy.nav.about}
+              <Link href="/login/client" className="block py-3 text-base font-semibold text-[var(--nova-teal)]">
+                {copy.nav.clientLogin}
               </Link>
             </li>
             <li>
-              <Link href="/login" className="block py-3 text-base font-semibold text-[var(--nova-teal)]">
-                {copy.nav.login}
+              <Link href="/contact" className="block py-3 text-base font-medium">
+                {copy.nav.contact}
               </Link>
             </li>
           </ul>

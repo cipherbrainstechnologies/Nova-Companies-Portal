@@ -2,7 +2,7 @@
 
 Execution order from NOVA UX audit §10, reconciled with `AS_IS_AUDIT.md` on `main`.
 
-## Sprint 0 — Inventory, baseline, security ✅ (this PR)
+## Sprint 0 — Inventory, baseline, security ✅
 
 | ID | Story | Acceptance |
 |----|-------|------------|
@@ -14,23 +14,23 @@ Execution order from NOVA UX audit §10, reconciled with `AS_IS_AUDIT.md` on `ma
 
 **Exit gate:** Business approval of wireframe, pricing model, legal disclosures before Sprint 1–2 code.
 
-## Sprint 1 — Design system and conversion architecture
+## Sprint 1 — Design system and conversion architecture ✅
 
-| ID | Story | Files (expected) |
-|----|-------|------------------|
-| S1-1 | Marketing layout wrapper + tokens | `(site)/layout.tsx`, `globals.css` or scoped CSS |
+| ID | Story | Status |
+|----|-------|--------|
+| S1-1 | Marketing layout wrapper + tokens | `data-marketing`, `globals.css` |
 | S1-2 | Header/footer IA | `site-header.tsx`, `site-shell.tsx` |
-| S1-3 | Marketing component primitives | `src/components/marketing/*` |
-| S1-4 | Quote API contract (design only) | `docs/eor/API_CONTRACTS.md` or `docs/public-site/ESTIMATE_API.md` |
+| S1-3 | Marketing component primitives | `src/components/marketing/home/*` |
+| S1-4 | Quote API contract (design only) | Sprint 3 |
 
-## Sprint 2 — Homepage + EOR landing
+## Sprint 2 — Homepage + EOR landing ✅
 
-| ID | Story |
-|----|-------|
-| S2-1 | Implement `HOMEPAGE_WIREFRAME.md` sections |
-| S2-2 | Expand `/employer-of-record-india` |
-| S2-3 | i18n copy refresh (en first) |
-| S2-4 | Redirect or canonical strategy for `/how-we-work` |
+| ID | Story | Status |
+|----|-------|--------|
+| S2-1 | Implement `HOMEPAGE_WIREFRAME.md` sections | `src/app/(site)/page.tsx` |
+| S2-2 | Expand `/employer-of-record-india` | Done |
+| S2-3 | i18n copy refresh (en first) | `en.ts` + fr/es overrides |
+| S2-4 | Redirect `/how-we-work` → `/how-it-works` | `next.config.ts` |
 
 ## Sprint 3 — Pricing engine
 

@@ -11,14 +11,16 @@ export function MarketingLink({
   href,
   children,
   variant = "primary",
+  className: extraClass,
 }: {
   href: string;
   children: React.ReactNode;
   variant?: "primary" | "outline" | "inverse";
+  className?: string;
 }) {
   const className = variant === "outline" ? outline : variant === "inverse" ? inverse : primary;
   return (
-    <Link href={href} className={className}>
+    <Link href={href} className={extraClass ? `${className} ${extraClass}` : className}>
       {children}
     </Link>
   );
@@ -47,20 +49,29 @@ export function ClosingBand({
   body,
   action,
   href = "/contact",
+  secondaryAction,
+  secondaryHref = "/contact",
 }: {
   title: string;
-  body: string;
+  body?: string;
   action: string;
   href?: string;
+  secondaryAction?: string;
+  secondaryHref?: string;
 }) {
   return (
     <section className="mt-16 rounded-[var(--nova-radius-lg)] bg-[var(--nova-ink)] px-6 py-10 text-white md:px-10">
       <h2 className="h-display max-w-2xl text-[clamp(1.6rem,3vw,2.2rem)] text-white">{title}</h2>
-      <p className="mt-3 max-w-2xl text-white/80">{body}</p>
-      <div className="mt-6">
+      {body ? <p className="mt-3 max-w-2xl text-white/80">{body}</p> : null}
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
         <MarketingLink href={href} variant="inverse">
           {action}
         </MarketingLink>
+        {secondaryAction ? (
+          <MarketingLink href={secondaryHref} variant="outline" className="border-white/30 bg-transparent text-white hover:border-white hover:text-white">
+            {secondaryAction}
+          </MarketingLink>
+        ) : null}
       </div>
     </section>
   );
