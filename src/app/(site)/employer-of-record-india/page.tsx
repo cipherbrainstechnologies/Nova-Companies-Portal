@@ -1,26 +1,51 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MarketingLink } from "@/components/marketing/blocks";
+import { ClosingBand, MarketingLink, PageIntro } from "@/components/marketing/blocks";
+import { CostDashboardPreview } from "@/components/marketing/home/cost-dashboard-preview";
+import { getSiteCopy } from "@/content/public-site";
+import { getRequestLocale } from "@/content/request-locale";
 
-export const metadata: Metadata = {
-  title: "Employer of record India | NOVA",
-  description:
-    "Hire employees in India without a local entity. Transparent payroll, statutory costs, and EOR fees in one client portal.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const page = getSiteCopy(await getRequestLocale()).eorIndia;
+  return { title: page.metaTitle, description: page.lede };
+}
 
-export default function EmployerOfRecordIndiaPage() {
+export default async function EmployerOfRecordIndiaPage() {
+  const copy = getSiteCopy(await getRequestLocale());
+  const page = copy.eorIndia;
+
   return (
-    <article className="mx-auto max-w-3xl space-y-6 py-8">
-      <h1 className="text-4xl font-bold text-[var(--nova-ink)]">Employer of record in India</h1>
-      <p className="text-lg text-[var(--nova-text-secondary)]">
-        NOVA&apos;s legal employer signs employment contracts and runs compliant Indian payroll. Your managers direct
-        day-to-day work while you see each employee&apos;s gross, statutory, benefits, service fee, and FX charges in a
-        secure portal.
+    <>
+      <PageIntro kicker={page.kicker} title={page.title} lede={page.lede} />
+      <div className="mt-10 flex flex-col gap-3 sm:flex-row">
+        <MarketingLink href="/pricing">{page.ctaPrimary}</MarketingLink>
+        <MarketingLink href="/contact" variant="outline">{page.ctaSecondary}</MarketingLink>
+      </div>
+      <p className="mt-4 text-sm text-[var(--nova-text-secondary)]">
+        {copy.home.clientSignIn}{" "}
+        <Link href="/login/client" className="font-semibold text-[var(--nova-teal)]">
+          {copy.home.clientSignInLink}
+        </Link>
       </p>
-      <MarketingLink href="/contact">Book a consultation</MarketingLink>
-      <p className="text-sm text-[var(--nova-muted)]">
-        Already onboarded? <Link href="/login/client" className="text-[var(--nova-teal)]">Client sign-in</Link>
-      </p>
-    </article>
+
+      <div className="mt-14 grid gap-6 md:grid-cols-3">
+        {page.sections.map((section) => (
+          <article key={section.title} className="rounded-[var(--mkt-radius)] border border-[var(--mkt-border)] bg-[var(--mkt-surface)] p-6">
+            <h2 className="text-lg font-bold text-[var(--nova-ink)]">{section.title}</h2>
+            <p className="mt-3 text-sm leading-relaxed text-[var(--nova-text-secondary)]">{section.body}</p>
+          </article>
+        ))}
+      </div>
+
+      <CostDashboardPreview copy={copy.home.proof} />
+
+      <ClosingBand
+        title={copy.home.ctaTitle}
+        action={copy.home.ctaAction}
+        href="/pricing"
+        secondaryAction={copy.home.ctaSecondary}
+        secondaryHref="/contact"
+      />
+    </>
   );
 }

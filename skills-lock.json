@@ -24,6 +24,12 @@
       "sourceType": "github",
       "skillPath": "shared/smart-categorize/SKILL.md",
       "computedHash": "194767d1d8ed7ca562bed22d472b50cdb4d1e34a42306accc88e773c37fcd123"
+    },
+    "design": {
+      "source": "nextlevelbuilder/ui-ux-pro-max-skill",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/design/SKILL.md",
+      "computedHash": "c84f3ecfd6a0fd1c46abf6805a0bbc26ea0b94a104f457e243ccf0943ece123c"
     }
   }
 }
