@@ -185,15 +185,18 @@ The seed script prints portal identifiers to the console. Separate gates: `/logi
 - Payslips: `payslips/{PREFIX}/{EMPLOYEE_CODE_Last_First}/{YYYY-MM}/Payslip_{CODE}_{YYYY-MM}_vN.pdf`
 - Profit: `profit/{PREFIX}/{YYYY-MM}/Profit_Sheet_{PREFIX}_{YYYY-MM}.json`
 
-## EOR client portal (2026-10-10)
+## EOR client portal (2026-10-10) — Sprints 0–8
 
-Multi-tenant overseas **client organizations** are modelled separately from NOVA legal `Company` rows. Client users sign in at `/login/client` and work under `/client/[slug]/…` with deny-by-default capability RBAC (`src/server/client/*`). NOVA operations manage prospects at `/admin/clients`.
+Multi-tenant overseas **client organizations** are modelled separately from NOVA legal `Company` rows. Sprints 0–8 are implemented on branch `cursor/eor-full-implementation-bb34` (see `docs/eor/SPRINT_COMPLETION.md`).
 
 - Migration: `prisma/migrations/20261010120000_eor_client_portal`
-- Docs: `docs/eor/*` (architecture, access matrix, SOPs, API contracts, sprint backlog)
-- Tests: `tests/client-eor.test.ts` (capability matrix + slug helpers)
+- Client portal: `/client/[slug]/…` + `/login/client`
+- NOVA ops: `/admin/clients`, `/admin/hire-requests`
+- APIs: KYB upload, payroll submit/approve, invitations, invoice issue, signature webhook, cost snapshot freeze
+- Tests: `tests/client-eor.test.ts`, `tests/client-tenant-isolation.test.ts`, `e2e/client-eor.spec.ts`
+- Sprint 0 audit: `docs/eor/SPRINT0_AUDIT_REPORT.md`
 
-Apply migration then seed (`SEED_DEV=1`) for the demo Acme UK client and finance user.
+Apply migration then seed (`SEED_DEV=1`) for demo tenants. **Do not enable client pilot until credential rotation runbook is executed in production.**
 
 ## Next precise task
 

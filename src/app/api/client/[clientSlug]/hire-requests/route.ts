@@ -4,6 +4,7 @@ import { apiError } from "@/server/api-helpers";
 import { requireSessionUser } from "@/server/auth/session";
 import { requireClientCapability } from "@/server/client/client-authz";
 import { clientOrganizationFacade } from "@/server/facades/client-organization-facade";
+import { assertClientPortalActor } from "@/server/client/mutation-guard";
 
 const schema = z.object({
   candidate: z.record(z.string(), z.unknown()),
@@ -23,6 +24,7 @@ export async function POST(
       module: "team",
       action: "CREATE",
     });
+    assertClientPortalActor(membership);
     if (membership.lifecycleStatus !== "ACTIVE" && user.globalRole === "CLIENT_USER") {
       return NextResponse.json({ error: "Client account not active" }, { status: 403 });
     }
