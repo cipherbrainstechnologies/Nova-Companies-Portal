@@ -147,6 +147,45 @@ export function ClientAdminActions({
         </Button>
       </Card>
       <Card className="space-y-3 p-4">
+        <h3 className="font-semibold">Monthly billing (Sprint 6)</h3>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={async () => {
+            const now = new Date();
+            await fetch(`/api/admin/clients/${clientId}/snapshots`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                periodYear: now.getUTCFullYear(),
+                periodMonth: now.getUTCMonth() + 1,
+              }),
+            });
+            setMessage("Cost snapshots frozen");
+          }}
+        >
+          Freeze cost snapshots
+        </Button>
+        <Button
+          type="button"
+          onClick={async () => {
+            const now = new Date();
+            const res = await fetch(`/api/admin/clients/${clientId}/invoices/issue`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                periodYear: now.getUTCFullYear(),
+                periodMonth: now.getUTCMonth() + 1,
+              }),
+            });
+            if (res.ok) setMessage("Client invoice issued");
+            else setError("Invoice issue failed — freeze snapshots first");
+          }}
+        >
+          Issue client invoice
+        </Button>
+      </Card>
+      <Card className="space-y-3 p-4">
         <h3 className="font-semibold">Assign existing employee</h3>
         <AssignEmployeeForm clientId={clientId} novaCompanyId={novaCompanyId} />
       </Card>

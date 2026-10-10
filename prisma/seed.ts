@@ -9,6 +9,10 @@ import { seedDefaultProfitPolicies } from "../src/server/finance/profit-engine";
 const prisma = new PrismaClient();
 
 async function main() {
+  if (process.env.NODE_ENV === "production") {
+    console.error("Refusing seed in production. Use controlled migration/backfill instead.");
+    process.exit(1);
+  }
   if (process.env.SEED_DEV !== "1") {
     console.log("Skipping seed: set SEED_DEV=1 to run development seed.");
     return;
