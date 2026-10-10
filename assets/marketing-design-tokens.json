@@ -1,0 +1,37 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "meta": {
+    "name": "NOVA Marketing",
+    "version": "0.1.0",
+    "scope": "public-site-only",
+    "extends": ["--nova-ink", "--nova-teal"]
+  },
+  "color": {
+    "canvas": { "value": "#f8f7f4", "description": "Ivory marketing background" },
+    "surface": { "value": "#ffffff" },
+    "graphite": { "value": "#1e293b", "description": "Primary body emphasis" },
+    "border": { "value": "#e2e8f0" },
+    "accent": { "value": "#0f766e", "alias": "--nova-teal" },
+    "ink": { "value": "#0c2d3f", "alias": "--nova-ink" }
+  },
+  "radius": {
+    "md": { "value": "12px" },
+    "lg": { "value": "20px" }
+  },
+  "shadow": {
+    "elevated": {
+      "value": "0 8px 30px rgb(15 23 42 / 0.06)"
+    }
+  },
+  "typography": {
+    "hero": {
+      "desktop": { "min": "52px", "max": "68px" },
+      "mobile": { "min": "34px", "max": "42px" }
+    },
+    "sectionTitle": { "min": "28px", "max": "40px" },
+    "body": { "min": "16px", "max": "18px" }
+  },
+  "layout": {
+    "contentMaxWidth": { "value": "1280px" }
+  }
+}
