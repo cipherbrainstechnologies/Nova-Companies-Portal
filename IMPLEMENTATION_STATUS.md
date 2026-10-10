@@ -178,17 +178,22 @@ npm run build            # passed (Next.js 15.5.25)
 
 ## Auth seed (SEED_DEV=1)
 
-| Portal | Identifier | Password |
-|---|---|---|
-| Admin | `thenovaworkforce@gmail.com` (Love Chauhan) | `Swrit#1311` |
-| Employee | `NW-0020` or `+919888000020` | `DemoEmp#1311` |
-
-Separate gates: `/login/admin` and `/login/employee`.
+The seed script prints portal identifiers to the console. Separate gates: `/login/admin`, `/login/employee`, and `/login/client`.
 
 ## Document folders
 
 - Payslips: `payslips/{PREFIX}/{EMPLOYEE_CODE_Last_First}/{YYYY-MM}/Payslip_{CODE}_{YYYY-MM}_vN.pdf`
 - Profit: `profit/{PREFIX}/{YYYY-MM}/Profit_Sheet_{PREFIX}_{YYYY-MM}.json`
+
+## EOR client portal (2026-10-10)
+
+Multi-tenant overseas **client organizations** are modelled separately from NOVA legal `Company` rows. Client users sign in at `/login/client` and work under `/client/[slug]/…` with deny-by-default capability RBAC (`src/server/client/*`). NOVA operations manage prospects at `/admin/clients`.
+
+- Migration: `prisma/migrations/20261010120000_eor_client_portal`
+- Docs: `docs/eor/*` (architecture, access matrix, SOPs, API contracts, sprint backlog)
+- Tests: `tests/client-eor.test.ts` (capability matrix + slug helpers)
+
+Apply migration then seed (`SEED_DEV=1`) for the demo Acme UK client and finance user.
 
 ## Next precise task
 
