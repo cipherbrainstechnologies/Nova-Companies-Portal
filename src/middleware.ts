@@ -15,7 +15,11 @@ export function middleware(req: NextRequest) {
     res.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }
   // Avoid leaking auth pages caching
-  if (req.nextUrl.pathname.startsWith("/admin") || req.nextUrl.pathname.startsWith("/employee")) {
+  if (
+    req.nextUrl.pathname.startsWith("/admin") ||
+    req.nextUrl.pathname.startsWith("/employee") ||
+    req.nextUrl.pathname.startsWith("/client")
+  ) {
     res.headers.set("Cache-Control", "no-store");
   }
   return res;

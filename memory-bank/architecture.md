@@ -73,6 +73,14 @@
 - Company-level `ProfitPolicyRule` maps (seeded per NW/NQ prefix) are editable on Finance; manual statement classification overrides narration rules and is audit-logged (`statement.transaction_classify`).
 - Pure summarizer: `summarizeEarnedProfit` / `combineProfitSummaries` in `profit-engine.ts`. Verified INR fixtures live only in tests.
 
+## EOR client portal
+
+- Overseas customers are `ClientOrganization` records — never the existing `Company` table.
+- Client users (`GlobalRole.CLIENT_USER`) authenticate at `/login/client` and access `/client/[slug]/…` with `requireClientCapability` (no super-admin bypass on client mutations).
+- `EmploymentAssignment` links `Employee.companyId` (NOVA employer) to a client; hire requests and KYB/onboarding gates precede `lifecycleStatus: ACTIVE`.
+- NOVA operations manage prospects at `/admin/clients` via `/api/admin/clients/*`.
+- Architecture docs: `docs/eor/ARCHITECTURE.md`, `docs/eor/ENTITY_BOUNDARIES.md`.
+
 ## Public website
 
 - The public group site lives in `src/app/(site)/` and does not replace portal routes.

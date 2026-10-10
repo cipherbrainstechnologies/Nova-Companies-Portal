@@ -177,8 +177,137 @@ async function main() {
     });
   }
 
+  const clientSlug = "acme-uk-ltd-demo";
+  const client = await prisma.clientOrganization.upsert({
+    where: { slug: clientSlug },
+    update: { lifecycleStatus: "ACTIVE", proposedNovaCompanyId: nw.id },
+    create: {
+      slug: clientSlug,
+      legalName: "Acme UK Ltd (Demo)",
+      tradeName: "Acme UK",
+      countryCode: "GB",
+      registrationNumber: "DEMO-12345678",
+      billingCurrency: "GBP",
+      lifecycleStatus: "ACTIVE",
+      proposedNovaCompanyId: nw.id,
+      onboardingCases: {
+        create: {
+          status: "ACTIVE",
+          checklistJson: { steps: [] },
+        },
+      },
+    },
+  });
+
+  const onboardingCase = await prisma.clientOnboardingCase.findFirst({
+    where: { clientOrganizationId: client.id },
+  });
+  if (onboardingCase) {
+    const existingReview = await prisma.clientComplianceReview.findFirst({
+      where: { onboardingCaseId: onboardingCase.id, outcome: "APPROVED" },
+    });
+    if (!existingReview) {
+      await prisma.clientComplianceReview.create({
+        data: {
+          onboardingCaseId: onboardingCase.id,
+          outcome: "APPROVED",
+          riskRating: "LOW",
+          reviewerUserId: admin.id,
+        },
+      });
+    }
+  }
+
+  await prisma.clientPricingAgreement.upsert({
+    where: { clientOrganizationId_version: { clientOrganizationId: client.id, version: 1 } },
+    update: {},
+    create: {
+      clientOrganizationId: client.id,
+      version: 1,
+      currency: "GBP",
+      feePerEmployee: "15000.00",
+      effectiveFrom: new Date(),
+      approvedByUserId: admin.id,
+    },
+  });
+
+  let agreement = await prisma.novaEntityClientAgreement.findFirst({
+    where: { clientOrganizationId: client.id },
+  });
+  if (!agreement) {
+    agreement = await prisma.novaEntityClientAgreement.create({
+      data: {
+        clientOrganizationId: client.id,
+        novaCompanyId: nw.id,
+        contractVersion: "2026.10-demo",
+        effectiveFrom: new Date(),
+        approvedByUserId: admin.id,
+        signatureEnvelopes: {
+          create: {
+            status: "COMPLETED",
+            documentSha256: "demo",
+            completedAt: new Date(),
+          },
+        },
+      },
+    });
+  }
+
+  const clientPassword = await hashPassword("ClientDemo#1311");
+  const clientUser = await prisma.user.upsert({
+    where: { email: "finance@acme-demo.example" },
+    update: {
+      passwordHash: clientPassword,
+      globalRole: "CLIENT_USER",
+      mustChangePassword: false,
+      isActive: true,
+      phone: "+447700900001",
+    },
+    create: {
+      phone: "+447700900001",
+      email: "finance@acme-demo.example",
+      displayName: "Acme Finance Demo",
+      passwordHash: clientPassword,
+      globalRole: "CLIENT_USER",
+      mustChangePassword: false,
+    },
+  });
+
+  await prisma.clientMembership.upsert({
+    where: {
+      userId_clientOrganizationId: {
+        userId: clientUser.id,
+        clientOrganizationId: client.id,
+      },
+    },
+    update: { status: "ACTIVE", portalRole: "OWNER_ADMIN", acceptedAt: new Date() },
+    create: {
+      userId: clientUser.id,
+      clientOrganizationId: client.id,
+      status: "ACTIVE",
+      portalRole: "OWNER_ADMIN",
+      acceptedAt: new Date(),
+    },
+  });
+
+  const assignment = await prisma.employmentAssignment.findFirst({
+    where: { clientOrganizationId: client.id, employeeId: demoEmployee.id },
+  });
+  if (!assignment) {
+    await prisma.employmentAssignment.create({
+      data: {
+        clientOrganizationId: client.id,
+        employeeId: demoEmployee.id,
+        novaCompanyId: nw.id,
+        status: "ACTIVE",
+        effectiveFrom: new Date("2025-04-01"),
+      },
+    });
+  }
+
   console.log("Seeded admin:", admin.displayName, admin.email);
   console.log("Seeded demo employee:", demoCode, demoPhone, "password DemoEmp#1311");
+  console.log("Seeded demo client:", clientSlug, "finance@acme-demo.example", "password ClientDemo#1311");
   console.log("Companies:", nw.prefix, nq.prefix);
 }
 

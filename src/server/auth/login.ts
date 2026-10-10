@@ -30,7 +30,7 @@ export class LoginError extends Error {
 }
 
 export async function loginWithCredentials(input: {
-  portal: "admin" | "employee";
+  portal: "admin" | "employee" | "client";
   identifier: string;
   password: string;
   ipAddress?: string;
@@ -51,7 +51,17 @@ export async function loginWithCredentials(input: {
           },
           include: { employee: true },
         })
-      : await findEmployeeUser(identifier);
+      : input.portal === "client"
+        ? await prisma.user.findFirst({
+            where: {
+              email: { equals: identifier, mode: "insensitive" },
+              globalRole: "CLIENT_USER",
+            },
+            include: {
+              clientMemberships: { where: { status: "ACTIVE" }, include: { clientOrganization: true } },
+            },
+          })
+        : await findEmployeeUser(identifier);
 
   if (!user || !user.isActive) {
     throw new LoginError("Invalid credentials");
@@ -63,19 +73,34 @@ export async function loginWithCredentials(input: {
   if (input.portal === "employee" && user.globalRole !== "EMPLOYEE") {
     throw new LoginError("Use admin login for this account");
   }
+  if (input.portal === "client") {
+    if (user.globalRole !== "CLIENT_USER") {
+      throw new LoginError("Use the client portal sign-in for this account");
+    }
+    const memberships = (user as { clientMemberships?: { clientOrganization: { slug: string } }[] })
+      .clientMemberships;
+    if (!memberships?.length) {
+      throw new LoginError("No active client membership");
+    }
+  }
 
   if (user.lockedUntil && user.lockedUntil > new Date()) {
     throw new LoginError("Account temporarily locked");
   }
 
-  if (user.employee && (user.employee.status === "BLOCKED" || user.employee.status === "EXITED")) {
+  const employeeRecord =
+    "employee" in user && user.employee ? user.employee : null;
+  if (
+    employeeRecord &&
+    (employeeRecord.status === "BLOCKED" || employeeRecord.status === "EXITED")
+  ) {
     await revokeAllUserSessions(user.id);
     await writeAudit({
       actorUserId: user.id,
       action: "auth.login_denied_status",
       entityType: "User",
       entityId: user.id,
-      metadata: { status: user.employee.status },
+      metadata: { status: employeeRecord.status },
       ipAddress: input.ipAddress,
     });
     throw new LoginError("Account not permitted to sign in");
@@ -122,10 +147,17 @@ export async function loginWithCredentials(input: {
     ipAddress: input.ipAddress,
   });
 
+  const clientSlug =
+    input.portal === "client"
+      ? (user as { clientMemberships?: { clientOrganization: { slug: string } }[] }).clientMemberships?.[0]
+          ?.clientOrganization.slug
+      : undefined;
+
   return {
     mustChangePassword: user.mustChangePassword,
     globalRole: user.globalRole,
     displayName: user.displayName,
+    clientSlug,
   };
 }
 

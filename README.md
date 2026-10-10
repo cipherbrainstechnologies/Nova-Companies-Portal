@@ -19,14 +19,7 @@ npm run dev
 npm run worker
 ```
 
-Dev credentials (after `SEED_DEV=1` seed):
-
-| Portal | Login | Password |
-|---|---|---|
-| Admin | `thenovaworkforce@gmail.com` | `Swrit#1311` |
-| Employee | `NW-0020` | `DemoEmp#1311` |
-
-Use `/login/admin` and `/login/employee` (chooser at `/login`).
+Use `/login` to choose a portal. Development accounts are created only when `SEED_DEV=1`; credentials are printed by the seed script and are not documented here. Rotate any credentials that were ever committed to git history before production use.
 
 ## Scripts
 

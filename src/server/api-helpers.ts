@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { Prisma } from "@prisma/client";
@@ -45,6 +46,11 @@ export function apiError(error: unknown) {
   }
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
     return NextResponse.json({ error: "Resource not found" }, { status: 404 });
+  }
+  if (process.env.NODE_ENV === "production") {
+    const correlationId = randomUUID();
+    console.error("[api]", correlationId, error);
+    return NextResponse.json({ error: "Request failed", correlationId }, { status: 500 });
   }
   return NextResponse.json({ error: error instanceof Error ? error.message : "Request failed" }, { status: 400 });
 }

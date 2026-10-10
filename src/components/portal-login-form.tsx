@@ -10,7 +10,7 @@ import { t } from "@/i18n";
 export function PortalLoginForm({
   portal,
 }: {
-  portal: "admin" | "employee";
+  portal: "admin" | "employee" | "client";
 }) {
   const locale = "en" as const;
   const router = useRouter();
@@ -21,6 +21,7 @@ export function PortalLoginForm({
   const [loading, setLoading] = useState(false);
 
   const isAdmin = portal === "admin";
+  const isClient = portal === "client";
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -41,23 +42,37 @@ export function PortalLoginForm({
       router.push("/change-password");
       return;
     }
+    if (isClient && data.clientSlug) {
+      router.push(`/client/${data.clientSlug}/overview`);
+      return;
+    }
     router.push(isAdmin ? "/admin/dashboard" : "/employee/dashboard");
   }
 
   return (
     <div className="mx-auto w-full max-w-md">
-      <BracketLabel>{isAdmin ? "Admin sign-in" : "Employee sign-in"}</BracketLabel>
+      <BracketLabel>
+        {isAdmin ? "Admin sign-in" : isClient ? "Client sign-in" : "Employee sign-in"}
+      </BracketLabel>
       <h1 className="h-macro mt-3 text-[clamp(1.75rem,5vw,2.25rem)]">
-        {isAdmin ? t(locale, "login.adminTitle") : t(locale, "login.employeeTitle")}
+        {isAdmin
+          ? t(locale, "login.adminTitle")
+          : isClient
+            ? "Client portal"
+            : t(locale, "login.employeeTitle")}
       </h1>
       <p className="mt-2 text-sm text-[var(--nova-text-secondary)]">
-        {isAdmin ? t(locale, "login.adminHint") : t(locale, "login.employeeHint")}
+        {isAdmin
+          ? t(locale, "login.adminHint")
+          : isClient
+            ? "Sign in with the work email your organisation invited."
+            : t(locale, "login.employeeHint")}
       </p>
       <Card className="mt-6">
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
             <Label htmlFor="identifier">
-              {isAdmin ? t(locale, "login.adminId") : t(locale, "login.employeeId")}
+              {isAdmin || isClient ? t(locale, "login.adminId") : t(locale, "login.employeeId")}
             </Label>
             <Input
               id="identifier"
@@ -65,7 +80,7 @@ export function PortalLoginForm({
               onChange={(e) => setIdentifier(e.target.value)}
               required
               autoComplete="username"
-              placeholder={isAdmin ? "you@company.com" : "NW-0020 or +91…"}
+              placeholder={isAdmin || isClient ? "you@company.com" : "NW-0020 or +91…"}
             />
           </div>
           <div>
@@ -95,12 +110,14 @@ export function PortalLoginForm({
               ? t(locale, "login.signingIn")
               : isAdmin
                 ? t(locale, "login.adminSubmit")
-                : t(locale, "login.employeeSubmit")}
+                : isClient
+                  ? "Sign in to client portal"
+                  : t(locale, "login.employeeSubmit")}
           </Button>
         </form>
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm">
           <Link
-            href={isAdmin ? "/login/employee" : "/login/admin"}
+            href={isAdmin ? "/login/employee" : isClient ? "/login" : "/login/admin"}
             className="font-medium text-[var(--nova-text-secondary)] hover:text-[var(--nova-teal)]"
           >
             {isAdmin ? t(locale, "login.switchEmployee") : t(locale, "login.switchAdmin")}
@@ -111,7 +128,7 @@ export function PortalLoginForm({
         </div>
       </Card>
       <p className="meta mt-4">
-        {isAdmin ? t(locale, "login.demoAdmin") : t(locale, "login.demoEmployee")}
+        {isAdmin ? t(locale, "login.demoAdmin") : isClient ? "" : t(locale, "login.demoEmployee")}
       </p>
     </div>
   );
@@ -128,7 +145,7 @@ export default function LoginChooserPage() {
       <p className="mt-2 max-w-xl text-sm text-[var(--nova-text-secondary)]">
         {t(locale, "login.chooserBody")}
       </p>
-      <div className="mt-8 grid gap-4 md:grid-cols-2">
+      <div className="mt-8 grid gap-4 md:grid-cols-3">
         <Link
           href="/login/admin"
           className="group rounded-[var(--nova-radius-lg)] border border-[var(--nova-border)] bg-[var(--nova-surface)] p-6 shadow-[var(--nova-shadow)] transition hover:border-[var(--nova-teal)] hover:shadow-[var(--nova-shadow-md)]"
@@ -155,6 +172,21 @@ export default function LoginChooserPage() {
             {t(locale, "login.employeeTitle")}
           </div>
           <p className="mt-2 text-sm text-[var(--nova-muted)]">{t(locale, "login.employeeHint")}</p>
+          <div className="mt-5 text-sm font-semibold text-[var(--nova-teal)] group-hover:underline">
+            {t(locale, "nav.login")} →
+          </div>
+        </Link>
+        <Link
+          href="/login/client"
+          className="group rounded-[var(--nova-radius-lg)] border border-[var(--nova-border)] bg-[var(--nova-surface)] p-6 shadow-[var(--nova-shadow)] transition hover:border-[var(--nova-teal)] hover:shadow-[var(--nova-shadow-md)]"
+        >
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--nova-teal)]">
+            Overseas clients
+          </p>
+          <div className="mt-2 text-xl font-bold text-[var(--nova-ink)]">Client portal</div>
+          <p className="mt-2 text-sm text-[var(--nova-muted)]">
+            Manage your India team, payroll inputs, and invoices.
+          </p>
           <div className="mt-5 text-sm font-semibold text-[var(--nova-teal)] group-hover:underline">
             {t(locale, "nav.login")} →
           </div>

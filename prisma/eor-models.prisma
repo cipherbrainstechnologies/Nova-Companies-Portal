@@ -1,0 +1,663 @@
+// Appended into schema.prisma — EOR client portal models
+
+enum ClientOrganizationStatus {
+  DRAFT
+  INVITED
+  KYB_IN_PROGRESS
+  KYB_REVIEW
+  CONTRACT_PENDING
+  SIGNATURE_PENDING
+  COMPLIANCE_REVIEW
+  ACTIVE
+  CHANGES_REQUESTED
+  REJECTED
+  SUSPENDED
+  OFFBOARDING
+  CLOSED
+}
+
+enum ClientMembershipStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  REVOKED
+}
+
+enum ClientPortalRole {
+  OWNER_ADMIN
+  HR_MANAGER
+  FINANCE
+  TEAM_MANAGER
+  READ_ONLY_AUDITOR
+}
+
+enum ClientCapabilityModule {
+  overview
+  onboarding
+  team
+  payroll
+  costs
+  invoices
+  documents
+  approvals
+  people
+  settings
+  support
+  activity
+  leaveExpenses
+}
+
+enum ClientCapabilityAction {
+  VIEW
+  CREATE
+  EDIT
+  SUBMIT
+  APPROVE
+  DOWNLOAD
+  INVITE
+  MANAGE
+  EXECUTE
+}
+
+enum HireRequestStatus {
+  DRAFT
+  SUBMITTED
+  NOVA_REVIEW
+  OFFER_PENDING
+  EMPLOYEE_INVITED
+  DOCUMENTS_PENDING
+  VERIFICATION
+  CONTRACT_SIGNATURE
+  STATUTORY_SETUP
+  READY_TO_JOIN
+  ACTIVE
+  MORE_INFO
+  REJECTED
+  WITHDRAWN
+  ON_HOLD
+}
+
+enum EmploymentAssignmentStatus {
+  PENDING
+  ACTIVE
+  ON_HOLD
+  ENDED
+}
+
+enum VerificationCheckStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  PASSED
+  FAILED
+  WAIVED
+}
+
+enum ClientInvoiceFinancialState {
+  FORECAST
+  CLIENT_APPROVED
+  INVOICE_DRAFT
+  FINANCE_APPROVED
+  ISSUED
+  PART_PAID
+  PAID
+  RECONCILED
+  OVERDUE
+  DISPUTED
+  VOIDED
+  CREDITED
+}
+
+enum SignatureEnvelopeStatus {
+  DRAFT
+  SENT
+  PARTIALLY_SIGNED
+  COMPLETED
+  DECLINED
+  VOIDED
+  EXPIRED
+}
+
+enum ClientApprovalTaskType {
+  HIRE
+  SALARY_CHANGE
+  LEAVE
+  EXPENSE
+  FUNDING
+  PAYROLL_INPUT
+  KYB
+  CONTRACT
+}
+
+enum ClientApprovalTaskStatus {
+  OPEN
+  APPROVED
+  REJECTED
+  CANCELLED
+  EXPIRED
+}
+
+model ClientOrganization {
+  id                    String                   @id @default(cuid())
+  slug                  String                   @unique
+  legalName             String
+  tradeName             String?
+  countryCode           String
+  registrationNumber    String?
+  taxId                 String?
+  website               String?
+  billingAddressJson    Json?
+  lifecycleStatus       ClientOrganizationStatus @default(DRAFT)
+  intendedEmployeeCount Int?
+  billingCurrency       String                   @default("GBP")
+  relationshipOwnerId   String?
+  proposedNovaCompanyId String?
+  riskRating            String?
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+
+  proposedNovaCompany   Company?                 @relation("ClientProposedNova", fields: [proposedNovaCompanyId], references: [id])
+  legalEntities         ClientLegalEntity[]
+  memberships           ClientMembership[]
+  invitations           ClientInvitation[]
+  onboardingCases       ClientOnboardingCase[]
+  novaAgreements        NovaEntityClientAgreement[]
+  employmentAssignments EmploymentAssignment[]
+  hireRequests          HireRequest[]
+  pricingAgreements     ClientPricingAgreement[]
+  invoices              ClientInvoice[]
+  approvalTasks         ClientApprovalTask[]
+  activityAudits        ClientActivityAudit[]
+  sessions              Session[]
+  payrollApprovals      ClientPayrollApproval[]
+  fundingRequests       PayrollFundingRequest[]
+  costSnapshots         EmployerCostSnapshot[]
+
+  @@index([lifecycleStatus])
+  @@index([legalName])
+}
+
+model ClientLegalEntity {
+  id                   String             @id @default(cuid())
+  clientOrganizationId String
+  legalName            String
+  countryCode          String
+  registrationNumber   String?
+  taxId                String?
+  billingAddressJson   Json?
+  isPrimaryBillTo      Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  clientOrganization   ClientOrganization @relation(fields: [clientOrganizationId], references: [id], onDelete: Cascade)
+
+  @@index([clientOrganizationId])
+}
+
+model ClientMembership {
+  id                   String                 @id @default(cuid())
+  userId               String
+  clientOrganizationId String
+  status               ClientMembershipStatus @default(INVITED)
+  portalRole           ClientPortalRole       @default(OWNER_ADMIN)
+  invitedAt            DateTime?
+  acceptedAt           DateTime?
+  revokedAt            DateTime?
+  mfaEnrolledAt        DateTime?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  user                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientOrganization   ClientOrganization     @relation(fields: [clientOrganizationId], references: [id], onDelete: Cascade)
+  permissionOverrides  ClientPermissionOverride[]
+  employeeScopes       ClientEmployeeScope[]
+
+  @@unique([userId, clientOrganizationId])
+  @@index([clientOrganizationId, status])
+}
+
+model ClientPermissionOverride {
+  id           String                 @id @default(cuid())
+  membershipId String
+  module       ClientCapabilityModule
+  action       ClientCapabilityAction
+  allowed      Boolean                @default(true)
+  createdAt    DateTime               @default(now())
+
+  membership   ClientMembership       @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, module, action])
+}
+
+model ClientEmployeeScope {
+  id           String           @id @default(cuid())
+  membershipId String
+  employeeId   String
+  createdAt    DateTime         @default(now())
+
+  membership   ClientMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  employee     Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, employeeId])
+  @@index([employeeId])
+}
+
+model ClientInvitation {
+  id                   String             @id @default(cuid())
+  clientOrganizationId String
+  email                String
+  portalRole           ClientPortalRole   @default(HR_MANAGER)
+  tokenHash            String             @unique
+  expiresAt            DateTime
+  acceptedAt           DateTime?
+  invitedByUserId      String
+  createdAt            DateTime           @default(now())
+
+  clientOrganization   ClientOrganization @relation(fields: [clientOrganizationId], references: [id], onDelete: Cascade)
+  invitedBy            User               @relation("ClientInvitationInviter", fields: [invitedByUserId], references: [id])
+
+  @@index([clientOrganizationId, email])
+}
+
+model ClientOnboardingCase {
+  id                   String             @id @default(cuid())
+  clientOrganizationId String
+  status               ClientOrganizationStatus
+  checklistJson        Json?
+  submittedAt          DateTime?
+  reviewedAt           DateTime?
+  reviewerNotes        String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  clientOrganization   ClientOrganization @relation(fields: [clientOrganizationId], references: [id], onDelete: Cascade)
+  kybDocuments         ClientKYBDocument[]
+  complianceReviews    ClientComplianceReview[]
+
+  @@index([clientOrganizationId])
+}
+
+model ClientKYBDocument {
+  id                String             @id @default(cuid())
+  onboardingCaseId  String
+  category          String
+  fileKey           String
+  contentSha256     String
+  version           Int                @default(1)
+  status            String             @default("UPLOADED")
+  reviewerUserId    String?
+  rejectionReason   String?
+  expiresAt         DateTime?
+  createdAt         DateTime           @default(now())
+
+  onboardingCase    ClientOnboardingCase @relation(fields: [onboardingCaseId], references: [id], onDelete: Cascade)
+
+  @@index([onboardingCaseId])
+}
+
+model ClientComplianceReview {
+  id               String             @id @default(cuid())
+  onboardingCaseId String
+  outcome          String
+  riskRating       String?
+  notes            String?
+  reviewerUserId   String?
+  createdAt        DateTime           @default(now())
+
+  onboardingCase   ClientOnboardingCase @relation(fields: [onboardingCaseId], references: [id], onDelete: Cascade)
+}
+
+model NovaEntityClientAgreement {
+  id                   String             @id @default(cuid())
+  clientOrganizationId String
+  novaCompanyId        String
+  contractVersion      String
+  effectiveFrom        DateTime
+  effectiveTo          DateTime?
+  approvedByUserId     String?
+  createdAt            DateTime           @default(now())
+
+  clientOrganization   ClientOrganization @relation(fields: [clientOrganizationId], references: [id], onDelete: Cascade)
+  novaCompany          Company            @relation(fields: [novaCompanyId], references: [id])
+  documents            AgreementDocument[]
+  signatureEnvelopes   SignatureEnvelope[]
+
+  @@index([clientOrganizationId, novaCompanyId])
+}
+
+model AgreementDocument {
+  id          String                  @id @default(cuid())
+  agreementId String
+  docType     String
+  version     String
+  pdfSha256   String
+  storageKey  String
+  createdAt   DateTime                @default(now())
+
+  agreement   NovaEntityClientAgreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+}
+
+model SignatureEnvelope {
+  id                   String                  @id @default(cuid())
+  agreementId          String
+  provider             String                  @default("manual")
+  providerEnvelopeId   String?
+  status               SignatureEnvelopeStatus @default(DRAFT)
+  documentSha256       String
+  completedAt          DateTime?
+  createdAt            DateTime                @default(now())
+
+  agreement            NovaEntityClientAgreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  events               SignatureEvent[]
+}
+
+model SignatureEvent {
+  id          String            @id @default(cuid())
+  envelopeId  String
+  signerName  String
+  signerEmail String
+  signedAt    DateTime
+  evidenceJson Json?
+
+  envelope    SignatureEnvelope @relation(fields: [envelopeId], references: [id], onDelete: Cascade)
+}
+
+model EmploymentAssignment {
+  id                   String                   @id @default(cuid())
+  employeeId           String
+  clientOrganizationId String
+  novaCompanyId        String
+  status               EmploymentAssignmentStatus @default(PENDING)
+  managerMembershipId  String?
+  effectiveFrom        DateTime
+  effectiveTo          DateTime?
+  contractReference    String?
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+
+  employee             Employee                 @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  clientOrganization   ClientOrganization       @relation(fields: [clientOrganizationId], references: [id], onDelete: Cascade)
+  novaCompany          Company                  @relation(fields: [novaCompanyId], references: [id])
+
+  @@index([clientOrganizationId, status])
+  @@index([employeeId])
+}
+
+model HireRequest {
+  id                   String            @id @default(cuid())
+  clientOrganizationId String
+  status               HireRequestStatus @default(DRAFT)
+  candidateJson        Json
+  provisionalCostJson  Json?
+  submittedAt          DateTime?
+  employeeId           String?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  clientOrganization   ClientOrganization @relation(fields: [clientOrganizationId], references: [id], onDelete: Cascade)
+  employee             Employee?          @relation(fields: [employeeId], references: [id])
+
+  @@index([clientOrganizationId, status])
+}
+
+model EmployeeVerificationCheck {
+  id          String                @id @default(cuid())
+  employeeId  String
+  checkType   String
+  status      VerificationCheckStatus @default(NOT_STARTED)
+  reviewerUserId String?
+  notes       String?
+  evidenceKey String?
+  updatedAt   DateTime              @updatedAt
+  createdAt   DateTime              @default(now())
+
+  employee    Employee              @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, checkType])
+}
+
+model EmployeeChangeRequest {
+  id                   String   @id @default(cuid())
+  employeeId           String
+  clientOrganizationId String
+  changeType           String
+  effectiveDate        DateTime
+  payloadJson          Json
+  status               String   @default("SUBMITTED")
+  createdAt            DateTime @default(now())
+
+  employee             Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([clientOrganizationId])
+}
+
+model ClientPricingAgreement {
+  id                   String             @id @default(cuid())
+  clientOrganizationId String
+  version              Int
+  currency             String
+  feePerEmployee       Decimal            @db.Decimal(18, 2)
+  setupFee             Decimal?           @db.Decimal(18, 2)
+  termsJson            Json?
+  approvedByUserId     String?
+  effectiveFrom        DateTime
+  effectiveTo          DateTime?
+  createdAt            DateTime           @default(now())
+
+  clientOrganization   ClientOrganization @relation(fields: [clientOrganizationId], references: [id], onDelete: Cascade)
+  employeeFeeSchedules EmployeeFeeSchedule[]
+
+  @@unique([clientOrganizationId, version])
+}
+
+model EmployeeFeeSchedule {
+  id                String   @id @default(cuid())
+  pricingAgreementId String
+  employeeId        String?
+  flatFeeAmount     Decimal  @db.Decimal(18, 2)
+  currency          String
+  effectiveFrom     DateTime
+  effectiveTo       DateTime?
+  createdAt         DateTime @default(now())
+
+  pricingAgreement  ClientPricingAgreement @relation(fields: [pricingAgreementId], references: [id], onDelete: Cascade)
+  employee          Employee?              @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId])
+}
+
+model EmployerCostSnapshot {
+  id                   String   @id @default(cuid())
+  clientOrganizationId String
+  employeeId           String
+  novaCompanyId        String
+  periodYear           Int
+  periodMonth          Int
+  currency             String
+  breakdownJson        Json
+  isImmutable          Boolean  @default(true)
+  createdAt            DateTime @default(now())
+
+  clientOrganization   ClientOrganization @relation(fields: [clientOrganizationId], references: [id], onDelete: Cascade)
+  employee             Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  novaCompany          Company            @relation(fields: [novaCompanyId], references: [id])
+
+  @@unique([clientOrganizationId, employeeId, periodYear, periodMonth])
+}
+
+model FXQuote {
+  id                   String   @id @default(cuid())
+  clientOrganizationId String
+  sourceCurrency       String
+  targetCurrency       String
+  referenceRate        Decimal  @db.Decimal(18, 8)
+  spreadBps            Int      @default(0)
+  quotedAt             DateTime
+  validUntil           DateTime
+  metadataJson         Json?
+
+  @@index([clientOrganizationId, quotedAt])
+}
+
+model FXSettlement {
+  id                   String   @id @default(cuid())
+  clientOrganizationId String
+  invoiceId            String?
+  bookedRate           Decimal  @db.Decimal(18, 8)
+  settledAt            DateTime
+  inrReceived          Decimal  @db.Decimal(18, 2)
+  varianceAmount       Decimal? @db.Decimal(18, 2)
+  evidenceKey          String?
+
+  @@index([clientOrganizationId])
+}
+
+model ClientPayrollApproval {
+  id                   String   @id @default(cuid())
+  clientOrganizationId String
+  periodYear           Int
+  periodMonth          Int
+  status               String   @default("PENDING")
+  estimateJson         Json?
+  approvedAt           DateTime?
+  approvedByMembershipId String?
+  createdAt            DateTime @default(now())
+
+  clientOrganization   ClientOrganization @relation(fields: [clientOrganizationId], references: [id], onDelete: Cascade)
+
+  @@unique([clientOrganizationId, periodYear, periodMonth])
+}
+
+model PayrollFundingRequest {
+  id                   String   @id @default(cuid())
+  clientOrganizationId String
+  periodYear           Int
+  periodMonth          Int
+  amount               Decimal  @db.Decimal(18, 2)
+  currency             String
+  status               String   @default("REQUESTED")
+  dueAt                DateTime?
+  createdAt            DateTime @default(now())
+
+  clientOrganization   ClientOrganization @relation(fields: [clientOrganizationId], references: [id], onDelete: Cascade)
+}
+
+model ClientInvoice {
+  id                   String                      @id @default(cuid())
+  clientOrganizationId String
+  novaCompanyId        String
+  invoiceNumber        String
+  periodYear           Int
+  periodMonth          Int
+  currency             String
+  financialState       ClientInvoiceFinancialState @default(INVOICE_DRAFT)
+  subtotal             Decimal                     @db.Decimal(18, 2)
+  taxTotal             Decimal                     @db.Decimal(18, 2)
+  total                Decimal                     @db.Decimal(18, 2)
+  issuedAt             DateTime?
+  dueAt                DateTime?
+  pdfSha256            String?
+  pdfStorageKey        String?
+  snapshotJson         Json?
+  createdAt            DateTime                    @default(now())
+  updatedAt            DateTime                    @updatedAt
+
+  clientOrganization   ClientOrganization          @relation(fields: [clientOrganizationId], references: [id], onDelete: Cascade)
+  novaCompany          Company                     @relation(fields: [novaCompanyId], references: [id])
+  lines                ClientInvoiceLine[]
+  payments             ClientPayment[]
+  creditNotes          ClientCreditNote[]
+
+  @@unique([novaCompanyId, invoiceNumber])
+  @@index([clientOrganizationId, financialState])
+}
+
+model ClientInvoiceLine {
+  id          String        @id @default(cuid())
+  invoiceId   String
+  employeeId  String?
+  description String
+  quantity    Decimal       @db.Decimal(18, 4)
+  unitAmount  Decimal       @db.Decimal(18, 2)
+  lineTotal   Decimal       @db.Decimal(18, 2)
+  metadataJson Json?
+
+  invoice     ClientInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  employee    Employee?     @relation(fields: [employeeId], references: [id])
+
+  @@index([invoiceId])
+}
+
+model ClientPayment {
+  id          String        @id @default(cuid())
+  invoiceId   String
+  amount      Decimal       @db.Decimal(18, 2)
+  currency    String
+  receivedAt  DateTime
+  reference   String?
+  createdAt   DateTime      @default(now())
+
+  invoice     ClientInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+model ClientCreditNote {
+  id          String        @id @default(cuid())
+  invoiceId   String
+  amount      Decimal       @db.Decimal(18, 2)
+  reason      String
+  issuedAt    DateTime      @default(now())
+
+  invoice     ClientInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+model ClientApprovalTask {
+  id                   String                 @id @default(cuid())
+  clientOrganizationId String
+  taskType             ClientApprovalTaskType
+  status               ClientApprovalTaskStatus @default(OPEN)
+  title                String
+  payloadJson          Json?
+  dueAt                DateTime?
+  assigneeMembershipId String?
+  decidedAt            DateTime?
+  decisionReason       String?
+  createdAt            DateTime               @default(now())
+
+  clientOrganization   ClientOrganization     @relation(fields: [clientOrganizationId], references: [id], onDelete: Cascade)
+
+  @@index([clientOrganizationId, status])
+}
+
+model ClientActivityAudit {
+  id                   String   @id @default(cuid())
+  clientOrganizationId String
+  actorUserId          String?
+  action               String
+  entityType           String
+  entityId             String?
+  metadataJson         Json?
+  createdAt            DateTime @default(now())
+
+  clientOrganization   ClientOrganization @relation(fields: [clientOrganizationId], references: [id], onDelete: Cascade)
+  actor                User?            @relation(fields: [actorUserId], references: [id])
+
+  @@index([clientOrganizationId, createdAt])
+}
+
+model IdempotencyRecord {
+  id           String   @id @default(cuid())
+  key          String   @unique
+  operation    String
+  responseJson Json?
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+}
+
+model SecurityEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  eventType String
+  metadataJson Json?
+  createdAt DateTime @default(now())
+
+  @@index([eventType, createdAt])
+}

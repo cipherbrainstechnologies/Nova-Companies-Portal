@@ -3,7 +3,7 @@ import { z } from "zod";
 import { loginWithCredentials, LoginError } from "@/server/auth/login";
 
 const schema = z.object({
-  portal: z.enum(["admin", "employee"]),
+  portal: z.enum(["admin", "employee", "client"]),
   identifier: z.string().min(3),
   password: z.string().min(1),
 });

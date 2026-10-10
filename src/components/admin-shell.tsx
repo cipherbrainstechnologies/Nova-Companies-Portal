@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 const links = [
   { href: "/admin/dashboard", key: "admin.dashboard", group: "Overview" },
   { href: "/admin/companies", key: "admin.companies", group: "Organization" },
+  { href: "/admin/clients", key: "admin.clients", group: "Organization" },
   { href: "/admin/employees", key: "admin.employees", group: "Organization" },
   { href: "/admin/templates", key: "admin.templates", group: "Organization" },
   { href: "/admin/statements", key: "admin.statements", group: "Payroll" },
