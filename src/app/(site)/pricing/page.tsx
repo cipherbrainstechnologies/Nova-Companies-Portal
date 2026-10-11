@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { ClosingBand, PageIntro } from "@/components/marketing/blocks";
-import { PricingPrefill } from "@/components/marketing/pricing-prefill";
+import { PricingCalculator } from "@/components/marketing/pricing-calculator";
 import { getSiteCopy } from "@/content/public-site";
 import { getRequestLocale } from "@/content/request-locale";
 
@@ -16,7 +16,7 @@ export default async function PricingPage() {
     <>
       <PageIntro kicker={page.kicker} title={page.title} lede={page.lede} />
       <Suspense fallback={null}>
-        <PricingPrefill note={page.prefillNote} />
+        <PricingCalculator copy={page.calculator} />
       </Suspense>
       <div className="mt-10 grid gap-4 md:grid-cols-3">
         {page.cards.map((card) => (

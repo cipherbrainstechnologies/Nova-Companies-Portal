@@ -1,14 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import type { SiteCopy } from "@/content/public-site";
 import { Button, Input, Label } from "@/components/ui";
 
 type FormCopy = SiteCopy["contact"]["form"];
 
 export function ContactForm({ copy }: { copy: FormCopy }) {
+  const searchParams = useSearchParams();
+  const [estimateRef, setEstimateRef] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "success" | "error" | "invalid">("idle");
   const [errors, setErrors] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const est = searchParams.get("estimate");
+    if (est) setEstimateRef(est.toUpperCase());
+  }, [searchParams]);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -16,10 +24,15 @@ export function ContactForm({ copy }: { copy: FormCopy }) {
     const data = Object.fromEntries(new FormData(form).entries());
     setStatus("sending");
     setErrors({});
+    const payload = {
+      ...data,
+      estimateReference: estimateRef || undefined,
+      consent: data.consent === "on",
+    };
     const res = await fetch("/api/contact", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     });
     if (res.ok) {
       form.reset();
@@ -49,6 +62,21 @@ export function ContactForm({ copy }: { copy: FormCopy }) {
       <Field label={copy.email} name="email" type="email" required autoComplete="email" invalid={errors.email} />
       <Field label={copy.organisation} name="organisation" hint={copy.optional} autoComplete="organization" />
       <Field label={copy.phone} name="phone" type="tel" hint={copy.optional} autoComplete="tel" invalid={errors.phone} />
+      <Field
+        label={copy.headcount}
+        name="headcount"
+        type="number"
+        hint={copy.optional}
+        invalid={errors.headcount}
+      />
+      <Field label={copy.geography} name="geography" hint={copy.optional} invalid={errors.geography} />
+      <Field label={copy.hiringTiming} name="hiringTiming" hint={copy.optional} invalid={errors.hiringTiming} />
+      {estimateRef ? (
+        <div>
+          <Label htmlFor="estimateReference">{copy.estimateReference}</Label>
+          <Input id="estimateReference" name="estimateReference" value={estimateRef} readOnly className="font-mono" />
+        </div>
+      ) : null}
       <div>
         <Label htmlFor="topic">{copy.topic}</Label>
         <select
@@ -65,6 +93,12 @@ export function ContactForm({ copy }: { copy: FormCopy }) {
             </option>
           ))}
         </select>
+      </div>
+      <div className="flex items-start gap-2">
+        <input id="consent" name="consent" type="checkbox" required className="mt-1" aria-invalid={errors.consent || undefined} />
+        <Label htmlFor="consent" className="text-sm font-normal leading-relaxed text-[var(--nova-text-secondary)]">
+          {copy.consent}
+        </Label>
       </div>
       <div>
         <Label htmlFor="message">{copy.message}</Label>

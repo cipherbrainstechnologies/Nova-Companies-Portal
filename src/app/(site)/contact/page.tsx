@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { PageIntro } from "@/components/marketing/blocks";
 import { ContactForm } from "@/components/marketing/contact-form";
 import { getSiteCopy } from "@/content/public-site";
@@ -16,7 +17,9 @@ export default async function ContactPage() {
       <PageIntro kicker={page.kicker} title={page.title} lede={page.lede} />
       <div className="mt-10 grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="rounded-[var(--nova-radius-lg)] border border-[var(--nova-border)] bg-[var(--nova-surface)] p-6 md:p-8">
-          <ContactForm copy={page.form} />
+          <Suspense fallback={null}>
+            <ContactForm copy={page.form} />
+          </Suspense>
         </div>
         <aside className="rounded-[var(--nova-radius-lg)] bg-[var(--nova-ink)] p-6 text-white md:p-8">
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/60">{page.emailLabel}</p>

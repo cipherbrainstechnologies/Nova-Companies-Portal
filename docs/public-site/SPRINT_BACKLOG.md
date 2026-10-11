@@ -32,22 +32,22 @@ Execution order from NOVA UX audit §10, reconciled with `AS_IS_AUDIT.md` on `ma
 | S2-3 | i18n copy refresh (en first) | `en.ts` + fr/es overrides |
 | S2-4 | Redirect `/how-we-work` → `/how-it-works` | `next.config.ts` |
 
-## Sprint 3 — Pricing engine
+## Sprint 3 — Pricing engine ✅
 
-| ID | Story |
-|----|-------|
-| S3-1 | Prisma models: `PricingPlan`, `CostEstimate`, `QuoteRequest`, … |
-| S3-2 | `POST /api/public/estimates` (Zod, Decimal, rate limit) |
-| S3-3 | Calculator UI on `/pricing` |
-| S3-4 | Finance/legal sign-off on formulas and disclaimers |
+| ID | Story | Status |
+|----|-------|--------|
+| S3-1 | Prisma models: `PublicPricingPlan`, `PublicCostEstimate`, `PublicQuoteRequest` | Migration `20261011120000_public_cost_estimates` |
+| S3-2 | `POST /api/public/estimates`, `GET /api/public/estimates/[reference]` | Rate limit via `SecurityEvent` buckets |
+| S3-3 | Calculator UI on `/pricing` | `pricing-calculator.tsx` |
+| S3-4 | Finance/legal sign-off on formulas and disclaimers | **Operator** — configure `PublicPricingPlan` + env FX/fee vars before production |
 
 ## Sprint 4 — Onboarding explainer + qualified leads
 
-| ID | Story |
-|----|-------|
-| S4-1 | Interactive `/how-it-works` |
-| S4-2 | Contact form qualification fields |
-| S4-3 | Lead lifecycle handoff to `ClientOrganization` |
+| ID | Story | Status |
+|----|-------|--------|
+| S4-1 | Interactive `/how-it-works` | Pending |
+| S4-2 | Contact form qualification fields | Partial — headcount, geography, timing, consent, estimate ref |
+| S4-3 | Lead lifecycle handoff to `ClientOrganization` | Partial — `PublicQuoteRequest` on EOR contact submit |
 
 ## Sprint 5 — Platform tour, trust, SEO
 

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { sendEmail } from "@/server/email";
+import { prisma } from "@/server/db";
+import { hashClientIp } from "@/server/public/rate-limit";
 
 const schema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -9,6 +11,11 @@ const schema = z.object({
   phone: z.string().trim().max(40).optional().or(z.literal("")),
   topic: z.enum(["eor", "payroll", "careers", "other"]),
   message: z.string().trim().min(20).max(4000),
+  headcount: z.coerce.number().int().min(1).max(500).optional(),
+  geography: z.string().trim().max(120).optional().or(z.literal("")),
+  hiringTiming: z.string().trim().max(80).optional().or(z.literal("")),
+  estimateReference: z.string().trim().max(20).optional().or(z.literal("")),
+  consent: z.literal(true),
   website: z.string().max(200).optional().or(z.literal("")),
 });
 
@@ -30,6 +37,41 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    req.headers.get("x-real-ip") ??
+    null;
+  const ipHash = hashClientIp(ip);
+
+  let estimateId: string | undefined;
+  const ref = parsed.data.estimateReference?.toUpperCase();
+  if (ref) {
+    const estimate = await prisma.publicCostEstimate.findUnique({
+      where: { publicReference: ref },
+    });
+    if (estimate && estimate.expiresAt >= new Date()) {
+      estimateId = estimate.id;
+    }
+  }
+
+  if (parsed.data.topic === "eor") {
+    await prisma.publicQuoteRequest.create({
+      data: {
+        name: parsed.data.name,
+        email: parsed.data.email,
+        organisation: parsed.data.organisation || null,
+        phone: parsed.data.phone || null,
+        message: parsed.data.message,
+        headcount: parsed.data.headcount ?? null,
+        geography: parsed.data.geography || null,
+        hiringTiming: parsed.data.hiringTiming || null,
+        consentAt: new Date(),
+        estimateId,
+        ipHash,
+      },
+    });
+  }
+
   const inbox = process.env.CONTACT_INBOX ?? "thenovaworkforce@gmail.com";
   const topic = parsed.data.topic;
   try {
@@ -41,6 +83,10 @@ export async function POST(req: NextRequest) {
         `Email: ${parsed.data.email}`,
         `Company: ${parsed.data.organisation || "-"}`,
         `Phone: ${parsed.data.phone || "-"}`,
+        `Headcount: ${parsed.data.headcount ?? "-"}`,
+        `Geography: ${parsed.data.geography || "-"}`,
+        `Timing: ${parsed.data.hiringTiming || "-"}`,
+        `Estimate ref: ${ref || "-"}`,
         `Topic: ${topic}`,
         "",
         parsed.data.message,
