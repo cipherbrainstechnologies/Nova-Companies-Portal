@@ -87,7 +87,8 @@
 - Pages: `/` (home), `/about`, `/companies`, `/services`, `/how-we-work`, `/who-we-serve`, `/pricing`, `/faq`, `/contact`, `/careers`, `/privacy`.
 - Copy is locale-ready in `src/content/public-site/` (`en`, `fr`, `es`) and follows `Accept-Language` via `getRequestLocale`.
 - Nova Workforce is described as the employer of record (Ahmedabad). Nova Qore is described only as a group company whose people use the same portal. No placement statistics or candidate lists are published.
-- Contact form posts to `POST /api/contact`, which emails `CONTACT_INBOX` or `thenovaworkforce@gmail.com`. A filled honeypot field is ignored.
+- Contact form posts to `POST /api/contact`, which emails `CONTACT_INBOX` or `thenovaworkforce@gmail.com`. A filled honeypot field is ignored. EOR enquiries with consent also create `PublicQuoteRequest` rows (optional link to `PublicCostEstimate` via reference).
+- Public indicative cost estimates: `POST /api/public/estimates` runs `buildEmployerCostEstimate` (PF/ESI/gratuity, FY 2025–26 TDS indicative, configurable NOVA fee via `PublicPricingPlan` or env). Results persist as `PublicCostEstimate` with `EST-*` reference (7-day TTL). `GET /api/public/estimates/[reference]` returns non-PII breakdown only. Rate limiting uses hashed IP buckets on `SecurityEvent`.
 - Sign-in stays at `/login`, `/login/employee`, and `/login/admin` (employees, super admins, operations managers, and other granted users). Document verification stays at `/verify-document`.
 
 ## Portal surfaces and API boundaries
