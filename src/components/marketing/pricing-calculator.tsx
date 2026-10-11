@@ -242,11 +242,11 @@ export function PricingCalculator({ copy }: { copy: CalculatorCopy }) {
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <TotalCard label={copy.perEmployeeMonthly} value={formatInr(result.breakdown.perEmployee.totalMonthlyEmployerCostInr)} />
               <TotalCard
-                label={copy.teamMonthly(result.breakdown.consolidated.headcount)}
+                label={`${copy.teamMonthly} (${result.breakdown.consolidated.headcount} employees)`}
                 value={formatInr(result.breakdown.consolidated.monthlyTotalInr)}
               />
               <TotalCard
-                label={copy.billingMonthly(result.breakdown.fx.billingCurrency)}
+                label={`${copy.billingMonthly} (${result.breakdown.fx.billingCurrency})`}
                 value={formatForeign(
                   result.breakdown.consolidated.monthlyBillingCurrency,
                   result.breakdown.fx.billingCurrency,
