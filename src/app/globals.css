@@ -212,12 +212,21 @@ button {
 
 /* Public marketing site — scoped extension (admin/employee tokens unchanged) */
 [data-marketing="true"] {
-  --mkt-canvas: #f8f7f4;
+  --nova-ink: #17233b;
+  --nova-teal: #6254d9;
+  --nova-teal-soft: #f1efff;
+  --nova-text-secondary: #657187;
+  --nova-muted: #657187;
+  --nova-border: #e6e8f0;
+  --nova-border-strong: #d8dce8;
+  --mkt-canvas: #f8f9fc;
   --mkt-surface: #ffffff;
-  --mkt-border: #e2e8f0;
+  --mkt-border: #e6e8f0;
+  --mkt-accent-hover: #5248c4;
   --mkt-radius: 12px;
   --mkt-radius-lg: 20px;
-  --mkt-shadow: 0 8px 30px rgb(15 23 42 / 0.06);
+  --mkt-shadow: 0 8px 30px rgb(23 35 59 / 0.08);
+  --mkt-container-max: 72rem;
   background: var(--mkt-canvas);
 }
 

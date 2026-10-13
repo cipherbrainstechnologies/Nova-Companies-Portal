@@ -6,6 +6,8 @@ const MARKETING = [
   "pricing",
   "contact",
   "employer-of-record-india",
+  "services/payroll",
+  "india-hiring-guide",
   "how-it-works",
   "fx-transparency",
   "security",

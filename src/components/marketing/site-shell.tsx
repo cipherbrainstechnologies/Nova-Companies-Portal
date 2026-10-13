@@ -13,25 +13,26 @@ export function SiteShell({
 }) {
   const copy = getSiteCopy(locale);
   const explore = [
-    ["/employer-of-record-india", copy.nav.whyNova],
+    ["/employer-of-record-india", copy.nav.eor],
+    ["/services/payroll", copy.nav.payrollCompliance],
     ["/how-it-works", copy.nav.howItWorks],
+    ["/india-hiring-guide", copy.nav.indiaGuide],
+    ["/about", copy.nav.about],
     ["/pricing", copy.nav.pricing],
-    ["/platform", copy.nav.platform],
-    ["/compliance", copy.nav.compliance],
-    ["/security", "Security"],
-    ["/fx-transparency", "FX transparency"],
     ["/faq", copy.nav.faq],
     ["/contact", copy.nav.contact],
     ["/privacy", copy.nav.privacy],
     ["/terms", "Terms"],
     ["/cookies", "Cookies"],
+    ["/security", "Security"],
+    ["/fx-transparency", "FX transparency"],
   ] as const;
 
   return (
     <div className="min-h-screen" data-marketing="true">
       <div className="h-1 w-full bg-gradient-to-r from-[var(--nova-ink)] via-[var(--nova-teal)] to-[var(--nova-teal-soft)]" aria-hidden />
       <SiteHeader copy={copy} />
-      <main id="main" tabIndex={-1} className="mx-auto max-w-7xl px-4 py-10 outline-none md:px-6 md:py-14">
+      <main id="main" tabIndex={-1} className="mx-auto max-w-[var(--mkt-container-max)] px-4 py-10 outline-none md:px-8 md:py-14">
         {children}
       </main>
       <MobileQuoteBar label={copy.nav.getQuote} />

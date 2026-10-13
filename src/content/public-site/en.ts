@@ -1,30 +1,34 @@
 export const siteCopyEn = {
   meta: {
-    siteName: "NOVA",
+    siteName: "Nova Workforce",
     description:
-      "India employer of record for overseas companies. Hire with transparent employee-level costs, compliant payroll, and a client portal built for finance and HR teams.",
+      "Explore locally managed Employer of Record services in India, including employment administration, payroll and employee onboarding. Speak with Nova Workforce.",
   },
   nav: {
     label: "Primary",
     menu: "Menu",
     close: "Close",
     skip: "Skip to content",
-    about: "About",
+    home: "Home",
+    about: "About Nova",
     companies: "Companies",
     services: "Services",
     how: "How we work",
-    howItWorks: "How it works",
-    whyNova: "Why NOVA",
+    howItWorks: "How It Works",
+    eor: "Employer of Record",
+    payrollCompliance: "Payroll & Compliance",
+    whyNova: "Why Nova",
     platform: "Platform",
     compliance: "Compliance",
     resources: "Resources",
     pricing: "Pricing",
+    indiaGuide: "India hiring guide",
     who: "Who we work with",
     faq: "FAQ",
     contact: "Contact",
     login: "Portal login",
     clientLogin: "Client login",
-    getQuote: "Get a quote",
+    getQuote: "Book a consultation",
     careers: "Careers",
     privacy: "Privacy",
     verify: "Verify a document",
@@ -44,20 +48,161 @@ export const siteCopyEn = {
       "Employment services are delivered through Nova Group companies registered in India. Your proposal names the contracting and employing entity.",
   },
   home: {
-    metaTitle: "Hire Employees in India Without an Entity | NOVA EOR",
-    kicker: "Employer of record in India",
-    title: "Build your India team. Without building an Indian company.",
+    metaTitle: "Employer of Record in India | Nova Workforce",
+    kicker: "Employer of record · India",
+    title: "Hire in India. Operate with confidence.",
     lede:
-      "Hire the people you want. Stay in control of their day-to-day work. NOVA manages local employment, payroll and compliance — with a clear breakdown of what every employee costs.",
-    primary: "Calculate employment costs",
-    secondary: "Talk to our India team",
+      "Build and manage your India-based team with locally coordinated employment, payroll and HR administration — without unnecessary operational complexity.",
+    primary: "Book a consultation",
+    secondary: "Explore our services",
+    primaryHref: "/contact",
+    secondaryHref: "/services",
+    microcopy: "Clear employment arrangements. Local payroll support. A team you can speak to.",
     clientSignIn: "Already a client?",
     clientSignInLink: "Sign in",
     assurances: [
-      "Employee-level cost breakdown",
-      "You direct day-to-day work",
-      "Local employer and payroll operations",
+      "Local employment administration",
+      "Payroll and statutory deductions",
+      "Practical workforce support",
     ],
+    valueStrip: [
+      {
+        title: "Local employment administration",
+        body: "Employment contracts, records and HR coordination handled in India with a named point of contact.",
+      },
+      {
+        title: "Payroll and statutory deductions",
+        body: "Monthly payroll inputs, payslips and applicable statutory deductions coordinated under your agreed commercial terms.",
+      },
+      {
+        title: "Practical workforce support",
+        body: "Onboarding documentation, routine employee queries and offboarding steps managed without adding a full local back office.",
+      },
+    ],
+    problemSolution: {
+      title: "Build your India team without building an entire local back office.",
+      problem:
+        "Overseas companies often underestimate the operational work behind an India hire: employment documentation, payroll cycles, employer contributions where applicable, employee queries and ongoing record-keeping.",
+      solution:
+        "Nova Workforce provides a locally coordinated Employer of Record and employment administration model. You retain day-to-day direction of the role; we manage the employment relationship, payroll coordination and practical HR administration agreed in your proposal. This does not eliminate your responsibilities as the client — it reduces operational friction.",
+    },
+    process: {
+      title: "How it works",
+      lede: "A straightforward path from first conversation to recurring payroll administration.",
+      steps: [
+        {
+          title: "Discuss your hiring requirements",
+          body: "Share the roles, compensation bands, start timing and how your managers will direct the work.",
+        },
+        {
+          title: "Confirm the employment and service arrangement",
+          body: "We agree the employing entity, commercial fees, benefits and documentation before anyone is engaged.",
+        },
+        {
+          title: "Coordinate onboarding and documentation",
+          body: "Employment contracts and joining steps are completed when required information is available — timelines depend on role and documentation.",
+        },
+        {
+          title: "Manage recurring payroll and employment administration",
+          body: "Monthly payroll, payslips and routine employment administration continue under the agreed operating model.",
+        },
+      ],
+    },
+    servicesGrid: {
+      title: "Services that support your India team",
+      items: [
+        {
+          title: "Employer of Record",
+          body: "Engage India-based employees through a documented EOR arrangement with Nova Workforce or the entity named in your agreement.",
+          href: "/employer-of-record-india",
+        },
+        {
+          title: "Payroll administration",
+          body: "Monthly payroll processing, payslip issuance and payment coordination aligned to your approved compensation inputs.",
+          href: "/services/payroll",
+        },
+        {
+          title: "Employment documentation",
+          body: "Contracts, letters and employment records prepared and maintained for each hire under the agreed scope.",
+          href: "/how-it-works#documentation",
+        },
+        {
+          title: "Onboarding coordination",
+          body: "Practical joining steps, document collection and handover between your managers and our HR operations team.",
+          href: "/how-it-works#onboarding",
+        },
+        {
+          title: "HR administration",
+          body: "Routine employment changes, leave records and employee queries handled through defined channels.",
+          href: "/contact",
+        },
+        {
+          title: "Compliance support",
+          body: "Guidance on statutory registrations, filings and employment practices where applicable — not individual legal advice.",
+          href: "/services/payroll#compliance",
+        },
+      ],
+    },
+    whyNova: {
+      title: "Local knowledge. Clear accountability. Less operational friction.",
+      points: [
+        {
+          title: "India-focused",
+          body: "Our operating model is built around employing and supporting teams in India — not a generic global catalogue.",
+        },
+        {
+          title: "Straightforward cost visibility",
+          body: "Salary, employer contributions, benefits and service fees are explained separately in proposals and client reporting.",
+        },
+        {
+          title: "Human-led support",
+          body: "You work with people who understand local payroll and employment administration — not an anonymous ticket queue.",
+        },
+        {
+          title: "Practical employment processes",
+          body: "Onboarding, payroll and offboarding follow documented steps with clear ownership between your team and ours.",
+        },
+      ],
+    },
+    costTransparency: {
+      title: "Know what goes into the cost of employing in India.",
+      body:
+        "Indicative employer costs typically include employee gross salary, applicable employer statutory contributions, agreed benefits or insurance, Nova Workforce service fees and any disclosed taxes or bank charges. Employee deductions reduce take-home pay and are separate from employer invoice lines.",
+      cta: "Request an indicative cost breakdown",
+      ctaHref: "/pricing",
+    },
+    indiaConsiderations: {
+      title: "India employment considerations",
+      disclaimer: "General information only; individual requirements vary by role, location, establishment coverage and current law.",
+      guideLink: "Read the India hiring guide",
+      guideHref: "/india-hiring-guide",
+      items: [
+        {
+          title: "Provident Fund (EPF)",
+          body: "Employer and employee contributions may apply where the establishment and role meet coverage rules. Rates and wage ceilings are set by statute and can change.",
+        },
+        {
+          title: "Employee State Insurance (ESI)",
+          body: "May apply for eligible employees in covered establishments and wage bands. Thresholds and contributions should be confirmed for each hire.",
+        },
+        {
+          title: "Professional tax",
+          body: "State-level professional tax may apply depending on work location and local rules.",
+        },
+        {
+          title: "Income tax withholding (TDS)",
+          body: "Salary tax is withheld at source under Indian income tax law. Employee declarations and regime choices affect monthly deductions.",
+        },
+        {
+          title: "Gratuity",
+          body: "Employer gratuity accrual or funding may be required for eligible employees under the Payment of Gratuity Act, subject to tenure and coverage.",
+        },
+        {
+          title: "State labour requirements",
+          body: "Shops and establishments acts, leave rules and registrations vary by state. Your proposal confirms what applies to your hires.",
+        },
+      ],
+    },
     proof: {
       heading: "Know what you pay, and why.",
       body:
@@ -252,14 +397,124 @@ export const siteCopyEn = {
         },
       ],
     },
-    faqTitle: "Questions overseas buyers ask before the first hire",
-    faqIds: ["legal-employer", "pay-runs", "fx", "data"],
-    ctaTitle: "Know your India hiring costs before you commit.",
-    ctaBody: "",
-    ctaAction: "Get your estimate",
-    ctaSecondary: "Talk to NOVA",
-    ctaPrimaryHref: "/pricing",
+    faqTitle: "Frequently asked questions",
+    faqIds: [
+      "india-entity",
+      "legal-employer",
+      "day-to-day",
+      "monthly-cost",
+      "pay-runs",
+      "transition",
+      "offboarding",
+      "get-started",
+    ],
+    ctaTitle: "Planning to hire or support a team in India?",
+    ctaBody:
+      "Tell us what you need. We will help you understand the practical employment arrangements and next steps.",
+    ctaAction: "Book a consultation",
+    ctaSecondary: "Contact us",
+    ctaPrimaryHref: "/contact",
     ctaSecondaryHref: "/contact",
+  },
+  howItWorksPage: {
+    metaTitle: "How It Works | Nova Workforce India EOR",
+    kicker: "How it works",
+    title: "From hiring plans to monthly payroll administration",
+    lede:
+      "A clear sequence with defined ownership between your team and Nova Workforce. Timelines depend on role, documentation and agreed commercial terms.",
+    steps: [
+      {
+        id: "discuss",
+        title: "Discuss your hiring requirements",
+        body: "You share role profiles, compensation bands, reporting lines and target start dates.",
+      },
+      {
+        id: "arrangement",
+        title: "Confirm the employment and service arrangement",
+        body: "We document the employing entity, fees, benefits and responsibilities before employment begins.",
+      },
+      {
+        id: "onboarding",
+        title: "Coordinate onboarding and documentation",
+        body: "Contracts and joining formalities are completed when required information is available from you and the employee.",
+      },
+      {
+        id: "payroll",
+        title: "Manage recurring payroll and employment administration",
+        body: "Approved payroll inputs are processed each month with payslips and routine HR administration.",
+      },
+    ],
+    documentation: {
+      title: "Employment documentation",
+      body:
+        "Offer letters, employment agreements, statutory declarations and identity checks are collected according to the role and employing entity. We confirm the exact pack on your proposal.",
+    },
+    ctaTitle: "Ready to discuss your India hiring plans?",
+    ctaAction: "Book a consultation",
+  },
+  payrollCompliance: {
+    metaTitle: "Payroll & Compliance | Nova Workforce India",
+    kicker: "Payroll & compliance",
+    title: "Payroll administration and employment compliance support",
+    lede:
+      "Monthly payroll coordination, payslip delivery and practical guidance on Indian employment obligations — scoped and confirmed in your commercial agreement.",
+    sections: [
+      {
+        title: "Payroll administration",
+        body:
+          "Salary inputs you approve are processed on the agreed schedule. Employees receive payslips through the employee portal. Employer invoice lines are presented separately from employee deductions.",
+      },
+      {
+        title: "Statutory contributions",
+        body:
+          "Employer and employee contributions such as provident fund, insurance schemes and professional tax are applied where coverage rules apply. Figures are confirmed per hire — we do not assume universal applicability.",
+      },
+      {
+        title: "Record-keeping and reporting",
+        body:
+          "Employment records, payroll registers and filings are maintained according to the services in your agreement and applicable law at the time.",
+      },
+    ],
+    compliance: {
+      title: "Compliance support",
+      body:
+        "We help you understand routine employment obligations in India and coordinate registrations or filings where included in scope. This is operational guidance — not a substitute for your own legal or tax advisers.",
+    },
+    ctaTitle: "Discuss payroll and compliance for your team",
+    ctaAction: "Book a consultation",
+  },
+  indiaHiringGuide: {
+    metaTitle: "India Hiring Guide | Nova Workforce",
+    kicker: "India hiring guide",
+    title: "Practical considerations for employing people in India",
+    lede:
+      "An overview for overseas employers. Requirements vary by employee, work state, establishment coverage and current regulations.",
+    disclaimer:
+      "This guide is general information only. It is not legal, tax or immigration advice. Confirm facts for your situation in a reviewed proposal.",
+    sections: [
+      {
+        title: "Employment structure",
+        body:
+          "Many overseas companies use an Employer of Record when they do not have an Indian subsidiary. Nova Workforce (or the entity named in your agreement) becomes the legal employer while your managers direct day-to-day work.",
+      },
+      {
+        title: "Compensation and deductions",
+        body:
+          "Gross salary, employer contributions, benefits and service fees are invoiced separately where possible. Employees see deductions such as provident fund, tax withheld at source and professional tax on payslips when applicable.",
+      },
+      {
+        title: "Onboarding documentation",
+        body:
+          "Typical joining documents include identity verification, tax declarations, bank details and employment agreements. The exact list depends on the role and state.",
+      },
+      {
+        title: "Ongoing administration",
+        body:
+          "Leave, compensation changes and exits follow documented workflows with approvals on both sides. Transfers from other employers require separate agreements and employee consent.",
+      },
+    ],
+    ctaTitle: "Speak with us about your India hiring plans",
+    ctaAction: "Book a consultation",
   },
   eorIndia: {
     metaTitle: "Employer of Record in India | Hire & Pay Employees | NOVA",
@@ -284,13 +539,13 @@ export const siteCopyEn = {
           "After onboarding, finance and HR review hires, approve payroll inputs, and download invoices without accessing unrelated employee or client data.",
       },
     ],
-    ctaPrimary: "Calculate employment costs",
+    ctaPrimary: "Indicative cost estimate",
     ctaSecondary: "Book a consultation",
   },
   about: {
-    metaTitle: "About",
-    kicker: "About",
-    title: "Nova Group is Nova Workforce and Nova Qore.",
+    metaTitle: "About Nova | Nova Workforce",
+    kicker: "About Nova",
+    title: "Nova Workforce and Nova Qore — distinct employers, one group.",
     lede: "We employ people in India for companies abroad, and we give those employees and our operators one portal for salary slips and documents.",
     points: [
       { title: "Nova Workforce", body: "Employer of record, based in Ahmedabad. We are the legal employer in India for people who work with your team." },
@@ -442,6 +697,26 @@ export const siteCopyEn = {
       { id: "data", q: "How is client data protected?", a: "Client users access only their organisation’s records. See the security page for controls we can verify today." },
       { id: "nova-qore", q: "What is Nova Qore?", a: "Nova Qore is a company in Nova Group. People it employs use this portal for salary slips and documents. It is a separate employer from Nova Workforce." },
       { id: "verify", q: "How is a salary slip checked?", a: "Each issued document can be verified with its code. The public check shows that the document is valid. It does not show salary or bank details." },
+      {
+        id: "monthly-cost",
+        q: "What does the monthly cost include?",
+        a: "Typically gross salary, applicable employer statutory contributions, agreed benefits or insurance, Nova Workforce service fees and any disclosed taxes or bank charges. Employee deductions are shown on payslips and are not added to employer totals.",
+      },
+      {
+        id: "transition",
+        q: "Can we transition existing staff to Nova Workforce?",
+        a: "Sometimes, when employment terms, documentation and employee consent allow. There is no automatic transfer — we review each case and agree a transition plan before changes take effect.",
+      },
+      {
+        id: "offboarding",
+        q: "What happens during offboarding?",
+        a: "Exit steps follow Indian employment law and your agreement: notice, final settlement, full and final documentation and access removal. Timing depends on notice periods and outstanding payroll items.",
+      },
+      {
+        id: "get-started",
+        q: "How do we start?",
+        a: "Book a consultation or send a message through the contact form with role, location, compensation band and target start date. We respond with whether EOR fits and the next steps.",
+      },
     ],
     ctaTitle: "Still deciding?",
     ctaBody: "Send the role. We will answer with the structure and the cost.",
