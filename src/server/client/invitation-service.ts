@@ -16,8 +16,14 @@ export async function acceptClientInvitation(input: {
     where: { tokenHash: hashToken(input.token) },
     include: { clientOrganization: true },
   });
-  if (!invite || invite.expiresAt < new Date() || invite.acceptedAt) {
+  if (!invite || invite.expiresAt < new Date()) {
     throw new Error("Invalid or expired invitation");
+  }
+  if (invite.acceptedAt) {
+    return { clientSlug: invite.clientOrganization.slug, alreadyAccepted: true };
+  }
+  if (invite.clientOrganization.lifecycleStatus !== "ACTIVE") {
+    throw new Error("This organisation is not activated");
   }
   if (input.password.length < 10) throw new Error("Password too short");
 

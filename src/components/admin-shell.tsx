@@ -14,6 +14,7 @@ const links = [
   { href: "/admin/hire-requests", key: "admin.hireRequests", group: "Organization" },
   { href: "/admin/employees", key: "admin.employees", group: "Organization" },
   { href: "/admin/templates", key: "admin.templates", group: "Organization" },
+  { href: "/admin/legal-templates", key: "admin.legalTemplates", group: "Organization" },
   { href: "/admin/statements", key: "admin.statements", group: "Payroll" },
   { href: "/admin/payroll", key: "admin.payroll", group: "Payroll" },
   { href: "/admin/payslips", key: "admin.payslips", group: "Payroll" },

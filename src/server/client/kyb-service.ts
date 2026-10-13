@@ -1,8 +1,10 @@
 import { createHash } from "node:crypto";
-import type { ClientOrganizationStatus } from "@prisma/client";
+import type { ClientOrganizationStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { storePrivateFile } from "@/server/storage/s3";
 import { writeClientActivity } from "@/server/client/client-audit";
+
+export class OnboardingInputError extends Error {}
 
 const MAX_KYB_BYTES = 15 * 1024 * 1024;
 const ALLOWED_MIME = new Set([
@@ -85,6 +87,153 @@ export async function transitionOnboardingStatus(
       data: { status },
     });
   }
+}
+
+const SUBMITTABLE_ONBOARDING = new Set<ClientOrganizationStatus>([
+  "DRAFT",
+  "INVITED",
+  "KYB_IN_PROGRESS",
+  "CHANGES_REQUESTED",
+]);
+
+const ALREADY_SUBMITTED_ONBOARDING = new Set<ClientOrganizationStatus>([
+  "KYB_REVIEW",
+  "CONTRACT_PENDING",
+  "SIGNATURE_PENDING",
+  "COMPLIANCE_REVIEW",
+]);
+
+export function classifyOnboardingSubmit(
+  status: ClientOrganizationStatus,
+): "submit" | "already" | "blocked" {
+  if (SUBMITTABLE_ONBOARDING.has(status)) return "submit";
+  if (ALREADY_SUBMITTED_ONBOARDING.has(status)) return "already";
+  return "blocked";
+}
+
+export async function submitClientOnboarding(input: {
+  clientOrganizationId: string;
+  actorUserId: string;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const client = await tx.clientOrganization.findUniqueOrThrow({
+      where: { id: input.clientOrganizationId },
+    });
+    const kind = classifyOnboardingSubmit(client.lifecycleStatus);
+    if (kind === "blocked") {
+      throw new OnboardingInputError("Onboarding cannot be submitted from the current status");
+    }
+    if (kind === "already") {
+      return { status: client.lifecycleStatus, alreadySubmitted: true as const };
+    }
+
+    const caseRow = await tx.clientOnboardingCase.findFirst({
+      where: { clientOrganizationId: input.clientOrganizationId },
+      orderBy: { createdAt: "desc" },
+      include: { kybDocuments: { select: { id: true } } },
+    });
+    if (!caseRow || caseRow.kybDocuments.length === 0) {
+      throw new OnboardingInputError("Upload at least one verification document before submitting");
+    }
+
+    const previous = client.lifecycleStatus;
+    await tx.clientOrganization.update({
+      where: { id: client.id },
+      data: { lifecycleStatus: "KYB_REVIEW" },
+    });
+    await tx.clientOnboardingCase.update({
+      where: { id: caseRow.id },
+      data: { status: "KYB_REVIEW", submittedAt: caseRow.submittedAt ?? new Date() },
+    });
+    await tx.clientActivityAudit.create({
+      data: {
+        clientOrganizationId: client.id,
+        actorUserId: input.actorUserId,
+        action: "onboarding.submit",
+        entityType: "ClientOrganization",
+        entityId: client.id,
+        metadataJson: { previous, next: "KYB_REVIEW" },
+      },
+    });
+    return { status: "KYB_REVIEW" as const, alreadySubmitted: false as const };
+  });
+}
+
+function jsonRecord(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return { ...(value as Record<string, unknown>) };
+  }
+  return {};
+}
+
+export async function saveOnboardingProfile(input: {
+  clientOrganizationId: string;
+  actorUserId: string;
+  legalName: string;
+  tradeName?: string;
+  countryCode: string;
+  registrationNumber?: string;
+  website?: string;
+  intendedEmployeeCount?: number;
+  profile: Record<string, string | undefined>;
+}) {
+  const client = await prisma.clientOrganization.findUniqueOrThrow({
+    where: { id: input.clientOrganizationId },
+  });
+  if (client.lifecycleStatus === "ACTIVE" || client.lifecycleStatus === "CLOSED") {
+    throw new OnboardingInputError("Company profile is locked for this status");
+  }
+  const address = jsonRecord(client.billingAddressJson);
+  for (const [key, value] of Object.entries(input.profile)) {
+    if (value) address[key] = value;
+  }
+  await prisma.clientOrganization.update({
+    where: { id: client.id },
+    data: {
+      legalName: input.legalName,
+      tradeName: input.tradeName || null,
+      countryCode: input.countryCode.toUpperCase(),
+      registrationNumber: input.registrationNumber || null,
+      website: input.website || null,
+      intendedEmployeeCount: input.intendedEmployeeCount ?? null,
+      billingAddressJson: address as Prisma.InputJsonValue,
+    },
+  });
+  await writeClientActivity({
+    clientOrganizationId: client.id,
+    actorUserId: input.actorUserId,
+    action: "onboarding.profile",
+    entityType: "ClientOrganization",
+    entityId: client.id,
+  });
+}
+
+export async function saveProposedPlan(input: {
+  clientOrganizationId: string;
+  actorUserId: string;
+  planId: "essential" | "managed" | "enterprise";
+}) {
+  const caseRow = await prisma.clientOnboardingCase.findFirst({
+    where: { clientOrganizationId: input.clientOrganizationId },
+    orderBy: { createdAt: "desc" },
+  });
+  if (!caseRow) throw new Error("Onboarding case missing");
+  const checklist = jsonRecord(caseRow.checklistJson);
+  checklist.proposedPlanId = input.planId;
+  checklist.proposedPlanSavedAt = new Date().toISOString();
+  await prisma.clientOnboardingCase.update({
+    where: { id: caseRow.id },
+    data: { checklistJson: checklist as Prisma.InputJsonValue },
+  });
+  await writeClientActivity({
+    clientOrganizationId: input.clientOrganizationId,
+    actorUserId: input.actorUserId,
+    action: "onboarding.plan",
+    entityType: "ClientOnboardingCase",
+    entityId: caseRow.id,
+    metadata: { planId: input.planId },
+  });
+  return { planId: input.planId };
 }
 
 export function simpleMalwareHeuristic(buffer: Buffer): boolean {

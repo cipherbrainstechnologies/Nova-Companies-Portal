@@ -7,6 +7,7 @@ import { AdminShell } from "@/components/admin-shell";
 import { Card } from "@/components/ui";
 import { AlertBanner } from "@/components/industrial";
 import { ClientAdminActions } from "./client-admin-actions";
+import { OnboardingWorkspace } from "./onboarding-workspace";
 
 export default async function AdminClientDetailPage({
   params,
@@ -26,6 +27,19 @@ export default async function AdminClientDetailPage({
       kicker="Client organization"
       description={`Slug: ${client.slug} · ${client.countryCode}`}
     >
+      <OnboardingWorkspace
+        clientId={clientId}
+        status={client.lifecycleStatus}
+        reference={client.publicReference ?? client.slug}
+        owner={client.relationshipOwnerId ?? "Unassigned"}
+        documents={client.legalDocuments}
+        blockers={activation.blockers.map((item) => item.message)}
+        planNote={
+          client.pricingAgreements[0]
+            ? `Approved pricing v${client.pricingAgreements[0].version}`
+            : "No approved pricing agreement"
+        }
+      />
       {!activation.ok ? (
         <div className="mb-4">
         <AlertBanner tone="warning">

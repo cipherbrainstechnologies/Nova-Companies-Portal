@@ -83,6 +83,10 @@ export async function requireClientMembership(input: {
     throw new AuthzError("Not found");
   }
 
+  if (membership.clientOrganization.lifecycleStatus !== "ACTIVE") {
+    throw new AuthzError("Client portal access starts after Nova activates the organisation");
+  }
+
   return {
     id: membership.id,
     clientOrganizationId: client.id,

@@ -1125,6 +1125,7 @@ model ClientOrganization {
   lifecycleStatus       ClientOrganizationStatus @default(DRAFT)
   intendedEmployeeCount Int?
   billingCurrency       String                   @default("GBP")
+  publicReference       String?                  @unique
   relationshipOwnerId   String?
   proposedNovaCompanyId String?
   riskRating            String?
@@ -1147,9 +1148,82 @@ model ClientOrganization {
   payrollApprovals      ClientPayrollApproval[]
   fundingRequests       PayrollFundingRequest[]
   costSnapshots         EmployerCostSnapshot[]
+  legalDocuments        ClientLegalDocument[]
 
   @@index([lifecycleStatus])
   @@index([legalName])
+}
+
+enum LegalTemplateStatus {
+  DRAFT
+  APPROVED
+  RETIRED
+}
+
+enum ClientLegalDocumentStatus {
+  AWAITING_INFORMATION
+  DRAFT
+  GENERATION_FAILED
+  NOT_APPLICABLE
+  OUTDATED
+  INTERNAL_REVIEW
+  APPROVED_FOR_SIGNATURE
+  SENT_FOR_SIGNATURE
+  PARTIALLY_SIGNED
+  FULLY_EXECUTED
+  DECLINED
+  EXPIRED
+  VOIDED
+  SUPERSEDED
+}
+
+model LegalTemplate {
+  id               String              @id @default(cuid())
+  code             String
+  name             String
+  version          Int
+  status           LegalTemplateStatus @default(DRAFT)
+  bodyMarkdown     String
+  requiredVariables Json
+  legalFlags       Json
+  conditional      String?
+  approvedAt       DateTime?
+  approvedByUserId String?
+  retiredAt        DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  documents        ClientLegalDocument[]
+
+  @@unique([code, version])
+  @@index([code, status])
+}
+
+model ClientLegalDocument {
+  id                   String                    @id @default(cuid())
+  clientOrganizationId String
+  templateId           String
+  templateCode         String
+  templateVersion      Int
+  status               ClientLegalDocumentStatus @default(DRAFT)
+  storageKey           String?
+  sha256               String?
+  executedStorageKey   String?
+  executedSha256       String?
+  missingVariables     Json?
+  variableSnapshot     Json?
+  assessmentNote       String?
+  signatoryName        String?
+  signatoryEmail       String?
+  signedAt             DateTime?
+  providerEnvelopeId   String?
+  generatedAt          DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+
+  clientOrganization   ClientOrganization        @relation(fields: [clientOrganizationId], references: [id], onDelete: Cascade)
+  template             LegalTemplate             @relation(fields: [templateId], references: [id])
+
+  @@index([clientOrganizationId, templateCode, status])
 }
 
 model ClientLegalEntity {

@@ -8,7 +8,7 @@ export default async function Page({ params }: { params: Promise<{ clientSlug: s
     <div className="space-y-3">
       <h2 className="text-2xl font-bold">Settings</h2>
       <Card className="p-4 text-sm text-[var(--nova-text-secondary)]">
-        Tenant-scoped module. Complete onboarding and grants to unlock actions.
+        Company details are saved from Company onboarding. Account access is managed under Team access.
       </Card>
     </div>
   );

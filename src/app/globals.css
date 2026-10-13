@@ -92,6 +92,15 @@ a:hover {
   color: var(--nova-teal);
 }
 
+[data-client-portal="true"] a:hover {
+  color: inherit;
+}
+
+[data-client-portal="true"] a[aria-current="page"],
+[data-client-portal="true"] a[aria-current="page"]:hover {
+  color: #0c0c32;
+}
+
 :focus-visible {
   outline: 2px solid var(--nova-teal);
   outline-offset: 2px;

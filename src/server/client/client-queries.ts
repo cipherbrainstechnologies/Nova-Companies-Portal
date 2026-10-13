@@ -36,15 +36,42 @@ export async function getClientOverview(input: {
     return sum + (Number.isFinite(v) ? v : 0);
   }, 0);
 
-  const payrollApproval = await prisma.clientPayrollApproval.findUnique({
-    where: {
-      clientOrganizationId_periodYear_periodMonth: {
-        clientOrganizationId: input.clientOrganizationId,
-        periodYear,
-        periodMonth,
+  const [payrollApproval, pricing, tasks, employees] = await Promise.all([
+    prisma.clientPayrollApproval.findUnique({
+      where: {
+        clientOrganizationId_periodYear_periodMonth: {
+          clientOrganizationId: input.clientOrganizationId,
+          periodYear,
+          periodMonth,
+        },
       },
-    },
-  });
+    }),
+    prisma.clientPricingAgreement.findFirst({
+      where: {
+        clientOrganizationId: input.clientOrganizationId,
+        effectiveTo: null,
+        effectiveFrom: { lte: now },
+      },
+      orderBy: { version: "desc" },
+    }),
+    prisma.clientApprovalTask.findMany({
+      where: { clientOrganizationId: input.clientOrganizationId, status: "OPEN" },
+      orderBy: { createdAt: "desc" },
+      take: 6,
+      select: { id: true, title: true, taskType: true },
+    }),
+    prisma.employmentAssignment.findMany({
+      where: { clientOrganizationId: input.clientOrganizationId },
+      orderBy: { effectiveFrom: "desc" },
+      take: 6,
+      include: {
+        employee: { select: { id: true, firstName: true, lastName: true, displayName: true, designation: true, dateOfJoining: true, company: { select: { name: true } } } },
+      },
+    }),
+  ]);
+
+  const feePerEmployee = pricing ? Number(pricing.feePerEmployee) : null;
+  const monthlyServiceFee = feePerEmployee != null && Number.isFinite(feePerEmployee) ? feePerEmployee * assignments : null;
 
   return {
     periodYear,
@@ -54,5 +81,16 @@ export async function getClientOverview(input: {
     openApprovals,
     forecastTotal,
     payrollStatus: payrollApproval?.status ?? "NOT_STARTED",
+    serviceFee: monthlyServiceFee,
+    serviceFeeCurrency: pricing?.currency ?? null,
+    tasks,
+    employees: employees.map((row) => ({
+      id: row.employee.id,
+      name: row.employee.displayName ?? `${row.employee.firstName} ${row.employee.lastName}`,
+      designation: row.employee.designation,
+      status: row.status,
+      legalEmployer: row.employee.company.name,
+      startDate: row.employee.dateOfJoining?.toISOString().slice(0, 10) ?? null,
+    })),
   };
 }

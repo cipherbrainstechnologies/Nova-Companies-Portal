@@ -6,6 +6,9 @@ import { hashToken } from "@/server/auth/crypto";
 import { slugifyClientName, withUniqueSuffix } from "@/server/client/slug";
 import { canActivateClient } from "@/server/client/activation";
 import { writeClientActivity } from "@/server/client/client-audit";
+import { generateClientDocumentPack, markDraftsOutdated } from "@/server/client/legal-document-service";
+import type { OnboardingProfile } from "@/server/client/legal-documents";
+import { sendEmail } from "@/server/email";
 
 export const clientOrganizationFacade = {
   async listClients() {
@@ -33,6 +36,7 @@ export const clientOrganizationFacade = {
           include: { signatureEnvelopes: true, documents: true },
         },
         pricingAgreements: { orderBy: { version: "desc" }, take: 3 },
+        legalDocuments: { orderBy: { generatedAt: "desc" }, include: { template: { select: { status: true, name: true } } } },
         employmentAssignments: {
           include: {
             employee: { select: { id: true, employeeCode: true, firstName: true, lastName: true, status: true } },
@@ -97,6 +101,119 @@ export const clientOrganizationFacade = {
     return client;
   },
 
+  async onboardClient(input: {
+    actorUserId: string;
+    legalName: string;
+    tradeName?: string;
+    countryCode: string;
+    registrationNumber?: string;
+    taxId?: string;
+    website?: string;
+    billingCurrency?: string;
+    intendedEmployeeCount?: number;
+    proposedNovaCompanyId?: string;
+    profile: OnboardingProfile;
+  }) {
+    const countryCode = input.countryCode.toUpperCase();
+    const existing = await prisma.clientOrganization.findFirst({
+      where: {
+        legalName: { equals: input.legalName.trim(), mode: "insensitive" },
+        countryCode,
+      },
+    });
+    if (existing) {
+      const documents = await generateClientDocumentPack({
+        actorUserId: input.actorUserId,
+        clientId: existing.id,
+      });
+      return { client: existing, created: false, documents };
+    }
+
+    const baseSlug = slugifyClientName(input.legalName);
+    const slug = withUniqueSuffix(baseSlug, randomBytes(3).toString("hex"));
+    const publicReference = `NW-${countryCode}-${randomBytes(3).toString("hex").toUpperCase()}`;
+    const client = await prisma.clientOrganization.create({
+      data: {
+        slug,
+        publicReference,
+        legalName: input.legalName.trim(),
+        tradeName: input.tradeName?.trim() || null,
+        countryCode,
+        registrationNumber: input.registrationNumber?.trim() || null,
+        taxId: input.taxId?.trim() || null,
+        website: input.website?.trim() || null,
+        billingCurrency: input.billingCurrency ?? "GBP",
+        intendedEmployeeCount: input.intendedEmployeeCount,
+        proposedNovaCompanyId: input.proposedNovaCompanyId || null,
+        billingAddressJson: { profile: input.profile },
+        lifecycleStatus: "DRAFT",
+        onboardingCases: {
+          create: {
+            status: "DRAFT",
+            checklistJson: {
+              steps: defaultOnboardingSteps(),
+              proposedPlanId: input.profile.planId ?? null,
+              proposedPlanSavedAt: new Date().toISOString(),
+            },
+          },
+        },
+      },
+    });
+    await writeAudit({
+      actorUserId: input.actorUserId,
+      action: "client.create",
+      entityType: "ClientOrganization",
+      entityId: client.id,
+      metadata: { slug: client.slug, publicReference },
+    });
+    const documents = await generateClientDocumentPack({
+      actorUserId: input.actorUserId,
+      clientId: client.id,
+    });
+    return { client, created: true, documents };
+  },
+
+  async updateOnboardingProfile(input: {
+    actorUserId: string;
+    clientId: string;
+    legalName?: string;
+    tradeName?: string;
+    registrationNumber?: string;
+    taxId?: string;
+    website?: string;
+    billingCurrency?: string;
+    intendedEmployeeCount?: number;
+    proposedNovaCompanyId?: string;
+    profile: OnboardingProfile;
+  }) {
+    const current = await prisma.clientOrganization.findUnique({ where: { id: input.clientId } });
+    if (!current) throw new Error("Client not found");
+    if (current.lifecycleStatus === "ACTIVE" || current.lifecycleStatus === "CLOSED") {
+      throw new Error("Active client details are changed by amendment, not by regenerating drafts");
+    }
+    const client = await prisma.clientOrganization.update({
+      where: { id: input.clientId },
+      data: {
+        legalName: input.legalName?.trim() || current.legalName,
+        tradeName: input.tradeName?.trim() || current.tradeName,
+        registrationNumber: input.registrationNumber?.trim() || current.registrationNumber,
+        taxId: input.taxId?.trim() || current.taxId,
+        website: input.website?.trim() || current.website,
+        billingCurrency: input.billingCurrency || current.billingCurrency,
+        intendedEmployeeCount: input.intendedEmployeeCount ?? current.intendedEmployeeCount,
+        proposedNovaCompanyId: input.proposedNovaCompanyId || current.proposedNovaCompanyId,
+        billingAddressJson: { profile: input.profile },
+      },
+    });
+    await markDraftsOutdated(client.id);
+    const documents = await generateClientDocumentPack({
+      actorUserId: input.actorUserId,
+      clientId: client.id,
+      regenerate: true,
+    });
+    return { client, documents };
+  },
+
   async updateLifecycle(input: {
     actorUserId: string;
     clientId: string;
@@ -104,16 +221,22 @@ export const clientOrganizationFacade = {
     reason?: string;
   }) {
     if (input.status === "ACTIVE") {
+      const current = await prisma.clientOrganization.findUnique({ where: { id: input.clientId } });
       const { ok, blockers } = await canActivateClient(input.clientId);
       if (!ok) {
         throw new Error(`Activation blocked: ${blockers.map((b) => b.code).join(", ")}`);
       }
+      if (current?.lifecycleStatus === "ACTIVE") return current;
     }
 
     const updated = await prisma.clientOrganization.update({
       where: { id: input.clientId },
       data: { lifecycleStatus: input.status },
     });
+
+    if (input.status === "ACTIVE") {
+      await issueActivationInvite(input.actorUserId, updated.id);
+    }
 
     await writeAudit({
       actorUserId: input.actorUserId,
@@ -261,6 +384,10 @@ export const clientOrganizationFacade = {
     email: string;
     portalRole: ClientPortalRole;
   }) {
+    const client = await prisma.clientOrganization.findUnique({ where: { id: input.clientId } });
+    if (!client || client.lifecycleStatus !== "ACTIVE") {
+      throw new Error("Invitations are issued after the client is activated");
+    }
     const token = randomBytes(32).toString("hex");
     const invite = await prisma.clientInvitation.create({
       data: {
@@ -330,6 +457,53 @@ export const clientOrganizationFacade = {
     });
   },
 };
+
+async function issueActivationInvite(actorUserId: string, clientId: string) {
+  const client = await prisma.clientOrganization.findUnique({ where: { id: clientId } });
+  if (!client || client.lifecycleStatus !== "ACTIVE") return;
+  const profile =
+    client.billingAddressJson &&
+    typeof client.billingAddressJson === "object" &&
+    !Array.isArray(client.billingAddressJson)
+      ? (client.billingAddressJson as { profile?: { representativeEmail?: string } }).profile
+      : undefined;
+  const email = profile?.representativeEmail?.trim().toLowerCase();
+  if (!email) return;
+  const openInvite = await prisma.clientInvitation.findFirst({
+    where: {
+      clientOrganizationId: clientId,
+      email,
+      acceptedAt: null,
+      expiresAt: { gt: new Date() },
+    },
+  });
+  if (openInvite) return;
+  const token = randomBytes(32).toString("hex");
+  const invite = await prisma.clientInvitation.create({
+    data: {
+      clientOrganizationId: clientId,
+      email,
+      portalRole: "OWNER_ADMIN",
+      tokenHash: hashToken(token),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      invitedByUserId: actorUserId,
+    },
+  });
+  const base = (process.env.APP_URL ?? "https://www.novaworkforce.in").replace(/\/$/, "");
+  await sendEmail({
+    to: email,
+    subject: "Your Nova Workforce client portal invitation",
+    text: `Nova has activated ${client.legalName}. Open this link to choose your own password: ${base}/client/accept-invite?token=${token}`,
+  });
+  await writeClientActivity({
+    clientOrganizationId: clientId,
+    actorUserId,
+    action: "client.activation_invite",
+    entityType: "ClientInvitation",
+    entityId: invite.id,
+    metadata: { email },
+  });
+}
 
 function defaultOnboardingSteps() {
   return [

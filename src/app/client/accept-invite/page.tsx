@@ -31,6 +31,10 @@ export default function AcceptInvitePage() {
       setError(data.error ?? "Unable to accept invitation");
       return;
     }
+    if (data.alreadyAccepted) {
+      router.push("/login/client");
+      return;
+    }
     router.push(`/client/${data.clientSlug}/overview`);
   }
 

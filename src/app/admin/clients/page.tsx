@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requirePageUser } from "@/server/auth/page-guard";
 import { clientOrganizationFacade } from "@/server/facades/client-organization-facade";
+import { prisma } from "@/server/db";
 import { AdminShell } from "@/components/admin-shell";
 import { Card } from "@/components/ui";
 import { StatusBadge } from "@/components/industrial";
@@ -8,12 +9,15 @@ import { CreateClientForm } from "./create-client-form";
 
 export default async function AdminClientsPage() {
   await requirePageUser(["SUPER_ADMIN", "OPERATIONS_MANAGER"]);
-  const clients = await clientOrganizationFacade.listClients();
+  const [clients, companies] = await Promise.all([
+    clientOrganizationFacade.listClients(),
+    prisma.company.findMany({ orderBy: { prefix: "asc" }, select: { id: true, name: true, prefix: true } }),
+  ]);
 
   return (
     <AdminShell title="Client organizations" description="Overseas customers (not NOVA legal entities).">
       <div className="mb-6">
-        <CreateClientForm />
+        <CreateClientForm companies={companies} />
       </div>
       <Card className="overflow-hidden p-0">
         <table className="w-full text-left text-sm">
