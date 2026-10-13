@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { SiteCopy } from "@/content/public-site";
+import { planEnquiryMessage } from "@/content/public-site/commercial-plans";
 import { Button, Input, Label } from "@/components/ui";
 
 type FormCopy = SiteCopy["contact"]["form"];
@@ -10,6 +11,8 @@ type FormCopy = SiteCopy["contact"]["form"];
 export function ContactForm({ copy }: { copy: FormCopy }) {
   const searchParams = useSearchParams();
   const [estimateRef, setEstimateRef] = useState("");
+  const [topic, setTopic] = useState("eor");
+  const [message, setMessage] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "success" | "error" | "invalid">("idle");
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
@@ -17,7 +20,13 @@ export function ContactForm({ copy }: { copy: FormCopy }) {
   useEffect(() => {
     const est = searchParams.get("estimate");
     if (est) setEstimateRef(est.toUpperCase());
-  }, [searchParams]);
+    const requestedTopic = searchParams.get("topic");
+    if (requestedTopic && copy.topics.some((item) => item.value === requestedTopic)) {
+      setTopic(requestedTopic);
+    }
+    const note = planEnquiryMessage(searchParams.get("plan"));
+    if (note) setMessage((current) => current || note);
+  }, [searchParams, copy.topics]);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -38,6 +47,9 @@ export function ContactForm({ copy }: { copy: FormCopy }) {
     });
     if (res.ok) {
       form.reset();
+      setMessage("");
+      setTopic("eor");
+      setEstimateRef("");
       setSubmitted(true);
       setStatus("success");
       return;
@@ -87,8 +99,9 @@ export function ContactForm({ copy }: { copy: FormCopy }) {
           name="topic"
           required
           aria-invalid={errors.topic || undefined}
-          className="w-full rounded-[var(--nova-radius-sm)] border border-[var(--nova-border-strong)] bg-[var(--nova-surface)] px-3 py-2.5 text-sm"
-          defaultValue="eor"
+          className="w-full min-h-11 rounded-[var(--nova-radius-sm)] border border-[var(--nova-border-strong)] bg-[var(--nova-surface)] px-3 py-2.5 text-sm"
+          value={topic}
+          onChange={(event) => setTopic(event.target.value)}
         >
           {copy.topics.map((topic) => (
             <option key={topic.value} value={topic.value}>
@@ -113,6 +126,8 @@ export function ContactForm({ copy }: { copy: FormCopy }) {
           rows={6}
           aria-invalid={errors.message || undefined}
           placeholder={copy.messageHint}
+          value={message}
+          onChange={(event) => setMessage(event.target.value)}
           className="w-full rounded-[var(--nova-radius-sm)] border border-[var(--nova-border-strong)] bg-[var(--nova-surface)] px-3 py-2.5 text-sm"
         />
       </div>

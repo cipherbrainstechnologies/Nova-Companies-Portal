@@ -41,10 +41,8 @@ export const siteCopyEn = {
       { href: "/india-employment-compliance", label: "Employment Compliance" },
     ],
     resourceLinks: [
-      { href: "/india-hiring-guide", label: "India hiring guide" },
-      { href: "/faq", label: "FAQ" },
-      { href: "/fx-transparency", label: "FX transparency" },
-      { href: "/security", label: "Security" },
+      { href: "/fx-transparency", label: "FX & payments" },
+      { href: "/security", label: "Trust & compliance" },
     ],
   },
   footer: {
@@ -68,9 +66,11 @@ export const siteCopyEn = {
         { href: "/login/client", label: "Client login" },
       ],
       resources: [
+        { href: "/fx-transparency", label: "FX & payments" },
+        { href: "/security", label: "Trust & compliance" },
         { href: "/india-hiring-guide", label: "India hiring guide" },
-        { href: "/pricing", label: "Pricing" },
         { href: "/faq", label: "FAQ" },
+        { href: "/pricing", label: "Pricing" },
         { href: "/privacy", label: "Privacy" },
       ],
     },
@@ -81,6 +81,8 @@ export const siteCopyEn = {
     client: "Client login",
     contactLabel: "Email",
     email: "thenovaworkforce@gmail.com",
+    terms: "Terms",
+    cookies: "Cookies",
     legalEntity:
       "Employment services are delivered through Nova Group companies registered in India. Your proposal names the contracting and employing entity.",
   },
@@ -535,7 +537,7 @@ export const siteCopyEn = {
         "Disclosed bank or FX charges — never described as zero markup without a signed term",
         "GST or cross-border tax lines marked for review where classification is uncertain",
       ],
-      methodologyLink: "Read our FX transparency approach",
+      methodologyLink: "How FX and payments are quoted",
       methodologyHref: "/fx-transparency",
     },
     trust: {
@@ -833,11 +835,13 @@ export const siteCopyEn = {
     ctaAction: "Book the call",
   },
   pricing: {
-    metaTitle: "India EOR Pricing & Employee Cost Calculator | NOVA",
+    metaTitle: "Pricing | Nova Workforce",
     kicker: "Pricing",
-    title: "Understand the full cost of hiring employees in India",
+    title: "Service fees for employing people in India",
     lede:
-      "Explore an indicative monthly cost for your India hires. Adjust salaries, headcount, and benefits; see each component separately. NOVA confirms statutory treatment, commercial fees, and FX terms in your written proposal.",
+      "Essential is ₹5,000 per employee per month. Managed is ₹7,500 per employee per month. Enterprise is a custom quote. Salaries, employer statutory costs, insurance premiums, FX costs, optional services, and applicable taxes are charged separately.",
+    worksheetNote:
+      "The cards above are the published service fees. The worksheet estimates salary and statutory employment costs. A service-fee line inside the worksheet follows the configured estimate plan and can differ until that plan is updated. Your written proposal is the commercial record.",
     calculator: {
       title: "Indicative employee cost worksheet",
       lede: "Non-binding estimate for planning. Statutory lines use simplified assumptions until NOVA reviews your role and employing entity.",
@@ -863,7 +867,7 @@ export const siteCopyEn = {
       deductionLines: "Employee deductions (not added to employer total)",
       assumptionsToggle: "Assumptions and formulas",
       requestProposal: "Request reviewed proposal",
-      fxLink: "FX methodology",
+      fxLink: "FX & payments",
     },
     prefillNote: "Values from the homepage estimator pre-fill the calculator.",
     cards: [
@@ -873,9 +877,9 @@ export const siteCopyEn = {
     ],
     note:
       "Estimates are illustrative and not a binding offer. Statutory costs, tax treatment, insurance, and exchange rates depend on the employing entity, employee circumstances, and contractual terms.",
-    ctaTitle: "Request a reviewed quote",
-    ctaBody: "Tell us headcount, salary bands, and billing currency. We respond with a proposal path and next steps.",
-    ctaAction: "Request a reviewed quote",
+    ctaTitle: "Tell us which plan you want to discuss",
+    ctaBody: "Share headcount, the country you operate from, and whether you are looking at Essential, Managed, or Enterprise.",
+    ctaAction: "Talk to an expert",
   },
   who: {
     metaTitle: "Who we work with",

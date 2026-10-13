@@ -66,7 +66,6 @@ export function SiteHeader({ copy }: { copy: SiteCopy }) {
           <Link href="/how-it-works" className={navLink} aria-current={path === "/how-it-works" ? "page" : undefined}>
             {copy.nav.howItWorks}
           </Link>
-          <Link href="/#why-nova" className={navLink}>{copy.nav.whyNova}</Link>
           <Link href="/pricing" className={navLink} aria-current={path === "/pricing" ? "page" : undefined}>
             {copy.nav.pricingQuote}
           </Link>
@@ -112,7 +111,6 @@ export function SiteHeader({ copy }: { copy: SiteCopy }) {
           <ul className="mkt-container flex flex-col py-2">
             <MobileGroup title={copy.nav.services} items={copy.nav.serviceLinks} onNavigate={() => setOpen(false)} />
             <li><MobileLink href="/how-it-works" label={copy.nav.howItWorks} onNavigate={() => setOpen(false)} /></li>
-            <li><MobileLink href="/#why-nova" label={copy.nav.whyNova} onNavigate={() => setOpen(false)} /></li>
             <li><MobileLink href="/pricing" label={copy.nav.pricingQuote} onNavigate={() => setOpen(false)} /></li>
             <MobileGroup title={copy.nav.resources} items={copy.nav.resourceLinks} onNavigate={() => setOpen(false)} />
             <li><MobileLink href="/contact" label={copy.nav.contact} onNavigate={() => setOpen(false)} /></li>

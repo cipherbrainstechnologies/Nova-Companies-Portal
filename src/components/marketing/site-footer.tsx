@@ -28,7 +28,8 @@ export function SiteFooter({ copy }: { copy: SiteCopy }) {
           <p className="max-w-xl leading-relaxed">{copy.footer.legalEntity}</p>
           <div className="flex gap-4">
             <Link href="/privacy" className="hover:text-white">{copy.nav.privacy}</Link>
-            <Link href="/terms" className="hover:text-white">Terms</Link>
+            <Link href="/terms" className="hover:text-white">{copy.footer.terms}</Link>
+            <Link href="/cookies" className="hover:text-white">{copy.footer.cookies}</Link>
           </div>
         </div>
       </div>

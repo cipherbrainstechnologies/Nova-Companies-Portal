@@ -84,7 +84,7 @@
 ## Public website
 
 - The public marketing site lives in `src/app/(site)/` and does not replace portal routes.
-- Primary funnel: `/` (EOR homepage), `/employer-of-record-india`, `/services/payroll`, `/how-it-works`, `/india-hiring-guide`, `/about`, `/contact`, `/pricing`, `/faq`, plus legal routes.
+- Primary funnel: `/`, `/pricing`, `/employer-of-record-india`, `/india-payroll-services`, `/hire-employees-in-india`, `/how-it-works`, `/fx-transparency`, `/security`, `/contact`. Route decisions are in `docs/commercial-route-map.md`. Published service fees live in `src/content/public-site/commercial-plans.ts` and do not replace `PublicPricingPlan`. `/book-demo` redirects to `/contact`; `/compliance` redirects to `/security`.
 - Marketing-only design tokens (navy `#0C0C32`, purple `#5857F5`) are scoped under `[data-marketing="true"]` in `globals.css`; admin/employee UI keeps teal tokens. Homepage composition is the dark hero, layered illustrative dashboard, and section system described in `docs/visual-gap-analysis.md`.
 - Copy is locale-ready in `src/content/public-site/` (`en`, `fr`, `es`) and follows `Accept-Language` via `getRequestLocale`.
 - Nova Workforce is described as the employer of record (Ahmedabad). Nova Qore is described only as a separate group employer. No placement statistics or candidate lists are published.

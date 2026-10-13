@@ -10,6 +10,7 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL((process.env.APP_URL ?? "https://www.novaworkforce.in").replace(/\/$/, "")),
   title: {
     default: "Nova Group of Companies",
     template: "%s · Nova Group",

@@ -13,22 +13,19 @@ const MARKETING = [
   "how-it-works",
   "fx-transparency",
   "security",
-  "book-demo",
   "privacy",
   "faq",
   "services",
   "companies",
-  "how-we-work",
   "who-we-serve",
   "careers",
   "platform",
-  "compliance",
   "terms",
   "cookies",
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const base = process.env.APP_URL ?? "https://nova-companies-portal-production.up.railway.app";
+  const base = (process.env.APP_URL ?? "https://www.novaworkforce.in").replace(/\/$/, "");
   return MARKETING.map((path) => ({
     url: `${base}/${path}`,
     lastModified: new Date(),

@@ -214,7 +214,7 @@ export function PricingCalculator({ copy }: { copy: CalculatorCopy }) {
 
         <button
           type="submit"
-          className="mt-6 inline-flex min-h-11 items-center justify-center rounded-[var(--nova-radius-sm)] bg-[var(--nova-teal)] px-5 text-sm font-semibold text-white hover:bg-[#0d5f58]"
+          className="mt-6 inline-flex min-h-11 items-center justify-center rounded-[var(--nova-radius-sm)] bg-[var(--nova-purple)] px-5 text-sm font-semibold text-white hover:bg-[var(--nova-purple-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--nova-purple)]"
           disabled={status === "loading"}
         >
           {status === "loading" ? copy.calculating : copy.recalculate}
@@ -292,7 +292,7 @@ export function PricingCalculator({ copy }: { copy: CalculatorCopy }) {
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <MarketingLink href={`/contact?estimate=${result.publicReference}`}>{copy.requestProposal}</MarketingLink>
-              <Link href="/fx-transparency" className="text-sm font-semibold text-[var(--nova-teal)] underline-offset-2 hover:underline">
+              <Link href="/fx-transparency" className="inline-flex min-h-11 items-center text-sm font-semibold text-[var(--nova-navy)] underline decoration-[var(--nova-border)] underline-offset-4">
                 {copy.fxLink}
               </Link>
             </div>
