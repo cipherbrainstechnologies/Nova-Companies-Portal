@@ -6,12 +6,12 @@ import { usePathname } from "next/navigation";
 import type { SiteCopy } from "@/content/public-site";
 
 const links: Array<{ href: string; key: keyof SiteCopy["nav"] }> = [
-  { href: "/employer-of-record-india", key: "whyNova" },
+  { href: "/", key: "home" },
+  { href: "/employer-of-record-india", key: "eor" },
+  { href: "/services/payroll", key: "payrollCompliance" },
   { href: "/how-it-works", key: "howItWorks" },
-  { href: "/pricing", key: "pricing" },
-  { href: "/platform", key: "platform" },
-  { href: "/compliance", key: "compliance" },
-  { href: "/faq", key: "resources" },
+  { href: "/about", key: "about" },
+  { href: "/contact", key: "contact" },
 ];
 
 export function SiteHeader({ copy }: { copy: SiteCopy }) {
@@ -22,6 +22,15 @@ export function SiteHeader({ copy }: { copy: SiteCopy }) {
     setOpen(false);
   }, [path]);
 
+  useEffect(() => {
+    if (!open) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+
   return (
     <header className="sticky top-0 z-30 border-b border-[var(--nova-border)] bg-[color-mix(in_srgb,var(--mkt-canvas)_94%,white)] backdrop-blur">
       <a
@@ -30,13 +39,16 @@ export function SiteHeader({ copy }: { copy: SiteCopy }) {
       >
         {copy.nav.skip}
       </a>
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 md:px-6">
+      <div className="mx-auto flex max-w-[var(--mkt-container-max)] items-center justify-between gap-3 px-4 py-3 md:px-8">
         <Link href="/" className="h-display min-w-0 text-xl text-[var(--nova-ink)] hover:text-[var(--nova-ink)]">
           {copy.meta.siteName}
         </Link>
-        <nav className="hidden items-center gap-4 xl:flex" aria-label={copy.nav.label}>
+        <nav className="hidden items-center gap-5 lg:flex" aria-label={copy.nav.label}>
           {links.map((item) => {
-            const active = path === item.href || (item.href === "/employer-of-record-india" && path === "/");
+            const active =
+              path === item.href ||
+              (item.href !== "/" && path.startsWith(item.href)) ||
+              (item.href === "/" && path === "/");
             return (
               <Link
                 key={item.href}
@@ -61,14 +73,14 @@ export function SiteHeader({ copy }: { copy: SiteCopy }) {
             {copy.nav.clientLogin}
           </Link>
           <Link
-            href="/pricing"
-            className="inline-flex min-h-10 items-center rounded-[var(--nova-radius-sm)] bg-[var(--nova-teal)] px-3 text-sm font-semibold text-white hover:bg-[#0d5f58] hover:text-white"
+            href="/contact"
+            className="inline-flex min-h-10 items-center rounded-[var(--nova-radius-sm)] bg-[var(--nova-teal)] px-3 text-sm font-semibold text-white hover:bg-[var(--mkt-accent-hover)] hover:text-white"
           >
             {copy.nav.getQuote}
           </Link>
           <button
             type="button"
-            className="inline-flex min-h-10 items-center rounded-[var(--nova-radius-sm)] border border-[var(--nova-border)] px-3 text-sm font-semibold xl:hidden"
+            className="inline-flex min-h-10 items-center rounded-[var(--nova-radius-sm)] border border-[var(--nova-border)] px-3 text-sm font-semibold lg:hidden"
             aria-expanded={open}
             aria-controls="site-menu"
             onClick={() => setOpen((value) => !value)}
@@ -78,8 +90,8 @@ export function SiteHeader({ copy }: { copy: SiteCopy }) {
         </div>
       </div>
       {open ? (
-        <nav id="site-menu" aria-label={copy.nav.label} className="border-t border-[var(--nova-border)] xl:hidden">
-          <ul className="mx-auto flex max-w-7xl flex-col px-4 py-2 md:px-6">
+        <nav id="site-menu" aria-label={copy.nav.label} className="border-t border-[var(--nova-border)] lg:hidden">
+          <ul className="mx-auto flex max-w-[var(--mkt-container-max)] flex-col px-4 py-2 md:px-8">
             {links.map((item) => (
               <li key={item.href}>
                 <Link
@@ -94,11 +106,6 @@ export function SiteHeader({ copy }: { copy: SiteCopy }) {
             <li>
               <Link href="/login/client" className="block py-3 text-base font-semibold text-[var(--nova-teal)]">
                 {copy.nav.clientLogin}
-              </Link>
-            </li>
-            <li>
-              <Link href="/contact" className="block py-3 text-base font-medium">
-                {copy.nav.contact}
               </Link>
             </li>
           </ul>

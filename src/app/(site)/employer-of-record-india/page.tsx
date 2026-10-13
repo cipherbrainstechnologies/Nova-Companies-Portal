@@ -18,8 +18,8 @@ export default async function EmployerOfRecordIndiaPage() {
     <>
       <PageIntro kicker={page.kicker} title={page.title} lede={page.lede} />
       <div className="mt-10 flex flex-col gap-3 sm:flex-row">
-        <MarketingLink href="/pricing">{page.ctaPrimary}</MarketingLink>
-        <MarketingLink href="/contact" variant="outline">{page.ctaSecondary}</MarketingLink>
+        <MarketingLink href="/contact">{page.ctaSecondary}</MarketingLink>
+        <MarketingLink href="/pricing" variant="outline">{page.ctaPrimary}</MarketingLink>
       </div>
       <p className="mt-4 text-sm text-[var(--nova-text-secondary)]">
         {copy.home.clientSignIn}{" "}

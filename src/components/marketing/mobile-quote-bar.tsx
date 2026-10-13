@@ -13,8 +13,8 @@ export function MobileQuoteBar({ label }: { label: string }) {
       aria-hidden={false}
     >
       <Link
-        href="/pricing"
-        className="flex min-h-12 w-full items-center justify-center rounded-[var(--nova-radius-sm)] bg-[var(--nova-teal)] text-sm font-semibold text-white hover:bg-[#0d5f58]"
+        href="/contact"
+        className="flex min-h-12 w-full items-center justify-center rounded-[var(--nova-radius-sm)] bg-[var(--nova-teal)] text-sm font-semibold text-white hover:bg-[var(--mkt-accent-hover)]"
       >
         {label}
       </Link>

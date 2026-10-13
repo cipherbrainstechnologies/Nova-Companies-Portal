@@ -1,26 +1,30 @@
 {
   "$schema": "https://design-tokens.github.io/community-group/format/",
   "meta": {
-    "name": "NOVA Marketing",
-    "version": "0.1.0",
+    "name": "Nova Workforce Marketing",
+    "version": "1.0.0",
     "scope": "public-site-only",
     "extends": ["--nova-ink", "--nova-teal"]
   },
   "color": {
-    "canvas": { "value": "#f8f7f4", "description": "Ivory marketing background" },
-    "surface": { "value": "#ffffff" },
-    "graphite": { "value": "#1e293b", "description": "Primary body emphasis" },
-    "border": { "value": "#e2e8f0" },
-    "accent": { "value": "#0f766e", "alias": "--nova-teal" },
-    "ink": { "value": "#0c2d3f", "alias": "--nova-ink" }
+    "navy": { "value": "#17233B", "alias": "--nova-ink" },
+    "accent": { "value": "#6254D9", "alias": "--nova-teal" },
+    "accentSoft": { "value": "#F1EFFF", "alias": "--nova-teal-soft" },
+    "canvas": { "value": "#F8F9FC", "alias": "--mkt-canvas" },
+    "surface": { "value": "#FFFFFF", "alias": "--mkt-surface" },
+    "mutedText": { "value": "#657187" },
+    "border": { "value": "#E6E8F0", "alias": "--mkt-border" },
+    "accentHover": { "value": "#5248C4", "alias": "--mkt-accent-hover" }
   },
   "radius": {
-    "md": { "value": "12px" },
-    "lg": { "value": "20px" }
+    "control": { "value": "10px" },
+    "card": { "value": "16px", "alias": "--mkt-radius" },
+    "panel": { "value": "20px", "alias": "--mkt-radius-lg" }
   },
   "shadow": {
     "elevated": {
-      "value": "0 8px 30px rgb(15 23 42 / 0.06)"
+      "value": "0 8px 30px rgb(23 35 59 / 0.08)",
+      "alias": "--mkt-shadow"
     }
   },
   "typography": {
@@ -32,6 +36,6 @@
     "body": { "min": "16px", "max": "18px" }
   },
   "layout": {
-    "contentMaxWidth": { "value": "1280px" }
+    "contentMaxWidth": { "value": "1152px", "alias": "--mkt-container-max" }
   }
 }

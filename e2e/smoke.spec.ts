@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test("public marketing page loads", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await expect(page.getByRole("link", { name: /portal login/i }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: /sign in/i }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: /nova workforce/i }).first()).toBeVisible();
 });
 
@@ -17,7 +17,7 @@ test("public business pages render", async ({ page }) => {
 
 test("login page renders", async ({ page }) => {
   await page.goto("/login");
-  await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /choose your portal/i })).toBeVisible();
 });
 
 test("verify document page is public and minimal", async ({ page }) => {

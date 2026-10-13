@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 const primary =
-  "inline-flex min-h-12 items-center justify-center rounded-[var(--nova-radius-sm)] bg-[var(--nova-teal)] px-5 text-[0.95rem] font-semibold text-white shadow-sm hover:bg-[#0d5f58] hover:text-white";
+  "inline-flex min-h-12 items-center justify-center rounded-[var(--nova-radius-sm)] bg-[var(--nova-teal)] px-5 text-[0.95rem] font-semibold text-white shadow-sm hover:bg-[var(--mkt-accent-hover,#5248c4)] hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--nova-teal)]";
 const outline =
   "inline-flex min-h-12 items-center justify-center rounded-[var(--nova-radius-sm)] border border-[var(--nova-border-strong)] bg-[var(--nova-surface)] px-5 text-[0.95rem] font-semibold text-[var(--nova-text)] hover:border-[var(--nova-teal)] hover:text-[var(--nova-teal)]";
 const inverse =
