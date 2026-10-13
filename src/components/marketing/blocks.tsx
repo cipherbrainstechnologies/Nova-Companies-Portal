@@ -1,11 +1,13 @@
 import Link from "next/link";
 
 const primary =
-  "inline-flex min-h-12 items-center justify-center rounded-[var(--nova-radius-sm)] bg-[var(--nova-teal)] px-5 text-[0.95rem] font-semibold text-white shadow-sm hover:bg-[var(--mkt-accent-hover,#5248c4)] hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--nova-teal)]";
+  "inline-flex min-h-[3rem] items-center justify-center rounded-[var(--mkt-radius-pill)] bg-[var(--mkt-accent)] px-7 text-[0.95rem] font-semibold text-white shadow-sm transition-colors hover:bg-[var(--mkt-accent-hover)] hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mkt-accent)]";
 const outline =
-  "inline-flex min-h-12 items-center justify-center rounded-[var(--nova-radius-sm)] border border-[var(--nova-border-strong)] bg-[var(--nova-surface)] px-5 text-[0.95rem] font-semibold text-[var(--nova-text)] hover:border-[var(--nova-teal)] hover:text-[var(--nova-teal)]";
+  "inline-flex min-h-[3rem] items-center justify-center rounded-[var(--mkt-radius-pill)] border border-[var(--mkt-border)] bg-[var(--mkt-white)] px-7 text-[0.95rem] font-semibold text-[var(--mkt-text)] transition-colors hover:border-[var(--mkt-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mkt-accent)]";
 const inverse =
-  "inline-flex min-h-12 items-center justify-center rounded-[var(--nova-radius-sm)] bg-white px-5 text-[0.95rem] font-semibold text-[var(--nova-ink)] hover:bg-[var(--nova-teal-soft)] hover:text-[var(--nova-ink)]";
+  "inline-flex min-h-[3rem] items-center justify-center rounded-[var(--mkt-radius-pill)] bg-white px-7 text-[0.95rem] font-semibold text-[var(--mkt-dark)] hover:bg-[var(--mkt-soft-bg)]";
+const darkOutline =
+  "inline-flex min-h-[3rem] items-center justify-center rounded-[var(--mkt-radius-pill)] border border-white/25 bg-transparent px-7 text-[0.95rem] font-semibold text-white hover:border-white/50";
 
 export function MarketingLink({
   href,
@@ -15,10 +17,17 @@ export function MarketingLink({
 }: {
   href: string;
   children: React.ReactNode;
-  variant?: "primary" | "outline" | "inverse";
+  variant?: "primary" | "outline" | "inverse" | "darkOutline";
   className?: string;
 }) {
-  const className = variant === "outline" ? outline : variant === "inverse" ? inverse : primary;
+  const className =
+    variant === "outline"
+      ? outline
+      : variant === "inverse"
+        ? inverse
+        : variant === "darkOutline"
+          ? darkOutline
+          : primary;
   return (
     <Link href={href} className={extraClass ? `${className} ${extraClass}` : className}>
       {children}
@@ -37,9 +46,9 @@ export function PageIntro({
 }) {
   return (
     <header className="max-w-3xl">
-      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--nova-teal)]">{kicker}</p>
-      <h1 className="h-macro mt-3 text-[clamp(2.1rem,5vw,3.6rem)]">{title}</h1>
-      <p className="mt-4 text-lg leading-relaxed text-[var(--nova-text-secondary)]">{lede}</p>
+      <p className="mkt-eyebrow">{kicker}</p>
+      <h1 className="mkt-h1 mt-4">{title}</h1>
+      <p className="mkt-lead mt-5">{lede}</p>
     </header>
   );
 }
@@ -51,6 +60,7 @@ export function ClosingBand({
   href = "/contact",
   secondaryAction,
   secondaryHref = "/contact",
+  dark = true,
 }: {
   title: string;
   body?: string;
@@ -58,20 +68,33 @@ export function ClosingBand({
   href?: string;
   secondaryAction?: string;
   secondaryHref?: string;
+  dark?: boolean;
 }) {
+  if (!dark) {
+    return (
+      <section className="mkt-section">
+        <div className="mkt-container rounded-[var(--mkt-radius-lg)] bg-[var(--mkt-soft-bg)] px-6 py-12 md:px-12">
+          <h2 className="mkt-h2 max-w-2xl">{title}</h2>
+          {body ? <p className="mkt-lead mt-4 max-w-2xl">{body}</p> : null}
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <MarketingLink href={href}>{action}</MarketingLink>
+            {secondaryAction ? <MarketingLink href={secondaryHref} variant="outline">{secondaryAction}</MarketingLink> : null}
+          </div>
+        </div>
+      </section>
+    );
+  }
   return (
-    <section className="mt-16 rounded-[var(--nova-radius-lg)] bg-[var(--nova-ink)] px-6 py-10 text-white md:px-10">
-      <h2 className="h-display max-w-2xl text-[clamp(1.6rem,3vw,2.2rem)] text-white">{title}</h2>
-      {body ? <p className="mt-3 max-w-2xl text-white/80">{body}</p> : null}
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-        <MarketingLink href={href} variant="inverse">
-          {action}
-        </MarketingLink>
-        {secondaryAction ? (
-          <MarketingLink href={secondaryHref} variant="outline" className="border-white/30 bg-transparent text-white hover:border-white hover:text-white">
-            {secondaryAction}
-          </MarketingLink>
-        ) : null}
+    <section className="mkt-section">
+      <div className="mkt-container overflow-hidden rounded-[var(--mkt-radius-lg)] bg-[var(--mkt-dark)] px-6 py-14 text-white md:px-12 md:py-16">
+        <h2 className="mkt-h2 max-w-2xl text-white">{title}</h2>
+        {body ? <p className="mt-4 max-w-2xl text-base leading-relaxed text-white/75">{body}</p> : null}
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <MarketingLink href={href} variant="inverse">{action}</MarketingLink>
+          {secondaryAction ? (
+            <MarketingLink href={secondaryHref} variant="darkOutline">{secondaryAction}</MarketingLink>
+          ) : null}
+        </div>
       </div>
     </section>
   );

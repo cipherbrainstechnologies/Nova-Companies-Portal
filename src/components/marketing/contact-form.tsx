@@ -11,6 +11,7 @@ export function ContactForm({ copy }: { copy: FormCopy }) {
   const searchParams = useSearchParams();
   const [estimateRef, setEstimateRef] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "success" | "error" | "invalid">("idle");
+  const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -20,6 +21,7 @@ export function ContactForm({ copy }: { copy: FormCopy }) {
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitted || status === "sending") return;
     const form = event.currentTarget;
     const data = Object.fromEntries(new FormData(form).entries());
     setStatus("sending");
@@ -36,6 +38,7 @@ export function ContactForm({ copy }: { copy: FormCopy }) {
     });
     if (res.ok) {
       form.reset();
+      setSubmitted(true);
       setStatus("success");
       return;
     }

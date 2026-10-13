@@ -49,7 +49,9 @@ export const siteCopyEs: SiteCopy = {
     ...siteCopyEn.home,
     metaTitle: "NOVA — empleador registrado en India",
     kicker: "Empleador registrado en India",
-    title: "Su equipo en India. A su manera. Cada coste explicado.",
+    titlePrefix: "Su equipo en ",
+    titleHighlight: "India",
+    titleSuffix: ". A su manera. Cada coste explicado.",
     lede:
       "Contrate y gestione empleados en India sin constituir una sociedad local. NOVA gestiona la administración laboral, la nómina y el cumplimiento mientras sus responsables dirigen el trabajo.",
     primary: "Calcular costes de empleo",

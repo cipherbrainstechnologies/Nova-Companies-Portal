@@ -15,7 +15,7 @@ export function MarketingSection({
   className?: string;
 }) {
   return (
-    <section id={id} className={className ?? "mt-16 md:mt-20"} aria-labelledby={id ? `${id}-heading` : undefined}>
+    <section id={id} className={className ?? "mkt-section"} aria-labelledby={id ? `${id}-heading` : undefined}>
       <h2
         id={id ? `${id}-heading` : undefined}
         className="h-display text-[clamp(1.6rem,3vw,2.15rem)] text-[var(--nova-ink)]"
