@@ -32,9 +32,9 @@ export default async function AdminTasksPage({
 
   return (
     <AdminShell
-      title="Tasks and alerts"
-      kicker="Operations"
-      description="Each item links to the underlying client, employee, or hire request. Owners come from the client relationship owner, or Unassigned."
+      title="Operations"
+      kicker="Exceptions"
+      description="P0 is a payroll-funding deadline that has passed. Collection and renewal items follow. Owners come from the client relationship owner."
     >
       <div className="mb-4 flex flex-wrap gap-2">
         {KINDS.map((value) => {
@@ -67,7 +67,7 @@ export default async function AdminTasksPage({
             <DataRow
               key={item.id}
               title={item.title}
-              subtitle={`${item.owner}${item.dueAt ? ` · due ${item.dueAt.slice(0, 10)}` : ""} · ${item.detail}`}
+              subtitle={`${item.priority} · ${item.owner}${item.dueAt ? ` · due ${item.dueAt.slice(0, 10)}` : ""} · ${item.detail}`}
               action={
                 <div className="flex items-center gap-2">
                   <StatusBadge status={item.status.replaceAll("_", " ")} tone={item.severity === "high" ? "danger" : "info"} />

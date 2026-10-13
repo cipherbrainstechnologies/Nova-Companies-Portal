@@ -111,6 +111,7 @@ describe("EOR business overview", () => {
             taxTotal: "0.00",
             total: "200000.00",
             dueAt: "2026-10-20T00:00:00.000Z",
+            issuedAt: "2026-10-01T00:00:00.000Z",
             lines: [
               {
                 employeeId: "emp-1",
@@ -125,7 +126,7 @@ describe("EOR business overview", () => {
                 kind: "SERVICE_FEE",
               },
             ],
-            payments: [{ amount: "50000.00" }],
+            payments: [{ amount: "50000.00", receivedAt: "2026-10-05T00:00:00.000Z" }],
             creditNotes: [],
           },
         ],
@@ -138,9 +139,12 @@ describe("EOR business overview", () => {
     expect(overview.monthlyBillings).toEqual([{ currency: "INR", amount: "200000.00" }]);
     expect(overview.outstandingReceivables).toEqual([{ currency: "INR", amount: "150000.00" }]);
     expect(overview.counts.activeClientEmployees).toBe(2);
-    expect(overview.counts.novaInternalEmployees).toBe(1);
+    expect(overview.counts.billableEmployees).toBe(2);
+    expect(overview.counts.unclassifiedEmployees).toBe(1);
+    expect(overview.overdueReceivables).toEqual([]);
     expect(overview.grossContribution.status).toBe("unavailable");
     expect(overview.payrollFundingCoverage.status).toBe("unavailable");
+    expect(overview.fxVariance.status).toBe("none");
   });
 
   it("does not price uncontracted employees at the catalogue rate", () => {
@@ -238,6 +242,7 @@ describe("EOR business overview", () => {
             taxTotal: "0.00",
             total: "999.00",
             dueAt: "2026-10-01T00:00:00.000Z",
+            issuedAt: null,
             lines: [],
             payments: [],
             creditNotes: [],
@@ -249,10 +254,86 @@ describe("EOR business overview", () => {
     expect(overview.outstandingReceivables).toEqual([]);
   });
 
-  it("separates internal staff from client employees", () => {
+  it("lists an employee with no assignment as unclassified", () => {
     const rows = listWorkforce(snapshot());
     expect(rows.filter((row) => row.kind === "CLIENT")).toHaveLength(2);
-    expect(rows.filter((row) => row.kind === "INTERNAL")).toHaveLength(1);
-    expect(rows.find((row) => row.kind === "INTERNAL")?.employeeId).toBe("emp-internal");
+    expect(rows.filter((row) => row.kind === "UNASSIGNED")).toHaveLength(1);
+    expect(rows.find((row) => row.kind === "UNASSIGNED")?.employeeId).toBe("emp-internal");
+  });
+
+  it("uses the pricing agreement effective on the as-of date and keeps overdue balances apart", () => {
+    const overview = buildBusinessOverview(
+      snapshot({
+        pricingAgreements: [
+          {
+            id: "old",
+            clientOrganizationId: "acme",
+            version: 1,
+            currency: "INR",
+            feePerEmployee: "5000.00",
+            effectiveFrom: "2026-01-01T00:00:00.000Z",
+            effectiveTo: "2026-10-01T00:00:00.000Z",
+          },
+          {
+            id: "current",
+            clientOrganizationId: "acme",
+            version: 2,
+            currency: "INR",
+            feePerEmployee: "7500.00",
+            effectiveFrom: "2026-10-01T00:00:00.000Z",
+            effectiveTo: null,
+          },
+        ],
+        invoices: [
+          {
+            id: "old-invoice",
+            clientOrganizationId: "acme",
+            novaCompanyId: "nova",
+            invoiceNumber: "INV-OLD",
+            periodYear: 2026,
+            periodMonth: 9,
+            currency: "INR",
+            financialState: "ISSUED",
+            subtotal: "1000.00",
+            taxTotal: "0.00",
+            total: "1000.00",
+            dueAt: "2026-09-15T00:00:00.000Z",
+            issuedAt: "2026-09-01T00:00:00.000Z",
+            lines: [
+              {
+                employeeId: null,
+                description: "NOVA EOR platform fee (per employee)",
+                lineTotal: "1000.00",
+                kind: "SERVICE_FEE",
+              },
+            ],
+            payments: [{ amount: "400.00", receivedAt: "2026-11-02T00:00:00.000Z" }],
+            creditNotes: [{ amount: "100.00", issuedAt: "2026-09-10T00:00:00.000Z" }],
+          },
+        ],
+        fxSettlements: [
+          {
+            id: "fx-1",
+            clientOrganizationId: "acme",
+            varianceAmount: "25.00",
+            inrReceived: "1000.00",
+            settledAt: "2026-10-02T00:00:00.000Z",
+          },
+        ],
+        assignments: [assignment("a1", "emp-1"), assignment("a1-overlap", "emp-1")],
+        employees: [employee("emp-1")],
+      }),
+    );
+
+    expect(overview.eorMrr).toEqual([{ currency: "INR", amount: "7500.00" }]);
+    expect(overview.serviceFeeTrend.find((point) => point.month === 9)?.amounts).toEqual([
+      { currency: "INR", amount: "1000.00" },
+    ]);
+    expect(overview.overdueReceivables).toEqual([{ currency: "INR", amount: "900.00" }]);
+    expect(overview.receivableRows[0]?.payments).toBe("0.00");
+    expect(overview.receivableRows[0]?.credits).toBe("100.00");
+    expect(overview.monthlyServiceRevenue).toEqual([]);
+    expect(overview.fxVariance.status).toBe("unverified");
+    expect(overview.insights.some((item) => item.id === "overlap-emp-1")).toBe(true);
   });
 });

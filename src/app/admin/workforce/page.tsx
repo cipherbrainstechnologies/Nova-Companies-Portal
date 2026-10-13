@@ -21,7 +21,7 @@ export default async function WorkforcePage({
   const filters = parseBusinessFilters(search);
   const snapshot = await loadBusinessSnapshot({ ...period });
   const overview = buildBusinessOverview(snapshot, filters);
-  const kind = search.kind === "INTERNAL" || search.kind === "CLIENT" || search.kind === "PENDING" || search.kind === "ON_HOLD" ? search.kind : "ALL";
+  const kind = search.kind === "CLIENT" || search.kind === "FUTURE" || search.kind === "PENDING" || search.kind === "ON_HOLD" || search.kind === "UNASSIGNED" ? search.kind : "ALL";
   const rows = listWorkforce(snapshot, filters).filter((row) => kind === "ALL" || row.kind === kind);
   const visible = rows.slice(0, 200);
 
@@ -29,7 +29,7 @@ export default async function WorkforcePage({
     <AdminShell
       title="Workforce"
       kicker="Employees"
-      description="Client-assigned employees and Nova staff are listed separately. Salary stays on the employee profile."
+      description="Client-assigned people are separated from employees who still need a classification. Absence of an assignment is not treated as Nova employment."
       actions={
         <Link href="/admin/employees" className="text-sm font-semibold text-[var(--nova-teal)]">
           Open roster
@@ -37,12 +37,12 @@ export default async function WorkforcePage({
       }
     >
       <div className="mb-4 grid gap-3 sm:grid-cols-3">
-        <Count label="Active client employees" value={overview.counts.activeClientEmployees} />
-        <Count label="Nova internal employees" value={overview.counts.novaInternalEmployees ?? "—"} />
+        <Count label="Billable client employees" value={overview.counts.billableEmployees} />
+        <Count label="Needs classification" value={overview.counts.unclassifiedEmployees} />
         <Count label="Showing" value={`${visible.length} of ${rows.length}`} />
       </div>
       <div className="mb-4 flex flex-wrap gap-2 text-sm">
-        {(["ALL", "CLIENT", "INTERNAL", "PENDING", "ON_HOLD"] as const).map((value) => (
+        {(["ALL", "CLIENT", "FUTURE", "PENDING", "ON_HOLD", "UNASSIGNED"] as const).map((value) => (
           <Link
             key={value}
             href={workforceHref(search, period, value)}
@@ -52,7 +52,7 @@ export default async function WorkforcePage({
                 : "rounded-full border border-[var(--nova-border)] px-3 py-1.5"
             }
           >
-            {value === "ALL" ? "All" : value === "ON_HOLD" ? "On hold" : value[0] + value.slice(1).toLowerCase()}
+            {value === "ALL" ? "All" : value === "ON_HOLD" ? "On hold" : value === "UNASSIGNED" ? "Needs classification" : value[0] + value.slice(1).toLowerCase()}
           </Link>
         ))}
       </div>
@@ -71,7 +71,7 @@ export default async function WorkforcePage({
             </thead>
             <tbody>
               {visible.map((row) => (
-                <tr key={`${row.employeeId}-${row.clientId ?? "internal"}`} className="border-t border-[var(--nova-border)]">
+                <tr key={`${row.employeeId}-${row.clientId ?? row.kind}`} className="border-t border-[var(--nova-border)]">
                   <td className="px-4 py-3">
                     <Link href={row.href} className="font-medium text-[var(--nova-teal)]">{row.name}</Link>
                     <div className="text-xs text-[var(--nova-muted)]">{row.employeeCode}</div>

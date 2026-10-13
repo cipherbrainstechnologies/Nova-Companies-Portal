@@ -140,8 +140,10 @@
 
 - Read model: `src/server/admin/business-metrics.ts` calculates EOR KPIs from `ClientOrganization`, `EmploymentAssignment`, `ClientPricingAgreement`, `ClientInvoice`, and related records. `src/server/admin/load-business-snapshot.ts` loads them. The UI does not invent figures.
 - EOR MRR is the effective pricing-agreement fee times distinct active employees on ACTIVE clients, in the agreement currency. Employment-cost invoice lines are reimbursements, not service revenue. Gross contribution and payroll-funding coverage stay unavailable until cost and cleared-cash sources exist.
+- Employees with no open client assignment are unclassified. They are not reported as Nova internal staff. There is still no explicit internal-staff field.
 - Plan labels compare an INR fee with the published Essential and Managed amounts in `commercial-plans.ts`. Any other fee is Custom. The catalogue is not written onto `ClientPricingAgreement`.
-- Navigation groups existing routes into Overview, Clients, Workforce, Finance, Compliance, and Administration. `/admin/tasks` and `/admin/workforce` are new read-only pages. Client detail remains the canonical organisation workspace.
+- `FXSettlement.varianceAmount` is not totalled, because the column has no currency.
+- Navigation groups existing routes into Overview, Clients, Workforce, Finance, Operations, Compliance, and Administration. `/admin/tasks` remains the operations queue. Client detail remains the canonical organisation workspace.
 - Admin visuals stay on the existing ink and teal tokens. Public-site navy and purple remain scoped to `[data-marketing="true"]`.
-- Definitions, filters, and the first-release limit are in `docs/super-admin-business-os.md`.
+- Definitions, filters, and the release limit are in `docs/super-admin-business-os.md`.
 

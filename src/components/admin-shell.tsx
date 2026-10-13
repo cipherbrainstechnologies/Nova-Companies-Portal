@@ -9,12 +9,13 @@ import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/admin/dashboard", key: "admin.dashboard", group: "Overview" },
-  { href: "/admin/tasks", key: "admin.tasks", group: "Overview" },
+  { href: "/admin/tasks", key: "admin.tasks", group: "Operations" },
   { href: "/admin/clients", key: "admin.clients", group: "Clients" },
   { href: "/admin/hire-requests", key: "admin.hireRequests", group: "Clients" },
   { href: "/admin/workforce", key: "admin.workforce", group: "Workforce" },
   { href: "/admin/employees", key: "admin.employees", group: "Workforce" },
   { href: "/admin/finance", key: "admin.finance", group: "Finance" },
+  { href: "/admin/finance/eor", key: "admin.eorFinance", group: "Finance" },
   { href: "/admin/statements", key: "admin.statements", group: "Finance" },
   { href: "/admin/payroll", key: "admin.payroll", group: "Finance" },
   { href: "/admin/payslips", key: "admin.payslips", group: "Finance" },
@@ -48,7 +49,10 @@ function NavLinks({
   return (
     <nav className="flex flex-col gap-0.5 px-2 pb-4" aria-label="Admin">
       {links.map((l) => {
-        const active = pathname === l.href || pathname.startsWith(`${l.href}/`);
+        const activeHref = [...links]
+          .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
+          .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+        const active = l.href === activeHref;
         const showGroup = l.group !== lastGroup;
         lastGroup = l.group;
         return (

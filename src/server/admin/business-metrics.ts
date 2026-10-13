@@ -133,9 +133,10 @@ export type BusinessSnapshot = {
     taxTotal: string;
     total: string;
     dueAt: string | null;
+    issuedAt: string | null;
     lines: Array<{ employeeId: string | null; description: string; lineTotal: string; kind: LineKind }>;
-    payments: Array<{ amount: string }>;
-    creditNotes: Array<{ amount: string }>;
+    payments: Array<{ amount: string; receivedAt: string }>;
+    creditNotes: Array<{ amount: string; issuedAt: string }>;
   }>;
   fundingRequests: Array<{
     id: string;
@@ -165,6 +166,7 @@ export type BusinessSnapshot = {
     id: string;
     clientOrganizationId: string;
     varianceAmount: string | null;
+    inrReceived: string;
     settledAt: string;
   }>;
 };
@@ -181,6 +183,7 @@ export type ActionItem = {
   status: string;
   href: string;
   severity: "high" | "medium" | "low";
+  priority: "P0" | "P1" | "P2" | "P3";
 };
 
 export type RenewalItem = {
@@ -193,11 +196,52 @@ export type RenewalItem = {
   href: string;
 };
 
+export type ReceivableRow = {
+  invoiceId: string;
+  clientId: string;
+  clientName: string;
+  novaCompanyName: string;
+  invoiceNumber: string;
+  currency: string;
+  issuedAt: string | null;
+  dueAt: string | null;
+  status: string;
+  gross: string;
+  credits: string;
+  payments: string;
+  outstanding: string;
+  daysOverdue: number | null;
+  bucket: string;
+  owner: string;
+  href: string;
+};
+
+export type FundingExposureRow = {
+  id: string;
+  clientId: string;
+  clientName: string;
+  amount: string;
+  currency: string;
+  status: string;
+  dueAt: string | null;
+  periodYear: number;
+  periodMonth: number;
+  overdue: boolean;
+  href: string;
+};
+
+export type Insight = {
+  id: string;
+  title: string;
+  detail: string;
+  href: string;
+};
+
 export type WorkforceRow = {
   employeeId: string;
   employeeCode: string;
   name: string;
-  kind: "CLIENT" | "INTERNAL" | "PENDING" | "ON_HOLD";
+  kind: "CLIENT" | "FUTURE" | "PENDING" | "ON_HOLD" | "UNASSIGNED";
   status: string;
   clientId: string | null;
   clientName: string | null;
@@ -220,7 +264,8 @@ export type BusinessOverview = {
     activeClients: number;
     onboardingClients: number;
     activeClientEmployees: number;
-    novaInternalEmployees: number | null;
+    billableEmployees: number;
+    unclassifiedEmployees: number;
     clientsCreatedThisMonth: number;
     clientsClosedThisMonth: number;
     clientEmployeesJoinedThisMonth: number;
@@ -234,12 +279,20 @@ export type BusinessOverview = {
   monthlyOtherCharges: MoneyAmount[];
   monthlyTax: MoneyAmount[];
   outstandingReceivables: MoneyAmount[];
+  overdueReceivables: MoneyAmount[];
+  overdueInvoiceCount: number;
+  dueWithin7Receivables: MoneyAmount[];
+  receivableRows: ReceivableRow[];
+  fundingExposure: FundingExposureRow[];
   receivablesRequiringAction: number;
+  criticalExceptions: number;
+  serviceFeeTrend: Array<{ year: number; month: number; amounts: MoneyAmount[] }>;
+  insights: Insight[];
   ageing: Array<{ bucket: string; invoiceCount: number; amounts: MoneyAmount[] }>;
   openPayrollFunding: MoneyAmount[];
   grossContribution: UnavailableMetric;
   payrollFundingCoverage: UnavailableMetric;
-  fxVariance: { status: "available"; settlementCount: number; incompleteCount: number; amounts: MoneyAmount[] };
+  fxVariance: { status: "none" | "unverified"; settlementCount: number; incompleteCount: number; reason: string };
   renewals: { within30: number; within60: number; within90: number; items: RenewalItem[] };
   planMix: Array<{ plan: PlanCode; clients: number; employees: number; mrr: MoneyAmount[] }>;
   pipeline: Array<{ stage: string; count: number }>;
@@ -420,7 +473,7 @@ export function buildBusinessOverview(snapshot: BusinessSnapshot, filters: Busin
   const countryMrr = new Map<string, MoneyBag>();
   let uncontractedActiveEmployees = 0;
   const topClients: BusinessOverview["topClients"] = [];
-  const actions: ActionItem[] = [];
+  const actions: Array<Omit<ActionItem, "priority">> = [];
 
   for (const client of clients) {
     const agreement = pricingByClient.get(client.id) ?? null;
@@ -492,14 +545,27 @@ export function buildBusinessOverview(snapshot: BusinessSnapshot, filters: Busin
   const other = new MoneyBag();
   const tax = new MoneyBag();
   const receivables = new MoneyBag();
+  const overdueReceivables = new MoneyBag();
+  const dueWithin7Receivables = new MoneyBag();
+  const receivableRows: ReceivableRow[] = [];
+  const serviceTrend = new Map<string, MoneyBag>();
   const ageing = new Map<string, { invoiceCount: number; amounts: MoneyBag }>();
-  for (const bucket of ["Not yet due", "No due date", "1–30 days", "31–60 days", "61–90 days", "91+ days"]) {
+  for (const bucket of ["Not yet due", "No due date", "1–7 days overdue", "8–30 days overdue", "31–60 days overdue", "61–90 days overdue", "Over 90 days overdue"]) {
     ageing.set(bucket, { invoiceCount: 0, amounts: new MoneyBag() });
   }
   let receivablesRequiringAction = 0;
+  let overdueInvoiceCount = 0;
 
   for (const invoice of invoices) {
     if (DRAFT_INVOICE_STATES.has(invoice.financialState)) continue;
+    if (invoice.issuedAt && new Date(invoice.issuedAt).getTime() > asOf.getTime()) continue;
+    const trendKey = `${invoice.periodYear}-${String(invoice.periodMonth).padStart(2, "0")}`;
+    for (const line of invoice.lines) {
+      if (line.kind !== "SERVICE_FEE") continue;
+      const bag = serviceTrend.get(trendKey) ?? new MoneyBag();
+      bag.add(invoice.currency, line.lineTotal);
+      serviceTrend.set(trendKey, bag);
+    }
     const inPeriod = invoice.periodYear === snapshot.year && invoice.periodMonth === snapshot.month;
     if (inPeriod) {
       billings.add(invoice.currency, invoice.total);
@@ -527,7 +593,22 @@ export function buildBusinessOverview(snapshot: BusinessSnapshot, filters: Busin
       }
     }
 
-    const balance = invoiceBalance(invoice);
+    const balance = invoiceBalance(invoice, asOf);
+    const client = clients.find((item) => item.id === invoice.clientOrganizationId);
+    if (balance.lessThan(0)) {
+      actions.push({
+        id: `overpay-${invoice.id}`,
+        kind: "invoice",
+        title: `${invoice.invoiceNumber} is overpaid`,
+        detail: `${formatMoneyAmount({ currency: invoice.currency, amount: balance.abs().toFixed(2) })} of payments and credits exceed the invoice as of this date. The excess is not treated as revenue.`,
+        owner: client?.relationshipOwnerLabel ?? "Unassigned",
+        dueAt: invoice.dueAt,
+        status: invoice.financialState,
+        href: `/admin/clients/${invoice.clientOrganizationId}`,
+        severity: "medium",
+      });
+      continue;
+    }
     if (balance.lessThanOrEqualTo(0)) continue;
     receivables.add(invoice.currency, balance);
     const bucket = ageingBucket(asOf, invoice.dueAt);
@@ -537,7 +618,34 @@ export function buildBusinessOverview(snapshot: BusinessSnapshot, filters: Busin
     const days = invoice.dueAt ? daysPastDue(asOf, new Date(invoice.dueAt)) : null;
     const dueSoon = days != null && days >= -7 && days < 1;
     const overdue = days != null && days >= 1;
+    const appliedPayments = appliedAmount(invoice.payments, asOf, (row) => row.receivedAt);
+    const appliedCredits = appliedAmount(invoice.creditNotes, asOf, (row) => row.issuedAt);
+    const company = snapshot.companies.find((item) => item.id === invoice.novaCompanyId);
+    receivableRows.push({
+      invoiceId: invoice.id,
+      clientId: invoice.clientOrganizationId,
+      clientName: client?.legalName ?? "Client",
+      novaCompanyName: company ? `${company.prefix} · ${company.name}` : invoice.novaCompanyId,
+      invoiceNumber: invoice.invoiceNumber,
+      currency: invoice.currency,
+      issuedAt: invoice.issuedAt,
+      dueAt: invoice.dueAt,
+      status: invoice.financialState,
+      gross: new Decimal(invoice.total).toFixed(2),
+      credits: appliedCredits.toFixed(2),
+      payments: appliedPayments.toFixed(2),
+      outstanding: balance.toFixed(2),
+      daysOverdue: days != null && days > 0 ? days : days,
+      bucket,
+      owner: client?.relationshipOwnerLabel ?? "Unassigned",
+      href: `/admin/clients/${invoice.clientOrganizationId}`,
+    });
     const disputed = invoice.financialState === "DISPUTED";
+    if (dueSoon) dueWithin7Receivables.add(invoice.currency, balance);
+    if (overdue) {
+      overdueInvoiceCount += 1;
+      overdueReceivables.add(invoice.currency, balance);
+    }
     if (overdue || dueSoon || disputed) {
       receivablesRequiringAction += 1;
       const client = clients.find((item) => item.id === invoice.clientOrganizationId);
@@ -560,13 +668,27 @@ export function buildBusinessOverview(snapshot: BusinessSnapshot, filters: Busin
   }
 
   const fundingBag = new MoneyBag();
+  const fundingExposure: FundingExposureRow[] = [];
   for (const request of inScope(snapshot.fundingRequests)) {
     if (SETTLED_FUNDING.has(request.status.toUpperCase())) continue;
     if (new Decimal(request.amount).lessThanOrEqualTo(0)) continue;
     fundingBag.add(request.currency, request.amount);
-    const overdue = request.dueAt != null && daysPastDue(asOf, new Date(request.dueAt)) >= 1;
-    if (!overdue && !(request.dueAt && daysPastDue(asOf, new Date(request.dueAt)) >= -7)) continue;
     const client = clients.find((item) => item.id === request.clientOrganizationId);
+    const overdue = request.dueAt != null && daysPastDue(asOf, new Date(request.dueAt)) >= 1;
+    fundingExposure.push({
+      id: request.id,
+      clientId: request.clientOrganizationId,
+      clientName: client?.legalName ?? "Client",
+      amount: new Decimal(request.amount).toFixed(2),
+      currency: request.currency,
+      status: request.status,
+      dueAt: request.dueAt,
+      periodYear: request.periodYear,
+      periodMonth: request.periodMonth,
+      overdue,
+      href: `/admin/clients/${request.clientOrganizationId}`,
+    });
+    if (!overdue && !(request.dueAt && daysPastDue(asOf, new Date(request.dueAt)) >= -7)) continue;
     actions.push({
       id: `funding-${request.id}`,
       kind: "funding",
@@ -704,45 +826,47 @@ export function buildBusinessOverview(snapshot: BusinessSnapshot, filters: Busin
     });
   }
 
-  const fxBag = new MoneyBag();
   let fxCount = 0;
   let fxIncomplete = 0;
   for (const settlement of inScope(snapshot.fxSettlements)) {
     const settledAt = new Date(settlement.settledAt);
     if (settledAt < periodStart || settledAt >= periodEnd) continue;
     fxCount += 1;
-    if (settlement.varianceAmount == null) {
-      fxIncomplete += 1;
-      continue;
-    }
-    fxBag.add("INR", settlement.varianceAmount);
+    if (settlement.varianceAmount == null) fxIncomplete += 1;
   }
 
-  const scopedAwayFromInternal = Boolean(filters.clientId || filters.countryCode || filters.plan);
-  const engagedEmployeeIds = new Set(
-    snapshot.assignments
-      .filter((row) => row.status === "ACTIVE" || row.status === "PENDING" || row.status === "ON_HOLD")
-      .filter((row) => isOverlapping(row, asOf) || row.status === "PENDING" || row.status === "ON_HOLD")
-      .map((row) => row.employeeId),
-  );
-  const novaInternalEmployees = scopedAwayFromInternal
-    ? null
-    : snapshot.employees.filter((employee) => {
-        if (employee.status !== "ACTIVE") return false;
-        if (entityId && employee.companyId !== entityId) return false;
-        return !engagedEmployeeIds.has(employee.id);
-      }).length;
+  const rankedActions: ActionItem[] = actions
+    .map((action) => ({ ...action, priority: priorityFor(action) }))
+    .sort((a, b) => a.priority.localeCompare(b.priority) || (a.dueAt ?? "9999").localeCompare(b.dueAt ?? "9999"));
 
-  const clientEmployeeIds = new Set(
-    assignments
-      .filter((row) => row.status !== "ENDED")
-      .map((row) => row.employeeId),
-  );
+  const unclassifiedEmployees = snapshot.employees.filter((employee) => {
+    if (employee.status !== "ACTIVE") return false;
+    if (entityId && employee.companyId !== entityId) return false;
+    if (filters.clientId || filters.countryCode || filters.plan) return false;
+    return !hasOpenAssignment(snapshot.assignments, employee.id, asOf);
+  }).length;
 
-  const severityRank = { high: 0, medium: 1, low: 2 };
-  actions.sort((a, b) => severityRank[a.severity] - severityRank[b.severity] || (a.dueAt ?? "9999").localeCompare(b.dueAt ?? "9999"));
+  const billableEmployees = new Set<string>();
+  for (const plan of PLAN_ORDER) {
+    if (plan === "UNCONTRACTED") continue;
+    for (const employeeId of planBuckets.get(plan)?.employees ?? []) billableEmployees.add(employeeId);
+  }
+
+  const insights = buildInsights({
+    snapshot,
+    clients,
+    assignments,
+    invoices,
+    asOf,
+    topClients,
+    uncontractedActiveEmployees,
+  });
 
   topClients.sort((a, b) => primaryAmount(b.mrr) - primaryAmount(a.mrr) || b.employees - a.employees);
+
+  const clientEmployeeIds = new Set(
+    assignments.filter((row) => row.status !== "ENDED").map((row) => row.employeeId),
+  );
 
   return {
     asOf: snapshot.asOf,
@@ -753,7 +877,8 @@ export function buildBusinessOverview(snapshot: BusinessSnapshot, filters: Busin
       activeClients: clients.filter((client) => client.lifecycleStatus === "ACTIVE").length,
       onboardingClients: clients.filter((client) => ONBOARDING_STATUSES.has(client.lifecycleStatus)).length,
       activeClientEmployees: activeEmployeeIds.size,
-      novaInternalEmployees,
+      billableEmployees: billableEmployees.size,
+      unclassifiedEmployees,
       clientsCreatedThisMonth: clients.filter((client) => inRange(new Date(client.createdAt), periodStart, periodEnd)).length,
       clientsClosedThisMonth: new Set(
         snapshot.lifecycleEvents
@@ -786,7 +911,18 @@ export function buildBusinessOverview(snapshot: BusinessSnapshot, filters: Busin
     monthlyOtherCharges: other.list(),
     monthlyTax: tax.list(),
     outstandingReceivables: receivables.list(),
+    overdueReceivables: overdueReceivables.list(),
+    overdueInvoiceCount,
+    dueWithin7Receivables: dueWithin7Receivables.list(),
+    receivableRows: receivableRows.sort((a, b) => (b.daysOverdue ?? -1) - (a.daysOverdue ?? -1)),
+    fundingExposure: fundingExposure.sort((a, b) => (a.dueAt ?? "9999").localeCompare(b.dueAt ?? "9999")),
     receivablesRequiringAction,
+    criticalExceptions: rankedActions.filter((action) => action.priority === "P0").length,
+    serviceFeeTrend: recentPeriods(snapshot.year, snapshot.month).map((period) => ({
+      ...period,
+      amounts: serviceTrend.get(`${period.year}-${String(period.month).padStart(2, "0")}`)?.list() ?? [],
+    })),
+    insights,
     ageing: [...ageing.entries()].map(([bucket, slot]) => ({
       bucket,
       invoiceCount: slot.invoiceCount,
@@ -802,10 +938,13 @@ export function buildBusinessOverview(snapshot: BusinessSnapshot, filters: Busin
       reason: "Cleared client funding is not stored as a balance. Open funding requests are shown separately and are not treated as covered or short.",
     },
     fxVariance: {
-      status: "available",
+      status: fxCount === 0 ? "none" : "unverified",
       settlementCount: fxCount,
       incompleteCount: fxIncomplete,
-      amounts: fxBag.list(),
+      reason:
+        fxCount === 0
+          ? "No FX settlements were recorded in this period."
+          : "FXSettlement.varianceAmount has no currency. Those amounts are not added together or treated as INR.",
     },
     renewals,
     planMix: PLAN_ORDER.map((plan) => {
@@ -821,7 +960,7 @@ export function buildBusinessOverview(snapshot: BusinessSnapshot, filters: Busin
       .sort((a, b) => a.countryCode.localeCompare(b.countryCode)),
     revenueByEntity: entityMrr.sort((a, b) => a.name.localeCompare(b.name)),
     topClients,
-    actions,
+    actions: rankedActions,
   };
 }
 
@@ -836,14 +975,20 @@ export function listWorkforce(snapshot: BusinessSnapshot, filters: BusinessFilte
     if (!clientIds.has(assignment.clientOrganizationId)) continue;
     if (filters.novaCompanyId && assignment.novaCompanyId !== filters.novaCompanyId) continue;
     if (assignment.status === "ENDED") continue;
-    if (assignment.status === "ACTIVE" && !isOverlapping(assignment, asOf)) continue;
+    const startsInFuture = new Date(assignment.effectiveFrom).getTime() > asOf.getTime();
+    if (assignment.status === "ACTIVE" && !isOverlapping(assignment, asOf) && !startsInFuture) continue;
     const client = snapshot.clients.find((item) => item.id === assignment.clientOrganizationId);
     const employee = snapshot.employees.find((item) => item.id === assignment.employeeId);
     if (!employee || !client) continue;
     const agreement = effectivePricing(snapshot.pricingAgreements, client.id, asOf);
     const commerciallyActive = assignment.status === "ACTIVE" && client.lifecycleStatus === "ACTIVE" && isOverlapping(assignment, asOf);
-    const kind: WorkforceRow["kind"] =
-      assignment.status === "ON_HOLD" ? "ON_HOLD" : assignment.status === "PENDING" || !commerciallyActive ? "PENDING" : "CLIENT";
+    const kind: WorkforceRow["kind"] = startsInFuture
+      ? "FUTURE"
+      : assignment.status === "ON_HOLD"
+        ? "ON_HOLD"
+        : assignment.status === "PENDING" || !commerciallyActive
+          ? "PENDING"
+          : "CLIENT";
     if (filters.plan) {
       const plan = agreement ? classifyServicePlan(agreement.currency, agreement.feePerEmployee) : "UNCONTRACTED";
       if (plan !== filters.plan) continue;
@@ -891,7 +1036,7 @@ export function listWorkforce(snapshot: BusinessSnapshot, filters: BusinessFilte
         employeeId: employee.id,
         employeeCode: employee.employeeCode,
         name: `${employee.firstName} ${employee.lastName}`,
-        kind: "INTERNAL",
+        kind: "UNASSIGNED",
         status: employee.status,
         clientId: null,
         clientName: null,
@@ -923,7 +1068,8 @@ export const METRIC_DEFINITIONS: Array<{ name: string; definition: string }> = [
   },
   {
     name: "Nova internal employees",
-    definition: "Employees with status ACTIVE and no PENDING, ON_HOLD, or overlapping ACTIVE client assignment. The schema has no internal-staff flag. Hidden when a client, country, or plan filter is applied.",
+    definition:
+      "Unavailable. Employee has no confirmed internal-staff flag. Active people with no open client assignment are unclassified and are not counted as Nova staff.",
   },
   {
     name: "EOR MRR",
@@ -939,7 +1085,7 @@ export const METRIC_DEFINITIONS: Array<{ name: string; definition: string }> = [
   },
   {
     name: "Outstanding receivables",
-    definition: "Posted invoice total minus recorded payments minus credit notes, when the balance is still positive. Drafts and voids are excluded.",
+    definition: "Posted invoice total minus payments received on or before the as-of instant minus credit notes issued on or before that instant, when the balance is still positive. A later payment is not applied to an earlier reporting date. Drafts and voids are excluded. A negative balance is an overpayment, not negative revenue.",
   },
   {
     name: "Gross contribution",
@@ -951,7 +1097,8 @@ export const METRIC_DEFINITIONS: Array<{ name: string; definition: string }> = [
   },
   {
     name: "FX variance",
-    definition: "Sum of FXSettlement.varianceAmount for settlements in the month, treated as INR because the settlement record stores INR received. Settlements with a null variance are counted as incomplete and omitted from the sum.",
+    definition:
+      "Unavailable as a total. FXSettlement.varianceAmount has no currency column, so recorded amounts are not summed or labelled as INR.",
   },
   {
     name: "Renewals",
@@ -1016,10 +1163,17 @@ function isOverlapping(
   );
 }
 
-function invoiceBalance(invoice: BusinessSnapshot["invoices"][number]) {
-  const paid = invoice.payments.reduce((sum, payment) => sum.plus(payment.amount), new Decimal(0));
-  const credits = invoice.creditNotes.reduce((sum, note) => sum.plus(note.amount), new Decimal(0));
+function invoiceBalance(invoice: BusinessSnapshot["invoices"][number], asOf: Date) {
+  const paid = appliedAmount(invoice.payments, asOf, (row) => row.receivedAt);
+  const credits = appliedAmount(invoice.creditNotes, asOf, (row) => row.issuedAt);
   return new Decimal(invoice.total).minus(paid).minus(credits);
+}
+
+function appliedAmount<T extends { amount: string }>(rows: T[], asOf: Date, dated: (row: T) => string) {
+  return rows.reduce((sum, row) => {
+    if (new Date(dated(row)).getTime() > asOf.getTime()) return sum;
+    return sum.plus(row.amount);
+  }, new Decimal(0));
 }
 
 function daysPastDue(asOf: Date, due: Date) {
@@ -1034,10 +1188,11 @@ function ageingBucket(asOf: Date, dueAt: string | null) {
   if (!dueAt) return "No due date";
   const days = daysPastDue(asOf, new Date(dueAt));
   if (days < 1) return "Not yet due";
-  if (days <= 30) return "1–30 days";
-  if (days <= 60) return "31–60 days";
-  if (days <= 90) return "61–90 days";
-  return "91+ days";
+  if (days <= 7) return "1–7 days overdue";
+  if (days <= 30) return "8–30 days overdue";
+  if (days <= 60) return "31–60 days overdue";
+  if (days <= 90) return "61–90 days overdue";
+  return "Over 90 days overdue";
 }
 
 function inRange(value: Date, start: Date, end: Date) {
@@ -1094,6 +1249,129 @@ function collectRenewals(
 function primaryAmount(amounts: MoneyAmount[]) {
   const inr = amounts.find((amount) => amount.currency === "INR");
   return Number((inr ?? amounts[0])?.amount ?? 0);
+}
+
+function priorityFor(action: Omit<ActionItem, "priority">): ActionItem["priority"] {
+  if (action.kind === "funding" && /past its due/i.test(action.title)) return "P0";
+  if (action.kind === "funding" || action.kind === "invoice" || action.kind === "data-quality" || action.kind === "renewal") {
+    return "P1";
+  }
+  if (action.kind === "hire") return "P3";
+  if (action.kind === "kyb" && action.severity === "low") return "P3";
+  return "P2";
+}
+
+function hasOpenAssignment(assignments: BusinessSnapshot["assignments"], employeeId: string, asOf: Date) {
+  return assignments.some((row) => {
+    if (row.employeeId !== employeeId || row.status === "ENDED") return false;
+    if (row.status === "PENDING" || row.status === "ON_HOLD") return true;
+    if (new Date(row.effectiveFrom).getTime() > asOf.getTime()) return true;
+    return isOverlapping(row, asOf);
+  });
+}
+
+function recentPeriods(year: number, month: number, count = 6) {
+  const periods: Array<{ year: number; month: number }> = [];
+  let cursorYear = year;
+  let cursorMonth = month;
+  for (let index = 0; index < count; index += 1) {
+    periods.unshift({ year: cursorYear, month: cursorMonth });
+    cursorMonth -= 1;
+    if (cursorMonth === 0) {
+      cursorMonth = 12;
+      cursorYear -= 1;
+    }
+  }
+  return periods;
+}
+
+function buildInsights(input: {
+  snapshot: BusinessSnapshot;
+  clients: BusinessSnapshot["clients"];
+  assignments: BusinessSnapshot["assignments"];
+  invoices: BusinessSnapshot["invoices"];
+  asOf: Date;
+  topClients: BusinessOverview["topClients"];
+  uncontractedActiveEmployees: number;
+}): Insight[] {
+  const insights: Insight[] = [];
+  if (input.uncontractedActiveEmployees > 0) {
+    insights.push({
+      id: "unpriced-workforce",
+      title: `${input.uncontractedActiveEmployees} active assigned employee${input.uncontractedActiveEmployees === 1 ? "" : "s"} have no effective fee`,
+      detail: "Contracted EOR run-rate excludes them. Catalogue prices are not assumed.",
+      href: "/admin/workforce?plan=UNCONTRACTED",
+    });
+  }
+
+  const byCurrency = new Map<string, Array<{ name: string; amount: number; href: string }>>();
+  for (const client of input.topClients) {
+    for (const money of client.mrr) {
+      const rows = byCurrency.get(money.currency) ?? [];
+      rows.push({ name: client.legalName, amount: Number(money.amount), href: client.href });
+      byCurrency.set(money.currency, rows);
+    }
+  }
+  for (const [currency, rows] of byCurrency) {
+    const total = rows.reduce((sum, row) => sum + row.amount, 0);
+    const leader = [...rows].sort((a, b) => b.amount - a.amount)[0];
+    if (!leader || total <= 0 || rows.length < 2) continue;
+    const share = leader.amount / total;
+    if (share < 0.4) continue;
+    insights.push({
+      id: `concentration-${currency}`,
+      title: `${leader.name} is ${Math.round(share * 100)}% of contracted ${currency} EOR fees`,
+      detail: "Concentration is measured inside one currency. Fees are not converted.",
+      href: leader.href,
+    });
+  }
+
+  const activeWindows = input.assignments.filter(
+    (row) => row.status === "ACTIVE" && isOverlapping(row, input.asOf),
+  );
+  const byEmployee = new Map<string, typeof activeWindows>();
+  for (const row of activeWindows) {
+    const list = byEmployee.get(row.employeeId) ?? [];
+    list.push(row);
+    byEmployee.set(row.employeeId, list);
+  }
+  for (const [employeeId, rows] of byEmployee) {
+    if (rows.length < 2) continue;
+    const employee = input.snapshot.employees.find((item) => item.id === employeeId);
+    insights.push({
+      id: `overlap-${employeeId}`,
+      title: `${employee ? `${employee.firstName} ${employee.lastName}` : "An employee"} has overlapping active assignments`,
+      detail: "Headcount counts the person once. Fees are still calculated per client. Review the duplicate before billing.",
+      href: employee ? `/admin/companies/${employee.companyId}/employees/${employee.id}` : "/admin/workforce",
+    });
+  }
+
+  const invoicedEmployees = new Set<string>();
+  const clientsWithEmployeeLines = new Set<string>();
+  for (const invoice of input.invoices) {
+    if (DRAFT_INVOICE_STATES.has(invoice.financialState)) continue;
+    if (invoice.periodYear !== input.snapshot.year || invoice.periodMonth !== input.snapshot.month) continue;
+    for (const line of invoice.lines) {
+      if (!line.employeeId) continue;
+      invoicedEmployees.add(`${invoice.clientOrganizationId}:${line.employeeId}`);
+      clientsWithEmployeeLines.add(invoice.clientOrganizationId);
+    }
+  }
+  for (const assignment of activeWindows) {
+    const client = input.clients.find((item) => item.id === assignment.clientOrganizationId);
+    if (!client || client.lifecycleStatus !== "ACTIVE") continue;
+    if (!clientsWithEmployeeLines.has(client.id)) continue;
+    if (invoicedEmployees.has(`${client.id}:${assignment.employeeId}`)) continue;
+    const employee = input.snapshot.employees.find((item) => item.id === assignment.employeeId);
+    insights.push({
+      id: `unbilled-${assignment.id}`,
+      title: `${employee ? `${employee.firstName} ${employee.lastName}` : "An assigned employee"} is missing from ${client.legalName}'s invoice`,
+      detail: "This client has an employee-linked invoice line for the period, and this active assignment is not on one.",
+      href: `/admin/clients/${client.id}`,
+    });
+  }
+
+  return insights;
 }
 
 class MoneyBag {

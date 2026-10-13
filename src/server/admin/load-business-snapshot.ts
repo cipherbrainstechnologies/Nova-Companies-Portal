@@ -100,9 +100,10 @@ export async function loadBusinessSnapshot(input: {
           taxTotal: true,
           total: true,
           dueAt: true,
+          issuedAt: true,
           lines: { select: { employeeId: true, description: true, lineTotal: true, metadataJson: true } },
-          payments: { select: { amount: true } },
-          creditNotes: { select: { amount: true } },
+          payments: { select: { amount: true, receivedAt: true } },
+          creditNotes: { select: { amount: true, issuedAt: true } },
         },
       }),
       prisma.payrollFundingRequest.findMany({
@@ -139,7 +140,7 @@ export async function loadBusinessSnapshot(input: {
       }),
       prisma.fXSettlement.findMany({
         where: { settledAt: { gte: bounds.start, lt: bounds.endExclusive } },
-        select: { id: true, clientOrganizationId: true, varianceAmount: true, settledAt: true },
+        select: { id: true, clientOrganizationId: true, varianceAmount: true, inrReceived: true, settledAt: true },
       }),
     ]);
 
@@ -224,6 +225,7 @@ export async function loadBusinessSnapshot(input: {
       taxTotal: money(invoice.taxTotal),
       total: money(invoice.total),
       dueAt: iso(invoice.dueAt),
+      issuedAt: iso(invoice.issuedAt),
       lines: invoice.lines.map((line) => ({
         employeeId: line.employeeId,
         description: line.description,
@@ -234,8 +236,8 @@ export async function loadBusinessSnapshot(input: {
           metadata: line.metadataJson,
         }),
       })),
-      payments: invoice.payments.map((payment) => ({ amount: money(payment.amount) })),
-      creditNotes: invoice.creditNotes.map((note) => ({ amount: money(note.amount) })),
+      payments: invoice.payments.map((payment) => ({ amount: money(payment.amount), receivedAt: payment.receivedAt.toISOString() })),
+      creditNotes: invoice.creditNotes.map((note) => ({ amount: money(note.amount), issuedAt: note.issuedAt.toISOString() })),
     })),
     fundingRequests: fundingRequests.map((row) => ({
       id: row.id,
@@ -278,6 +280,7 @@ export async function loadBusinessSnapshot(input: {
       id: row.id,
       clientOrganizationId: row.clientOrganizationId,
       varianceAmount: row.varianceAmount == null ? null : money(row.varianceAmount),
+      inrReceived: money(row.inrReceived),
       settledAt: row.settledAt.toISOString(),
     })),
   };

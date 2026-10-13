@@ -39,6 +39,21 @@ export default async function AdminClientDetailPage({
     snapshot.pricingAgreements.filter((agreement) => agreement.clientOrganizationId === clientId),
     new Date(snapshot.asOf),
   );
+  const commercialDates = [
+    ...snapshot.pricingAgreements.filter((agreement) => agreement.clientOrganizationId === clientId),
+    ...snapshot.novaAgreements.filter((agreement) => agreement.clientOrganizationId === clientId),
+  ];
+  const nextRenewal = commercialDates
+    .flatMap((agreement) => (agreement.effectiveTo ? [agreement.effectiveTo] : []))
+    .filter((value) => new Date(value).getTime() >= new Date(snapshot.asOf).getTime())
+    .sort()[0];
+  const renewalLabel = commercialDates.length === 0
+    ? "not recorded"
+    : nextRenewal
+      ? nextRenewal.slice(0, 10)
+      : commercialDates.some((agreement) => agreement.effectiveTo == null)
+        ? "open-ended"
+        : "expired";
 
   return (
     <AdminShell
@@ -56,14 +71,14 @@ export default async function AdminClientDetailPage({
         <Card className="p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--nova-muted)]">Status</p>
           <div className="mt-2"><StatusBadge status={client.lifecycleStatus} tone="info" /></div>
-          <p className="mt-2 text-sm text-[var(--nova-text-secondary)]">{planLabel(plan)} · {client.proposedNovaCompany?.name ?? "No Nova entity"}</p>
+          <p className="mt-2 text-sm text-[var(--nova-text-secondary)]">{planLabel(plan)} · {client.proposedNovaCompany?.name ?? "Employer not assigned"} · Renewal {renewalLabel}</p>
         </Card>
         <Card className="p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--nova-muted)]">Active employees</p>
           <p className="mt-2 text-2xl font-bold tabular-nums">{overview.counts.activeClientEmployees}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--nova-muted)]">EOR MRR</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--nova-muted)]">Contracted EOR fee</p>
           <p className="mt-2 text-2xl font-bold tabular-nums">{formatMoneyList(overview.eorMrr, "No contracted fee")}</p>
         </Card>
         <Card className="p-4">
