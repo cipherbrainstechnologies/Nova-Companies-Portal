@@ -18,6 +18,10 @@ export const clientOrganizationFacade = {
         proposedNovaCompany: { select: { id: true, name: true, prefix: true } },
         memberships: { where: { status: "ACTIVE" }, select: { id: true } },
         employmentAssignments: { where: { status: "ACTIVE" }, select: { id: true } },
+        pricingAgreements: {
+          orderBy: { version: "desc" },
+          select: { version: true, currency: true, feePerEmployee: true, effectiveFrom: true, effectiveTo: true },
+        },
       },
     });
   },

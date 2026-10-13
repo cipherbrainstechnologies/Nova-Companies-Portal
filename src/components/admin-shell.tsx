@@ -9,19 +9,21 @@ import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/admin/dashboard", key: "admin.dashboard", group: "Overview" },
-  { href: "/admin/companies", key: "admin.companies", group: "Organization" },
-  { href: "/admin/clients", key: "admin.clients", group: "Organization" },
-  { href: "/admin/hire-requests", key: "admin.hireRequests", group: "Organization" },
-  { href: "/admin/employees", key: "admin.employees", group: "Organization" },
-  { href: "/admin/templates", key: "admin.templates", group: "Organization" },
-  { href: "/admin/legal-templates", key: "admin.legalTemplates", group: "Organization" },
-  { href: "/admin/statements", key: "admin.statements", group: "Payroll" },
-  { href: "/admin/payroll", key: "admin.payroll", group: "Payroll" },
-  { href: "/admin/payslips", key: "admin.payslips", group: "Payroll" },
-  { href: "/admin/tds", key: "admin.tds", group: "Finance" },
+  { href: "/admin/tasks", key: "admin.tasks", group: "Overview" },
+  { href: "/admin/clients", key: "admin.clients", group: "Clients" },
+  { href: "/admin/hire-requests", key: "admin.hireRequests", group: "Clients" },
+  { href: "/admin/workforce", key: "admin.workforce", group: "Workforce" },
+  { href: "/admin/employees", key: "admin.employees", group: "Workforce" },
   { href: "/admin/finance", key: "admin.finance", group: "Finance" },
-  { href: "/admin/users-permissions", key: "admin.users", group: "Security" },
-  { href: "/admin/audit-logs", key: "admin.audit", group: "Security" },
+  { href: "/admin/statements", key: "admin.statements", group: "Finance" },
+  { href: "/admin/payroll", key: "admin.payroll", group: "Finance" },
+  { href: "/admin/payslips", key: "admin.payslips", group: "Finance" },
+  { href: "/admin/tds", key: "admin.tds", group: "Finance" },
+  { href: "/admin/legal-templates", key: "admin.legalTemplates", group: "Compliance" },
+  { href: "/admin/companies", key: "admin.companies", group: "Administration" },
+  { href: "/admin/templates", key: "admin.templates", group: "Administration" },
+  { href: "/admin/users-permissions", key: "admin.users", group: "Administration" },
+  { href: "/admin/audit-logs", key: "admin.audit", group: "Administration" },
 ] as const;
 
 function roleLabel(role?: string) {

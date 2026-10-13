@@ -135,3 +135,13 @@
 - Imported employees start as `CONTACT_DETAILS_REQUIRED`, receive no portal user or fabricated contact data, and preserve the original full name in `Employee.displayName`. Invalid preview rows keep CSV name and company text visible.
 - Create will not silently duplicate an existing same-name employee in the resolved company; use Update existing or Skip.
 - Explicit updates retain existing contacts and append a salary-structure version through `EmployeeFacade.createFromImport`.
+
+## Super Admin business overview
+
+- Read model: `src/server/admin/business-metrics.ts` calculates EOR KPIs from `ClientOrganization`, `EmploymentAssignment`, `ClientPricingAgreement`, `ClientInvoice`, and related records. `src/server/admin/load-business-snapshot.ts` loads them. The UI does not invent figures.
+- EOR MRR is the effective pricing-agreement fee times distinct active employees on ACTIVE clients, in the agreement currency. Employment-cost invoice lines are reimbursements, not service revenue. Gross contribution and payroll-funding coverage stay unavailable until cost and cleared-cash sources exist.
+- Plan labels compare an INR fee with the published Essential and Managed amounts in `commercial-plans.ts`. Any other fee is Custom. The catalogue is not written onto `ClientPricingAgreement`.
+- Navigation groups existing routes into Overview, Clients, Workforce, Finance, Compliance, and Administration. `/admin/tasks` and `/admin/workforce` are new read-only pages. Client detail remains the canonical organisation workspace.
+- Admin visuals stay on the existing ink and teal tokens. Public-site navy and purple remain scoped to `[data-marketing="true"]`.
+- Definitions, filters, and the first-release limit are in `docs/super-admin-business-os.md`.
+
