@@ -23,20 +23,19 @@ Base continuity from portal:
 
 | Token | Value | Role |
 |-------|-------|------|
-| `--nova-ink` | `#0c2d3f` | Headlines, nav brand |
-| `--nova-teal` | `#0f766e` | Primary CTA, links |
+| `--nova-navy` | `#0C0C32` | Hero, footer, contrast sections |
+| `--nova-purple` | `#5857F5` | Primary CTA, links |
 
 Marketing-only additions (apply under `[data-marketing="true"]` or `(site)` layout wrapper):
 
-| Token | Proposed | Role |
-|-------|----------|------|
-| `--mkt-canvas` | `#f8f7f4` | Ivory page background |
-| `--mkt-surface` | `#ffffff` | Cards, panels |
-| `--mkt-graphite` | `#1e293b` | Body emphasis |
-| `--mkt-border` | `#e2e8f0` | Dividers |
-| `--mkt-shadow` | `0 8px 30px rgb(15 23 42 / 0.06)` | Product preview elevation |
-| `--mkt-radius` | `12px` | Cards |
-| `--mkt-radius-lg` | `20px` | Hero panels |
+| Token | Value | Role |
+|-------|-------|------|
+| `--mkt-canvas` | `#FFFFFF` | Page background |
+| `--mkt-surface` | `#FFFFFF` | Cards, panels |
+| `--mkt-soft-bg` | `#F5F6FD` | Soft sections |
+| `--mkt-border` | `#E5E7EF` | Dividers |
+| `--mkt-radius-lg` | `24px` | Cards |
+| Hero surface | navy → purple glow | Full-width hero |
 
 Machine-readable copy: `assets/marketing-design-tokens.json`.
 
@@ -46,7 +45,7 @@ Font: **Plus Jakarta Sans** (already loaded).
 
 | Element | Desktop | Mobile (clamp) |
 |---------|---------|----------------|
-| Hero H1 | 52–68px | 34–42px |
+| Hero H1 | 64–68px | ~34px |
 | Section title | 28–40px | 24–32px |
 | Body | 16–18px | 16px min |
 | Eyebrow | 12px, semibold, tracking `0.14em`, uppercase teal |

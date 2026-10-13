@@ -9,13 +9,6 @@ const jakarta = Plus_Jakarta_Sans({
   display: "swap",
 });
 
-const jakartaDisplay = Plus_Jakarta_Sans({
-  weight: ["600", "700"],
-  subsets: ["latin"],
-  variable: "--font-display-loaded",
-  display: "swap",
-});
-
 export const metadata: Metadata = {
   title: {
     default: "Nova Group of Companies",
@@ -27,7 +20,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${jakarta.variable} ${jakartaDisplay.variable}`}>
+    <html lang="en" className={jakarta.variable}>
       <body style={{ fontFamily: "var(--font-body-loaded), var(--font-sans)" }}>{children}</body>
     </html>
   );

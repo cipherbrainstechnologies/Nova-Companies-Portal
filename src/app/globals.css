@@ -53,7 +53,7 @@
 @theme inline {
   --color-background: var(--nova-canvas);
   --color-foreground: var(--nova-text);
-  --font-display: var(--font-display-loaded), "Plus Jakarta Sans", ui-sans-serif, sans-serif;
+  --font-display: var(--font-body-loaded), "Plus Jakarta Sans", ui-sans-serif, sans-serif;
   --font-sans: var(--font-body-loaded), "Plus Jakarta Sans", ui-sans-serif, sans-serif;
   --font-mono: var(--font-body-loaded), "Plus Jakarta Sans", ui-sans-serif, sans-serif;
 }
@@ -210,39 +210,47 @@ button {
   }
 }
 
-/* Public marketing site — Native Teams–inspired tokens (admin/employee unchanged) */
+/* Public marketing site — navy / purple system (admin and employee UI unchanged) */
 [data-marketing="true"] {
-  --mkt-text: #191919;
-  --mkt-text-secondary: #686868;
-  --mkt-dark: #191919;
-  --mkt-accent: #ff245c;
-  --mkt-accent-hover: #e01f52;
-  --mkt-accent-soft: #fff0f4;
-  --mkt-white: #ffffff;
-  --mkt-canvas: #ffffff;
-  --mkt-soft-bg: #f7f7f8;
-  --mkt-card: #f2f3f5;
-  --mkt-border: #e8e8ea;
+  --nova-navy: #0c0c32;
+  --nova-navy-secondary: #17134a;
+  --nova-purple: #5857f5;
+  --nova-purple-hover: #4846df;
+  --nova-purple-light: #edeeff;
+  --nova-text: #171727;
+  --nova-muted: #697084;
+  --nova-surface: #ffffff;
+  --nova-surface-soft: #f5f6fd;
+  --nova-border: #e5e7ef;
+  --mkt-text: var(--nova-text);
+  --mkt-text-secondary: var(--nova-muted);
+  --mkt-dark: var(--nova-navy);
+  --mkt-accent: var(--nova-purple);
+  --mkt-accent-hover: var(--nova-purple-hover);
+  --mkt-accent-soft: var(--nova-purple-light);
+  --mkt-white: var(--nova-surface);
+  --mkt-canvas: var(--nova-surface);
+  --mkt-soft-bg: var(--nova-surface-soft);
+  --mkt-card: #f3f4fb;
+  --mkt-border: var(--nova-border);
   --mkt-radius: 16px;
   --mkt-radius-lg: 24px;
   --mkt-radius-pill: 999px;
-  --mkt-shadow: 0 12px 40px rgb(25 25 25 / 0.06);
-  --mkt-container-max: 78rem;
-  --mkt-section-y: clamp(3.5rem, 6vw, 7.5rem);
+  --mkt-shadow: 0 24px 60px rgb(12 12 50 / 0.12);
+  --mkt-container-max: 82.5rem;
+  --mkt-section-y: clamp(4.25rem, 6vw, 6.5rem);
   --mkt-gutter: clamp(1.25rem, 3vw, 1.5rem);
-  /* Map legacy marketing vars to NT palette */
-  --nova-ink: var(--mkt-text);
-  --nova-teal: var(--mkt-accent);
-  --nova-teal-soft: var(--mkt-accent-soft);
-  --nova-text-secondary: var(--mkt-text-secondary);
-  --nova-muted: var(--mkt-text-secondary);
-  --nova-border: var(--mkt-border);
-  --nova-border-strong: #d4d4d8;
-  --mkt-surface: var(--mkt-white);
-  --mkt-border: var(--mkt-border);
-  --mkt-accent-hover: var(--mkt-accent-hover);
+  --nova-ink: var(--nova-text);
+  --nova-teal: var(--nova-purple);
+  --nova-teal-soft: var(--nova-purple-light);
+  --nova-text-secondary: var(--nova-muted);
+  --nova-border-strong: #d5d8e6;
+  --nova-surface-muted: var(--nova-surface-soft);
+  --mkt-surface: var(--nova-surface);
+  --mkt-accent-hover: var(--nova-purple-hover);
   background: var(--mkt-canvas);
   color: var(--mkt-text);
+  font-size: 16px;
 }
 
 [data-marketing="true"] .mkt-container {
@@ -257,19 +265,27 @@ button {
 }
 
 [data-marketing="true"] .mkt-h1 {
-  font-family: var(--font-display-loaded), var(--font-sans);
+  font-family: var(--font-display), var(--font-sans);
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.035em;
   line-height: 1.05;
-  font-size: clamp(2.375rem, 5.5vw, 4.75rem);
+  font-size: clamp(2.25rem, 4vw, 3.75rem);
+}
+
+[data-marketing="true"] .mkt-hero-title {
+  font-family: var(--font-display), var(--font-sans);
+  font-weight: 700;
+  letter-spacing: -0.05em;
+  line-height: 0.96;
+  font-size: clamp(2.05rem, 4.7vw, 4.5rem);
 }
 
 [data-marketing="true"] .mkt-h2 {
-  font-family: var(--font-display-loaded), var(--font-sans);
+  font-family: var(--font-display), var(--font-sans);
   font-weight: 700;
-  letter-spacing: -0.025em;
-  line-height: 1.1;
-  font-size: clamp(1.875rem, 3.5vw, 3.5rem);
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+  font-size: clamp(2rem, 3.3vw, 3.25rem);
 }
 
 [data-marketing="true"] .mkt-lead {
@@ -292,4 +308,55 @@ button {
 
 [data-marketing="true"] .mkt-elevated {
   box-shadow: var(--mkt-shadow);
+}
+
+[data-marketing="true"] a.mkt-btn-on-dark,
+[data-marketing="true"] a.mkt-btn-on-dark:hover,
+[data-marketing="true"] a.mkt-btn-on-dark:focus-visible {
+  color: #fff;
+}
+
+[data-marketing="true"] a.mkt-btn-light,
+[data-marketing="true"] a.mkt-btn-light:hover,
+[data-marketing="true"] a.mkt-btn-light:focus-visible {
+  color: var(--nova-navy);
+}
+
+[data-marketing="true"] .mkt-hero-surface {
+  background:
+    radial-gradient(ellipse 58% 48% at 78% 8%, rgb(88 87 245 / 0.45), transparent 62%),
+    radial-gradient(ellipse 42% 36% at 8% 92%, rgb(88 87 245 / 0.28), transparent 68%),
+    linear-gradient(180deg, #17134a 0%, #0c0c32 58%, #121038 100%);
+}
+
+[data-marketing="true"] .mkt-dash-tilt {
+  transform: none;
+}
+
+@media (min-width: 1280px) {
+  [data-marketing="true"] .mkt-dash-tilt {
+    transform: perspective(2000px) rotateX(6deg) rotateY(-9deg) rotateZ(-1deg);
+    transform-origin: center 72%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-marketing="true"] .mkt-dash-tilt {
+    transform: none;
+  }
+}
+
+[data-marketing="true"] main > :not([data-home]):not(.mkt-section) {
+  width: 100%;
+  max-width: var(--mkt-container-max);
+  margin-inline: auto;
+  padding-inline: var(--mkt-gutter);
+}
+
+[data-marketing="true"] main > :not([data-home]):not(.mkt-section):first-child {
+  padding-top: clamp(2.75rem, 5vw, 4.75rem);
+}
+
+[data-marketing="true"] main > :not([data-home]):not(.mkt-section):last-child {
+  padding-bottom: clamp(3rem, 6vw, 5rem);
 }

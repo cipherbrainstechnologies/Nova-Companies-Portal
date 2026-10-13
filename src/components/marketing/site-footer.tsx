@@ -11,9 +11,9 @@ export function SiteFooter({ copy }: { copy: SiteCopy }) {
       <div className="mkt-container grid gap-10 py-14 md:grid-cols-2 lg:grid-cols-5">
         <div className="lg:col-span-2">
           <p className="text-xl font-bold">{copy.meta.siteName}</p>
-          <p className="mt-3 max-w-sm text-sm leading-relaxed text-white/65">{copy.footer.blurb}</p>
+          <p className="mt-3 max-w-sm text-sm leading-relaxed text-white/75">{copy.footer.blurb}</p>
           <p className="mt-4 text-sm">
-            <a className="font-semibold text-[var(--mkt-accent)] hover:underline" href={`mailto:${copy.footer.email}`}>
+            <a className="font-semibold text-white underline decoration-white/40 underline-offset-4 hover:decoration-white" href={`mailto:${copy.footer.email}`}>
               {copy.footer.email}
             </a>
           </p>
@@ -43,7 +43,7 @@ function FooterCol({ title, links }: { title: string; links: Array<{ href: strin
       <ul className="mt-4 space-y-2.5">
         {links.map((link) => (
           <li key={link.href}>
-            <Link href={link.href} className="text-sm text-white/75 hover:text-white">
+            <Link href={link.href} className="text-sm text-white/80 hover:text-white">
               {link.label}
             </Link>
           </li>

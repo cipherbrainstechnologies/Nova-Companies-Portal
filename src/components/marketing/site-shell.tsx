@@ -19,8 +19,8 @@ export function SiteShell({
       <main id="main" tabIndex={-1} className="outline-none">
         {children}
       </main>
-      <MobileQuoteBar label={copy.nav.talkExpert} />
       <SiteFooter copy={copy} />
+      <MobileQuoteBar label={copy.nav.talkExpert} />
     </div>
   );
 }

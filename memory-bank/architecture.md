@@ -85,7 +85,7 @@
 
 - The public marketing site lives in `src/app/(site)/` and does not replace portal routes.
 - Primary funnel: `/` (EOR homepage), `/employer-of-record-india`, `/services/payroll`, `/how-it-works`, `/india-hiring-guide`, `/about`, `/contact`, `/pricing`, `/faq`, plus legal routes.
-- Marketing-only design tokens (navy `#17233B`, accent `#6254D9`) are scoped under `[data-marketing="true"]` in `globals.css`; admin/employee UI keeps teal tokens.
+- Marketing-only design tokens (navy `#0C0C32`, purple `#5857F5`) are scoped under `[data-marketing="true"]` in `globals.css`; admin/employee UI keeps teal tokens. Homepage composition is the dark hero, layered illustrative dashboard, and section system described in `docs/visual-gap-analysis.md`.
 - Copy is locale-ready in `src/content/public-site/` (`en`, `fr`, `es`) and follows `Accept-Language` via `getRequestLocale`.
 - Nova Workforce is described as the employer of record (Ahmedabad). Nova Qore is described only as a separate group employer. No placement statistics or candidate lists are published.
 - Contact form posts to `POST /api/contact`, which emails `CONTACT_INBOX` or `thenovaworkforce@gmail.com`. A filled honeypot field is ignored. EOR enquiries with consent also create `PublicQuoteRequest` rows (optional link to `PublicCostEstimate` via reference).

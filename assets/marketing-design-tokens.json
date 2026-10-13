@@ -1,18 +1,20 @@
 {
   "$schema": "https://design-tokens.github.io/community-group/format/",
   "meta": {
-    "name": "Nova Workforce Marketing (NT-inspired)",
-    "version": "2.0.0",
+    "name": "Nova Workforce Marketing",
+    "version": "3.0.0",
     "scope": "public-site-only"
   },
   "color": {
-    "text": { "value": "#191919" },
-    "dark": { "value": "#191919" },
-    "accent": { "value": "#FF245C" },
-    "canvas": { "value": "#FFFFFF" },
-    "softBg": { "value": "#F7F7F8" },
-    "card": { "value": "#F2F3F5" },
-    "secondaryText": { "value": "#686868" },
-    "border": { "value": "#E8E8EA" }
+    "navy": { "value": "#0C0C32" },
+    "navySecondary": { "value": "#17134A" },
+    "purple": { "value": "#5857F5" },
+    "purpleHover": { "value": "#4846DF" },
+    "purpleLight": { "value": "#EDEEFF" },
+    "text": { "value": "#171727" },
+    "muted": { "value": "#697084" },
+    "surface": { "value": "#FFFFFF" },
+    "surfaceSoft": { "value": "#F5F6FD" },
+    "border": { "value": "#E5E7EF" }
   }
 }

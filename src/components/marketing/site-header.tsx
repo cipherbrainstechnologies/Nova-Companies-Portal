@@ -42,19 +42,20 @@ export function SiteHeader({ copy }: { copy: SiteCopy }) {
   }, []);
 
   const navLink =
-    "text-sm font-medium text-[var(--mkt-text)] hover:text-[var(--mkt-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mkt-accent)]";
+    "text-[15px] font-medium text-[var(--nova-text)] hover:text-[var(--nova-purple)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--nova-purple)]";
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[var(--mkt-border)] bg-white/95 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-[var(--nova-border)] bg-white">
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-white focus:px-3 focus:py-2">
         {copy.nav.skip}
       </a>
-      <div className="mkt-container flex items-center justify-between gap-3 py-3.5">
-        <Link href="/" className="text-lg font-bold tracking-tight text-[var(--mkt-text)]">
-          {copy.meta.siteName}
+      <div className="mkt-container relative flex h-16 items-center justify-between gap-3 lg:h-20">
+        <Link href="/" className="relative z-10 flex items-center gap-2.5 text-[var(--nova-text)]">
+          <NovaMark />
+          <span className="whitespace-nowrap text-[15px] font-bold tracking-tight sm:text-[17px]">{copy.meta.siteName}</span>
         </Link>
 
-        <nav className="hidden items-center gap-6 xl:flex" aria-label={copy.nav.label}>
+        <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-7 xl:flex" aria-label={copy.nav.label}>
           <Dropdown
             ref={servicesRef}
             label={copy.nav.services}
@@ -81,22 +82,22 @@ export function SiteHeader({ copy }: { copy: SiteCopy }) {
           </Link>
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="relative z-10 flex items-center gap-2">
           <Link
             href="/login/client"
-            className="hidden min-h-10 items-center rounded-[var(--mkt-radius-pill)] px-3 text-sm font-semibold text-[var(--mkt-text-secondary)] hover:text-[var(--mkt-accent)] md:inline-flex"
+            className="hidden min-h-11 items-center rounded-[var(--mkt-radius-pill)] px-3 text-[15px] font-semibold text-[var(--nova-text)] hover:text-[var(--nova-purple)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--nova-purple)] lg:inline-flex"
           >
             {copy.nav.clientLogin}
           </Link>
           <Link
             href="/contact"
-            className="inline-flex min-h-10 items-center rounded-[var(--mkt-radius-pill)] bg-[var(--mkt-accent)] px-4 text-sm font-semibold text-white hover:bg-[var(--mkt-accent-hover)]"
+            className="mkt-btn-on-dark inline-flex min-h-11 items-center whitespace-nowrap rounded-[var(--mkt-radius-pill)] bg-[var(--nova-purple)] px-3 text-[13px] font-semibold text-white hover:bg-[var(--nova-purple-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--nova-purple)] sm:px-4 sm:text-[15px]"
           >
             {copy.nav.talkExpert}
           </Link>
           <button
             type="button"
-            className="inline-flex min-h-10 items-center rounded-[var(--mkt-radius-pill)] border border-[var(--mkt-border)] px-3 text-sm font-semibold xl:hidden"
+            className="inline-flex min-h-11 items-center rounded-[var(--mkt-radius-pill)] border border-[var(--nova-border)] px-2.5 text-sm font-semibold text-[var(--nova-text)] sm:px-3 xl:hidden"
             aria-expanded={open}
             aria-controls="site-menu"
             onClick={() => setOpen((v) => !v)}
@@ -107,7 +108,7 @@ export function SiteHeader({ copy }: { copy: SiteCopy }) {
       </div>
 
       {open ? (
-        <nav id="site-menu" className="border-t border-[var(--mkt-border)] xl:hidden" aria-label={copy.nav.label}>
+        <nav id="site-menu" className="border-t border-[var(--nova-border)] bg-white xl:hidden" aria-label={copy.nav.label}>
           <ul className="mkt-container flex flex-col py-2">
             <MobileGroup title={copy.nav.services} items={copy.nav.serviceLinks} onNavigate={() => setOpen(false)} />
             <li><MobileLink href="/how-it-works" label={copy.nav.howItWorks} onNavigate={() => setOpen(false)} /></li>
@@ -120,6 +121,14 @@ export function SiteHeader({ copy }: { copy: SiteCopy }) {
         </nav>
       ) : null}
     </header>
+  );
+}
+
+function NovaMark() {
+  return (
+    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--nova-navy)] text-[15px] font-bold text-white" aria-hidden>
+      N
+    </span>
   );
 }
 
@@ -140,7 +149,7 @@ function Dropdown({
     <div className="relative" ref={ref}>
       <button
         type="button"
-        className="inline-flex items-center gap-1 text-sm font-medium text-[var(--mkt-text)] hover:text-[var(--mkt-accent)]"
+        className="inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-[var(--nova-text)] hover:text-[var(--nova-purple)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--nova-purple)]"
         aria-expanded={open}
         aria-haspopup="true"
         onClick={() => setOpen(!open)}
@@ -150,7 +159,7 @@ function Dropdown({
       </button>
       {open ? (
         <ul
-          className="absolute left-0 top-full z-50 mt-2 min-w-[14rem] rounded-[var(--mkt-radius)] border border-[var(--mkt-border)] bg-white py-2 shadow-[var(--mkt-shadow)]"
+          className="absolute left-0 top-full z-50 mt-2 min-w-[16rem] rounded-2xl border border-[var(--nova-border)] bg-white py-2 shadow-[var(--mkt-shadow)]"
           role="menu"
         >
           {items.map((item) => (
@@ -158,7 +167,7 @@ function Dropdown({
               <Link
                 href={item.href}
                 role="menuitem"
-                className="block px-4 py-2.5 text-sm text-[var(--mkt-text)] hover:bg-[var(--mkt-soft-bg)]"
+                className="block px-4 py-2.5 text-[15px] text-[var(--nova-text)] hover:bg-[var(--nova-surface-soft)]"
                 onClick={() => setOpen(false)}
               >
                 {item.label}
@@ -175,7 +184,7 @@ function MobileLink({ href, label, onNavigate, accent }: { href: string; label: 
   return (
     <Link
       href={href}
-      className={`block py-3 text-base ${accent ? "font-semibold text-[var(--mkt-accent)]" : "font-medium text-[var(--mkt-text)]"}`}
+      className={`block min-h-12 py-3 text-base ${accent ? "font-semibold text-[var(--nova-purple)]" : "font-medium text-[var(--nova-text)]"}`}
       onClick={onNavigate}
     >
       {label}
@@ -193,10 +202,10 @@ function MobileGroup({
   onNavigate: () => void;
 }) {
   return (
-    <li className="border-b border-[var(--mkt-border)] py-2">
-      <p className="py-2 text-xs font-semibold uppercase tracking-wide text-[var(--mkt-text-secondary)]">{title}</p>
+    <li className="border-b border-[var(--nova-border)] py-2">
+      <p className="py-2 text-xs font-semibold uppercase tracking-wide text-[var(--nova-muted)]">{title}</p>
       {items.map((item) => (
-        <Link key={item.href} href={item.href} className="block py-2 pl-2 text-base text-[var(--mkt-text)]" onClick={onNavigate}>
+        <Link key={item.href} href={item.href} className="block min-h-11 py-2 pl-2 text-base text-[var(--nova-text)]" onClick={onNavigate}>
           {item.label}
         </Link>
       ))}

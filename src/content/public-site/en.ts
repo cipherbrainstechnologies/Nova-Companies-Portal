@@ -87,15 +87,26 @@ export const siteCopyEn = {
   home: {
     metaTitle: "Employer of Record in India | Nova Workforce",
     kicker: "Employer of record · India",
+    headlineLines: ["Hire in India.", "Without Setting Up", "a Local Entity."],
     titlePrefix: "Hire in ",
     titleHighlight: "India",
     titleSuffix: ". Without the Complexity.",
     lede:
-      "Build your team in India without setting up your own local entity. Nova helps coordinate employment, onboarding, payroll and ongoing workforce administration through an appropriate local employment arrangement.",
+      "Build your India-based team with coordinated employment, payroll, onboarding and HR administration — without the operational burden of establishing your own local entity.",
     primary: "Talk to an Expert",
-    secondary: "How It Works",
+    secondary: "Explore Our Services",
     primaryHref: "/contact",
-    secondaryHref: "/how-it-works",
+    secondaryHref: "/#services",
+    heroBenefits: [
+      { title: "Employment administration", body: "Contracts, records and employment changes" },
+      { title: "Payroll coordination", body: "Monthly inputs, payslips and statutory lines" },
+      { title: "Onboarding support", body: "Documentation and joining steps" },
+      { title: "Local HR operations", body: "Leave records, benefits and employee queries" },
+    ],
+    heroAside: {
+      title: "You direct the work",
+      body: "Nova coordinates employment, payroll inputs and HR administration.",
+    },
     microcopy: "Tell us who you want to hire. We'll help you understand the next steps.",
     trustRow: [
       "India-focused employment operations",

@@ -1,13 +1,17 @@
 import Link from "next/link";
 
 const primary =
-  "inline-flex min-h-[3rem] items-center justify-center rounded-[var(--mkt-radius-pill)] bg-[var(--mkt-accent)] px-7 text-[0.95rem] font-semibold text-white shadow-sm transition-colors hover:bg-[var(--mkt-accent-hover)] hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mkt-accent)]";
+  "mkt-btn-on-dark inline-flex min-h-[3rem] items-center justify-center rounded-[var(--mkt-radius-pill)] bg-[var(--mkt-accent)] px-7 text-[0.95rem] font-semibold text-white shadow-sm transition-colors hover:bg-[var(--mkt-accent-hover)] hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mkt-accent)]";
 const outline =
   "inline-flex min-h-[3rem] items-center justify-center rounded-[var(--mkt-radius-pill)] border border-[var(--mkt-border)] bg-[var(--mkt-white)] px-7 text-[0.95rem] font-semibold text-[var(--mkt-text)] transition-colors hover:border-[var(--mkt-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mkt-accent)]";
 const inverse =
-  "inline-flex min-h-[3rem] items-center justify-center rounded-[var(--mkt-radius-pill)] bg-white px-7 text-[0.95rem] font-semibold text-[var(--mkt-dark)] hover:bg-[var(--mkt-soft-bg)]";
+  "mkt-btn-light inline-flex min-h-[3rem] items-center justify-center rounded-[var(--mkt-radius-pill)] bg-white px-7 text-[0.95rem] font-semibold text-[var(--mkt-dark)] hover:bg-[var(--mkt-soft-bg)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
 const darkOutline =
-  "inline-flex min-h-[3rem] items-center justify-center rounded-[var(--mkt-radius-pill)] border border-white/25 bg-transparent px-7 text-[0.95rem] font-semibold text-white hover:border-white/50";
+  "mkt-btn-on-dark inline-flex min-h-[3rem] items-center justify-center rounded-[var(--mkt-radius-pill)] border border-white/55 bg-transparent px-7 text-[0.95rem] font-semibold text-white hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
+const heroPrimary =
+  "mkt-btn-light inline-flex min-h-12 items-center justify-center rounded-[var(--mkt-radius-pill)] bg-white px-6 text-base font-semibold text-[var(--nova-navy)] shadow-sm transition-colors hover:bg-[var(--nova-purple-light)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
+const heroSecondary =
+  "mkt-btn-on-dark inline-flex min-h-12 items-center justify-center rounded-[var(--mkt-radius-pill)] border border-white/80 bg-white/10 px-6 text-base font-semibold text-white transition-colors hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
 
 export function MarketingLink({
   href,
@@ -17,7 +21,7 @@ export function MarketingLink({
 }: {
   href: string;
   children: React.ReactNode;
-  variant?: "primary" | "outline" | "inverse" | "darkOutline";
+  variant?: "primary" | "outline" | "inverse" | "darkOutline" | "heroPrimary" | "heroSecondary";
   className?: string;
 }) {
   const className =
@@ -27,7 +31,11 @@ export function MarketingLink({
         ? inverse
         : variant === "darkOutline"
           ? darkOutline
-          : primary;
+          : variant === "heroPrimary"
+            ? heroPrimary
+            : variant === "heroSecondary"
+              ? heroSecondary
+              : primary;
   return (
     <Link href={href} className={extraClass ? `${className} ${extraClass}` : className}>
       {children}
