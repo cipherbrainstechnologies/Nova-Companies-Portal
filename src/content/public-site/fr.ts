@@ -49,7 +49,9 @@ export const siteCopyFr: SiteCopy = {
     ...siteCopyEn.home,
     metaTitle: "NOVA — employeur enregistré en Inde",
     kicker: "Employeur enregistré en Inde",
-    title: "Votre équipe en Inde. À votre façon. Chaque coût expliqué.",
+    titlePrefix: "Votre équipe en ",
+    titleHighlight: "Inde",
+    titleSuffix: ". Chaque coût expliqué.",
     lede:
       "Employez et gérez des personnes en Inde sans créer de société locale. NOVA gère l’administration d’emploi, la paie et les obligations locales pendant que vos managers restent proches du travail.",
     primary: "Calculer les coûts d’emploi",

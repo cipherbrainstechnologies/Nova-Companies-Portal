@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test("public marketing page loads", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await expect(page.getByRole("link", { name: /sign in/i }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: /talk to an expert/i }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: /nova workforce/i }).first()).toBeVisible();
 });
 
